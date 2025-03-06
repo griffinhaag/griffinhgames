@@ -1,0 +1,167 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+body {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background: linear-gradient(270deg, #550202, #781313, #ff7f00, #ffff00, #ff7f00, #ff0000, #8e0909);
+    background-size: 3000% 3000%;
+    overflow: hidden;
+    font-family: 'Roboto', sans-serif;
+    animation: backgroundShift 300s ease infinite;
+}
+
+@keyframes backgroundShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+#start-container {
+    text-align: center;
+}
+
+#playerInput {
+    margin-bottom: 10px;
+    padding: 10px;
+    border: 2px solid #333;
+    border-radius: 8px;
+    font-size: 18px;
+}
+
+#game-container {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+}
+
+#card-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in-animation {
+    animation: fadeIn 0.5s ease;
+}
+
+#question-card, #player-name {
+    text-align: center;
+    font-size: 24px;
+}
+
+#buttons-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+button, .action-button {
+    cursor: pointer;
+    background-color: #1b0238;
+    border: none;
+    color: white;
+    padding: 15px 32px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px;
+    border-radius: 8px;
+    transition: transform 0.3s ease-in-out, background-color 0.3s ease;
+}
+
+button:hover, .action-button:hover {
+    transform: scale(1.05);
+    background-color: #3a0229;
+}
+
+#homepage-button {
+    cursor: pointer;
+    background-color: #ce63c8;
+    color: plum;
+    padding: 10px;
+    text-align: center;
+    text-decoration: none;
+    font-size: 16px;
+    margin: 10px;
+    border: 2px solid plum;
+    border-radius: 8px;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+}
+
+#point-container {
+    margin-top: 20px;
+    text-align: center;
+}
+
+#game-over {
+    display: none;
+    font-size: 24px;
+    font-weight: bold;
+    margin-top: 20px;
+    margin-left: 10px;
+}
+
+#welcome-container {
+    position: absolute;
+    top: 3%;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    width: 50%;
+}
+
+#welcome-text {
+    display: block;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 20px;
+    border: 2px solid #333;
+    border-radius: 8px;
+    font-size: 36px;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+#results-table-container {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.results-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.results-table th, .results-table td {
+    border: 1px solid #fff;
+    padding: 8px;
+}
+
+.results-table th {
+    background-color: rgba(255, 255, 255, 0.8);
+    color: #000;
+}
+/* td stands for table data */
+.results-table td {
+    color: #FFFFFF;
+}
+
+

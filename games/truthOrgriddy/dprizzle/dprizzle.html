@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="dprizzle.css">
+    <title>Truth or Griddy</title>
+</head>
+
+<body>
+    <!-- Welcome text for the Griddy Game -->
+    <div id="welcome-container">
+        <div id="welcome-text">Welcome to the original pretty damn cheeky griddy game. shiiiiiii. The rules are simple, you can't answer, you griddy.</div>
+    </div>
+
+    <!-- Homepage button -->
+    <button id="homepage-button" onclick="goToHomepage()">Homepage</button>
+
+    <div id="start-container">
+        <input type="text" id="playerInput" placeholder="Player 1" onkeypress="handleKeyPress(event)">
+        <button onclick="startGame()">Start</button>
+        <button onclick="addPlayer()">Add Player</button>
+    </div>
+
+    <div id="game-container">
+        <div id="card-container">
+            <div id="question-card">
+                <div id="player-name">Player 1</div>
+                <div id="question"></div>
+            </div>
+        </div>
+        <div id="buttons-container">
+            <!-- Buttons will be dynamically added here -->
+        </div>
+        <div id="point-container"></div>
+        <div id="game-over"></div>
+    </div>
+
+    <div id="results-table-container"></div>
+
+    <script src="dprizzle.js"></script>
+
+    <script>
+        function goToHomepage() {
+            // Replace 'your-homepage-link' with the actual link you want to navigate to
+            window.location.href = '/index.html';
+        }
+    </script>
+</body>
+
+</html>

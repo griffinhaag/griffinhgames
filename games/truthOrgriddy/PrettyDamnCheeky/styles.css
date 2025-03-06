@@ -1,0 +1,239 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+body {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background: linear-gradient(270deg, #001021, #4e78a6, #6e48aa, #9d50bb, #ff8c00, #ff6347, #98fb98, #4e78a6, #001021);
+    background-size: 3000% 3000%;
+    overflow: hidden;
+    font-family: 'Roboto', sans-serif;
+    animation: backgroundShift 300s ease infinite;
+}
+
+@keyframes backgroundShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+#start-container, #game-container, #welcome-container, #card-container, #results-table-container {
+    max-width: 800px; /* This value can be adjusted based on your design preference */
+    margin: 0 auto; /* Center align the containers */
+    text-align: center;
+    width: 100%; /* Ensure it takes up the full width up to the max-width */
+}
+
+#start-container {
+    text-align: center;
+}
+
+#playerInput {
+    margin-bottom: 10px;
+    padding: 10px;
+    border: 2px solid #333;
+    border-radius: 8px;
+    font-size: 18px;
+}
+
+#game-container {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+}
+
+#card-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in-animation {
+    animation: fadeIn 0.5s ease;
+}
+
+#question-card, #player-name {
+    text-align: center;
+    font-size: 24px;
+}
+
+#buttons-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+button, .action-button {
+    cursor: pointer;
+    background-color: #598BAF;
+    border: none;
+    color: white;
+    padding: 15px 32px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px;
+    border-radius: 8px;
+    transition: transform 0.3s ease-in-out, background-color 0.3s ease;
+}
+
+button:hover, .action-button:hover {
+    transform: scale(1.05);
+    background-color: #57A0D2;
+}
+
+#homepage-button {
+    cursor: pointer;
+    background-color: #0e1b64;
+    color: plum;
+    padding: 10px;
+    text-align: center;
+    text-decoration: none;
+    font-size: 16px;
+    margin: 10px;
+    border: 2px solid plum;
+    border-radius: 8px;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+}
+
+#point-container {
+    margin-top: 20px;
+    text-align: center;
+}
+
+#game-over {
+    display: none;
+    font-size: 24px;
+    font-weight: bold;
+    margin-top: 20px;
+    margin-left: 10px;
+}
+
+#welcome-container {
+    position: absolute;
+    top: 3%;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    width: 50%;
+}
+
+#welcome-text {
+    display: block;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 20px;
+    border: 2px solid #333;
+    border-radius: 8px;
+    font-size: 36px;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+#results-table-container {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.results-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.results-table th, .results-table td {
+    border: 1px solid #fff;
+    padding: 8px;
+}
+
+.results-table th {
+    background-color: rgba(255, 255, 255, 0.8);
+    color: #000;
+}
+/* td stands for table data */
+.results-table td {
+    color: #FFFFFF;
+}
+@media (max-width: 768px) {
+    /* Position adjustments for the welcome container on mobile */
+    #welcome-container {
+        position: absolute;
+        top: 100px; /* Adjust this value to lower the welcome text */
+        left: 50%;
+        transform: translateX(-50%);
+        width: 90%; /* Adjusted for padding */
+    }
+
+    /* Adjusting welcome text styling for better fit and readability */
+    #welcome-text {
+        font-size: 16px;
+        padding: 15px;
+        text-align: center;
+        line-height: 1.4;
+        margin-top: 20px; /* Add space above the welcome text if needed */
+    }
+    
+    /* Ensure the homepage button does not overlap with the welcome text */
+    #homepage-button {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+    }
+
+    /* Action buttons ('Answered', 'Shuffle Question', 'Griddy') adjustment */
+    #buttons-container {
+        display: flex;
+        justify-content: space-between; /* Ensure buttons are evenly spaced */
+        width: 90%; /* Reduced width for padding */
+        padding: 0 20px; /* Add padding on the sides */
+        margin: 0 auto; /* Center buttons container */
+    }
+
+    .action-button {
+        margin: 5px 2%; /* Adjusted margin for spacing and symmetry */
+        flex-grow: 1; /* Allow buttons to grow and fill the space */
+        text-align: center; /* Center text within the buttons */
+    }
+
+    /* Adjust the 'Shuffle Question' button specifically for perfect centering */
+    .action-button:nth-child(2) {
+        margin-left: 10px; /* Slight left margin for centering */
+        margin-right: 10px; /* Slight right margin for symmetry */
+    }
+
+    /* Adjustments to prevent stretching to the sides */
+    #game-container, #card-container, #point-container, #results-table-container {
+        width: 90%; /* Adjusted width for a better layout */
+        margin: 0 auto; /* Center these elements */
+    }
+
+    /* Specific adjustments for the question box and score table */
+    #question-card {
+        padding: 10px; /* Adjusted padding for a better fit */
+        margin: 0 auto; /* Ensure it's centered */
+        width: auto; /* Auto width to avoid stretching */
+        max-width: 90%; /* Limit maximum width */
+    }
+
+    .results-table {
+        width: auto; /* Auto width to avoid stretching */
+        max-width: 90%; /* Limit maximum width */
+        margin: 20px auto; /* Center table with margin */
+    }
+}
