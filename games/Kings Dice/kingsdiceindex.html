@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kings Dice</title>
+    <link rel="stylesheet" href="kingsdice.css">
+</head>
+<body>
+    <button id="homepage-button" onclick="goToHomepage()">Homepage</button>
+
+    <div id="setup-container">
+        <h1>Kings Dice</h1>
+        <div id="player-setup">
+            <input type="text" id="playerInput" placeholder="Enter player name" onkeypress="handleKeyPress(event)">
+            <button onclick="addPlayer()">Add Player</button>
+            <button onclick="startGame()" id="startButton">Start Game</button>
+        </div>
+        <div id="player-list">
+            <h2>Players:</h2>
+            <ul id="playersList"></ul>
+        </div>
+    </div>
+
+    <div id="game-container" style="display: none;">
+        <div id="current-player"></div>
+        
+        <div class="dice-container">
+            <div class="dice" id="dice1">
+                <div class="dice-face front">
+                    <div class="dots-container">
+                        <div class="dot center"></div>
+                    </div>
+                </div>
+                <div class="dice-face back">
+                    <div class="dots-container">
+                        <div class="dot top-right"></div>
+                        <div class="dot bottom-left"></div>
+                    </div>
+                </div>
+                <div class="dice-face right">
+                    <div class="dots-container">
+                        <div class="dot top-right"></div>
+                        <div class="dot center"></div>
+                        <div class="dot bottom-left"></div>
+                    </div>
+                </div>
+                <div class="dice-face left">
+                    <div class="dots-container">
+                        <div class="dot top-left"></div>
+                        <div class="dot top-right"></div>
+                        <div class="dot bottom-left"></div>
+                        <div class="dot bottom-right"></div>
+                    </div>
+                </div>
+                <div class="dice-face top">
+                    <div class="dots-container">
+                        <div class="dot top-left"></div>
+                        <div class="dot top-right"></div>
+                        <div class="dot center"></div>
+                        <div class="dot bottom-left"></div>
+                        <div class="dot bottom-right"></div>
+                    </div>
+                </div>
+                <div class="dice-face bottom">
+                    <div class="dots-container">
+                        <div class="dot top-left"></div>
+                        <div class="dot top-right"></div>
+                        <div class="dot middle-left"></div>
+                        <div class="dot middle-right"></div>
+                        <div class="dot bottom-left"></div>
+                        <div class="dot bottom-right"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="dice" id="dice2">
+                <div class="dice-face front">
+                    <div class="dots-container">
+                        <div class="dot center"></div>
+                    </div>
+                </div>
+                <div class="dice-face back">
+                    <div class="dots-container">
+                        <div class="dot top-right"></div>
+                        <div class="dot bottom-left"></div>
+                    </div>
+                </div>
+                <div class="dice-face right">
+                    <div class="dots-container">
+                        <div class="dot top-right"></div>
+                        <div class="dot center"></div>
+                        <div class="dot bottom-left"></div>
+                    </div>
+                </div>
+                <div class="dice-face left">
+                    <div class="dots-container">
+                        <div class="dot top-left"></div>
+                        <div class="dot top-right"></div>
+                        <div class="dot bottom-left"></div>
+                        <div class="dot bottom-right"></div>
+                    </div>
+                </div>
+                <div class="dice-face top">
+                    <div class="dots-container">
+                        <div class="dot top-left"></div>
+                        <div class="dot top-right"></div>
+                        <div class="dot center"></div>
+                        <div class="dot bottom-left"></div>
+                        <div class="dot bottom-right"></div>
+                    </div>
+                </div>
+                <div class="dice-face bottom">
+                    <div class="dots-container">
+                        <div class="dot top-left"></div>
+                        <div class="dot top-right"></div>
+                        <div class="dot middle-left"></div>
+                        <div class="dot middle-right"></div>
+                        <div class="dot bottom-left"></div>
+                        <div class="dot bottom-right"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="dice" id="dice3" style="display: none;">
+                <div class="dice-face front">
+                    <div class="dots-container">
+                        <div class="dot center"></div>
+                    </div>
+                </div>
+                <div class="dice-face back">
+                    <div class="dots-container">
+                        <div class="dot top-right"></div>
+                        <div class="dot bottom-left"></div>
+                    </div>
+                </div>
+                <div class="dice-face right">
+                    <div class="dots-container">
+                        <div class="dot top-right"></div>
+                        <div class="dot center"></div>
+                        <div class="dot bottom-left"></div>
+                    </div>
+                </div>
+                <div class="dice-face left">
+                    <div class="dots-container">
+                        <div class="dot top-left"></div>
+                        <div class="dot top-right"></div>
+                        <div class="dot bottom-left"></div>
+                        <div class="dot bottom-right"></div>
+                    </div>
+                </div>
+                <div class="dice-face top">
+                    <div class="dots-container">
+                        <div class="dot top-left"></div>
+                        <div class="dot top-right"></div>
+                        <div class="dot center"></div>
+                        <div class="dot bottom-left"></div>
+                        <div class="dot bottom-right"></div>
+                    </div>
+                </div>
+                <div class="dice-face bottom">
+                    <div class="dots-container">
+                        <div class="dot top-left"></div>
+                        <div class="dot top-right"></div>
+                        <div class="dot middle-left"></div>
+                        <div class="dot middle-right"></div>
+                        <div class="dot bottom-left"></div>
+                        <div class="dot bottom-right"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="button-container">
+            <button onclick="rollDice()" id="rollButton">Roll Dice</button>
+            <button onclick="inflateBalloon()" id="inflateButton">Inflate</button>
+        </div>
+
+        <div id="balloon-container">
+            <div class="balloon">
+                <div class="balloon-shine"></div>
+            </div>
+        </div>
+
+        <div id="result-container">
+            <div id="dice-result"></div>
+            <div id="action-result"></div>
+        </div>
+
+        <div id="rules-container">
+            <h2>Rules</h2>
+            <div class="rules-grid">
+                <div class="rule-item">
+                    #2 - Give someone two drinks
+                </div>
+                <div class="rule-item">
+                    #3 - Take three drinks
+                </div>
+                <div class="rule-item">
+                    #4 - Last to point to floor drinks
+                </div>
+                <div class="rule-item">
+                    #5 - Guys drink
+                </div>
+                <div class="rule-item">
+                    #6 - Chicks drink
+                </div>
+                <div class="rule-item">
+                    #7 - Last to point up drinks
+                </div>
+                <div class="rule-item">
+                    #8 - Choose drinking buddy
+                </div>
+                <div class="rule-item">
+                    #9 - Pick word, rhyme or drink
+                </div>
+                <div class="rule-item">
+                    #10 - Pick category, name or drink
+                </div>
+                <div class="rule-item">
+                    #11 - Three fingers up
+                </div>
+                <div class="rule-item">
+                    #12 - Ask around, mess up drink
+                </div>
+                <div class="rule-item">
+                    #13 - Make a rule
+                </div>
+                <div class="rule-item">
+                    #14 - Start the chain
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="kingsdice.js"></script>
+    <script>
+        function goToHomepage() {
+            window.location.href = '/index.html';
+        }
+    </script>
+</body>
+</html>

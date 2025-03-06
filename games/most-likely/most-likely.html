@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Most Likely To...</title>
+    <link rel="stylesheet" href="most-likely.css">
+</head>
+<body>
+    <button id="homepage-button" onclick="goToHomepage()">Homepage</button>
+
+    <div id="setup-container">
+        <h1>Most Likely To...</h1>
+        
+        <div id="category-selection">
+            <h2>Select Category:</h2>
+            <div class="category-buttons">
+                <button class="category-button selected" onclick="selectCategory('fun')" data-category="fun">Fun</button>
+                <button class="category-button" onclick="selectCategory('party')" data-category="party">Party</button>
+                <button class="category-button" onclick="selectCategory('adventure')" data-category="adventure">Adventure</button>
+                <button class="category-button" onclick="selectCategory('career')" data-category="career">Career</button>
+                <button class="category-button" onclick="selectCategory('wild')" data-category="wild">Wild</button>
+            </div>
+        </div>
+
+        <div id="player-setup">
+            <input type="text" id="playerInput" placeholder="Player 1" onkeypress="handleKeyPress(event)">
+            <button onclick="addPlayer()">Add Player</button>
+            <button onclick="startGame()">Start Game</button>
+        </div>
+
+        <div id="player-list-container">
+            <h2>Players:</h2>
+            <ul id="playerList"></ul>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <div class="card">
+            <div id="card-text"></div>
+        </div>
+        <div id="voting-container"></div>
+        <button onclick="resetGame()" class="reset-button">Reset Game</button>
+    </div>
+
+    <script src="most-likely.js"></script>
+</body>
+</html>

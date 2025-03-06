@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Kings Dice</title>
+    <link rel="stylesheet" href="/games/Kings Dice/kingsdice.css">
+    <link rel="stylesheet" href="custom-kingsdice.css">
+</head>
+<body>
+    <button id="homepage-button" onclick="goToHomepage()">Homepage</button>
+
+    <div id="setup-container">
+        <h1>Custom Kings Dice</h1>
+        <div id="setup-tabs">
+            <button class="tab-button active" onclick="showTab('players')">Players</button>
+            <button class="tab-button" onclick="showTab('rules')">Custom Rules</button>
+        </div>
+        
+        <div id="players-tab" class="tab-content active">
+            <div id="player-setup">
+                <input type="text" id="playerInput" placeholder="Enter player name" onkeypress="handleKeyPress(event)" class="player-input">
+                <div class="button-group">
+                    <button onclick="addPlayer()" class="add-player-button">Add Player</button>
+                    <button onclick="startCustomGame()" id="startButton" class="start-button">Start Game</button>
+                </div>
+            </div>
+            <div id="player-list">
+                <h2>Players:</h2>
+                <ul id="playersList"></ul>
+            </div>
+            <div class="button-group">
+                <button onclick="showTab('rules')" class="next-button">Customize Rules (Optional)</button>
+            </div>
+        </div>
+
+        <div id="rules-tab" class="tab-content">
+            <div class="custom-rules-container">
+                <div class="rule-inputs">
+                    <div class="rule-input-group">
+                        <label>Rule 1:</label>
+                        <input type="text" id="rule1" placeholder="Enter rule for number 1">
+                    </div>
+                    <div class="rule-input-group">
+                        <label>Rule 2:</label>
+                        <input type="text" id="rule2" placeholder="Enter rule for number 2">
+                    </div>
+                    <div class="rule-input-group">
+                        <label>Rule 3:</label>
+                        <input type="text" id="rule3" placeholder="Enter rule for number 3">
+                    </div>
+                    <div class="rule-input-group">
+                        <label>Rule 4:</label>
+                        <input type="text" id="rule4" placeholder="Enter rule for number 4">
+                    </div>
+                    <div class="rule-input-group">
+                        <label>Rule 5:</label>
+                        <input type="text" id="rule5" placeholder="Enter rule for number 5">
+                    </div>
+                    <div class="rule-input-group">
+                        <label>Rule 6:</label>
+                        <input type="text" id="rule6" placeholder="Enter rule for number 6">
+                    </div>
+                    <div class="rule-input-group">
+                        <label>Rule 7:</label>
+                        <input type="text" id="rule7" placeholder="Enter rule for number 7">
+                    </div>
+                    <div class="rule-input-group">
+                        <label>Rule 8:</label>
+                        <input type="text" id="rule8" placeholder="Enter rule for number 8">
+                    </div>
+                    <div class="rule-input-group">
+                        <label>Rule 9:</label>
+                        <input type="text" id="rule9" placeholder="Enter rule for number 9">
+                    </div>
+                    <div class="rule-input-group">
+                        <label>Rule 10:</label>
+                        <input type="text" id="rule10" placeholder="Enter rule for number 10">
+                    </div>
+                    <div class="rule-input-group">
+                        <label>Rule 11:</label>
+                        <input type="text" id="rule11" placeholder="Enter rule for number 11">
+                    </div>
+                    <div class="rule-input-group">
+                        <label>Rule 12:</label>
+                        <input type="text" id="rule12" placeholder="Enter rule for number 12">
+                    </div>
+                    <div class="rule-input-group">
+                        <label>Rule 13:</label>
+                        <input type="text" id="rule13" placeholder="Enter rule for number 13">
+                    </div>
+                    <div class="rule-input-group">
+                        <label>Rule 14:</label>
+                        <input type="text" id="rule14" placeholder="Enter rule for number 14">
+                    </div>
+                </div>
+            </div>
+            <div class="button-group">
+                <button onclick="showTab('players')" class="back-button">Back</button>
+                <button onclick="saveRules()" class="save-button">Save Rules</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-container" style="display: none;">
+        <div id="current-player"></div>
+        
+        <div class="dice-container">
+            <div class="dice" id="dice1">
+                <div class="dice-face front">
+                    <div class="dots-container">
+                        <div class="dot center"></div>
+                    </div>
+                </div>
+                <div class="dice-face back">
+                    <div class="dots-container">
+                        <div class="dot top-right"></div>
+                        <div class="dot bottom-left"></div>
+                    </div>
+                </div>
+                <div class="dice-face right">
+                    <div class="dots-container">
+                        <div class="dot top-right"></div>
+                        <div class="dot center"></div>
+                        <div class="dot bottom-left"></div>
+                    </div>
+                </div>
+                <div class="dice-face left">
+                    <div class="dots-container">
+                        <div class="dot top-left"></div>
+                        <div class="dot top-right"></div>
+                        <div class="dot bottom-left"></div>
+                        <div class="dot bottom-right"></div>
+                    </div>
+                </div>
+                <div class="dice-face top">
+                    <div class="dots-container">
+                        <div class="dot top-left"></div>
+                        <div class="dot top-right"></div>
+                        <div class="dot center"></div>
+                        <div class="dot bottom-left"></div>
+                        <div class="dot bottom-right"></div>
+                    </div>
+                </div>
+                <div class="dice-face bottom">
+                    <div class="dots-container">
+                        <div class="dot top-left"></div>
+                        <div class="dot top-right"></div>
+                        <div class="dot middle-left"></div>
+                        <div class="dot middle-right"></div>
+                        <div class="dot bottom-left"></div>
+                        <div class="dot bottom-right"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="dice" id="dice2">
+                <div class="dice-face front">
+                    <div class="dots-container">
+                        <div class="dot center"></div>
+                    </div>
+                </div>
+                <div class="dice-face back">
+                    <div class="dots-container">
+                        <div class="dot top-right"></div>
+                        <div class="dot bottom-left"></div>
+                    </div>
+                </div>
+                <div class="dice-face right">
+                    <div class="dots-container">
+                        <div class="dot top-right"></div>
+                        <div class="dot center"></div>
+                        <div class="dot bottom-left"></div>
+                    </div>
+                </div>
+                <div class="dice-face left">
+                    <div class="dots-container">
+                        <div class="dot top-left"></div>
+                        <div class="dot top-right"></div>
+                        <div class="dot bottom-left"></div>
+                        <div class="dot bottom-right"></div>
+                    </div>
+                </div>
+                <div class="dice-face top">
+                    <div class="dots-container">
+                        <div class="dot top-left"></div>
+                        <div class="dot top-right"></div>
+                        <div class="dot center"></div>
+                        <div class="dot bottom-left"></div>
+                        <div class="dot bottom-right"></div>
+                    </div>
+                </div>
+                <div class="dice-face bottom">
+                    <div class="dots-container">
+                        <div class="dot top-left"></div>
+                        <div class="dot top-right"></div>
+                        <div class="dot middle-left"></div>
+                        <div class="dot middle-right"></div>
+                        <div class="dot bottom-left"></div>
+                        <div class="dot bottom-right"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="dice" id="dice3">
+                <div class="dice-face front">
+                    <div class="dots-container">
+                        <div class="dot center"></div>
+                    </div>
+                </div>
+                <div class="dice-face back">
+                    <div class="dots-container">
+                        <div class="dot top-right"></div>
+                        <div class="dot bottom-left"></div>
+                    </div>
+                </div>
+                <div class="dice-face right">
+                    <div class="dots-container">
+                        <div class="dot top-right"></div>
+                        <div class="dot center"></div>
+                        <div class="dot bottom-left"></div>
+                    </div>
+                </div>
+                <div class="dice-face left">
+                    <div class="dots-container">
+                        <div class="dot top-left"></div>
+                        <div class="dot top-right"></div>
+                        <div class="dot bottom-left"></div>
+                        <div class="dot bottom-right"></div>
+                    </div>
+                </div>
+                <div class="dice-face top">
+                    <div class="dots-container">
+                        <div class="dot top-left"></div>
+                        <div class="dot top-right"></div>
+                        <div class="dot center"></div>
+                        <div class="dot bottom-left"></div>
+                        <div class="dot bottom-right"></div>
+                    </div>
+                </div>
+                <div class="dice-face bottom">
+                    <div class="dots-container">
+                        <div class="dot top-left"></div>
+                        <div class="dot top-right"></div>
+                        <div class="dot middle-left"></div>
+                        <div class="dot middle-right"></div>
+                        <div class="dot bottom-left"></div>
+                        <div class="dot bottom-right"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="button-container">
+            <button onclick="rollDice()" id="rollButton">Roll Dice</button>
+            <button onclick="inflateBalloon()" id="inflateButton">Inflate</button>
+        </div>
+
+        <div id="balloon-container">
+            <div class="balloon">
+                <div class="balloon-shine"></div>
+            </div>
+        </div>
+
+        <div id="result-container">
+            <div id="dice-result"></div>
+            <div id="action-result"></div>
+        </div>
+
+        <div id="rules-container">
+            <h2>Custom Rules</h2>
+            <div class="rules-grid" id="customRulesGrid"></div>
+        </div>
+    </div>
+
+    <script src="custom-kingsdice.js"></script>
+    <script>
+        function goToHomepage() {
+            window.location.href = '/index.html';
+        }
+    </script>
+</body>
+</html>
