@@ -220,7 +220,6 @@ const questions = [
     "Have you ever been in a situation where you had to rely solely on your instincts?",
     "What's a personal belief or conviction you hold that not many people agree with?",
     "If you could have a conversation with any historical figure, living or dead, who would it be and what would you talk about?",
-    const partyQuestions = [
   "What's your go-to guilty pleasure song?",
   "If you could switch lives with one person for a day, who would it be?",
   "What's the most spontaneous thing you've ever done?",
