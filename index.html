@@ -202,14 +202,9 @@
 
     <script src="config.js"></script>
     <script>
-        // Backend configuration
-        const isProduction = window.location.hostname !== 'localhost' && 
-                           window.location.hostname !== '127.0.0.1' &&
-                           !window.location.hostname.startsWith('192.168.');
-        
-        // You can override this by setting window.BACKEND_URL before this script runs
-        const BACKEND_URL = window.BACKEND_URL || 
-                           (isProduction ? 'https://griffinhgames-production.up.railway.app' : 'http://localhost:3000');
+        // Use values from config.js (already set on window)
+        const BACKEND_URL = window.BACKEND_URL;
+        const isProduction = window.isProduction;
 
         // Fetch games from backend
         async function loadBackendGames() {

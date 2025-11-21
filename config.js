@@ -18,8 +18,12 @@ const isProduction = window.location.hostname !== 'localhost' &&
 const BACKEND_URL = window.BACKEND_URL || 
                     (isProduction ? BACKEND_CONFIG.production : BACKEND_CONFIG.development);
 
+// Expose to window for use in other scripts
+window.BACKEND_URL = BACKEND_URL;
+window.isProduction = isProduction;
+
 // Export for use in other scripts
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { BACKEND_URL, BACKEND_CONFIG };
+  module.exports = { BACKEND_URL, BACKEND_CONFIG, isProduction };
 }
 
