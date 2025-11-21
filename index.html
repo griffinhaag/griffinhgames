@@ -112,6 +112,38 @@
             gap: 10px;
         }
 
+        .loading {
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 1.2rem;
+        }
+
+        .error-message {
+            color: #ff6b6b;
+            text-align: center;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .game-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        .game-badge {
+            display: inline-block;
+            background: linear-gradient(45deg, #00d4ff, #0099cc);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
         @media (max-width: 768px) {
             h1 {
                 font-size: 2.5rem;
@@ -145,7 +177,10 @@
 <body>
     <div class="container">
         <h1>Main Menu</h1>
-        <div class="games-grid">
+        <div id="loading" class="loading">Loading games...</div>
+        <div id="error" class="error-message" style="display: none;"></div>
+        <div class="games-grid" id="games-grid">
+            <!-- Static games (always shown) -->
             <div class="game-card">
                 <h2>Truth or Griddy</h2>
                 <p>An absolute hood classic, can't frickin answer, you griddy on that jon!!</p>
@@ -164,5 +199,81 @@
             </div>
         </div>
     </div>
+
+    <script src="config.js"></script>
+    <script>
+        // Backend configuration
+        const isProduction = window.location.hostname !== 'localhost' && 
+                           window.location.hostname !== '127.0.0.1' &&
+                           !window.location.hostname.startsWith('192.168.');
+        
+        // You can override this by setting window.BACKEND_URL before this script runs
+        const BACKEND_URL = window.BACKEND_URL || 
+                           (isProduction ? 'https://griffinhgames-production.up.railway.app' : 'http://localhost:3000');
+
+        // Fetch games from backend
+        async function loadBackendGames() {
+            const loadingEl = document.getElementById('loading');
+            const errorEl = document.getElementById('error');
+            const gamesGrid = document.getElementById('games-grid');
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/games`);
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch games: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const games = data.games || [];
+
+                // Hide loading
+                loadingEl.style.display = 'none';
+
+                // Render backend games
+                games.forEach(game => {
+                    const gameCard = createGameCard(game);
+                    gamesGrid.appendChild(gameCard);
+                });
+
+            } catch (error) {
+                console.error('Error loading backend games:', error);
+                loadingEl.style.display = 'none';
+                
+                // Only show error if we're in production (backend should be available)
+                if (isProduction) {
+                    errorEl.textContent = `Unable to connect to game server. ${error.message}`;
+                    errorEl.style.display = 'block';
+                } else {
+                    // In development, silently fail if backend isn't running
+                    console.warn('Backend not available. Games will not be loaded dynamically.');
+                }
+            }
+        }
+
+        function createGameCard(game) {
+            const card = document.createElement('div');
+            card.className = 'game-card';
+            
+            // Create game page URL (we'll create these later)
+            // For now, link to a placeholder or create a lobby page
+            const gameUrl = `games/multiplayer/lobby.html?game=${game.id}`;
+            
+            card.innerHTML = `
+                <div class="game-icon">${game.icon || '🎮'}</div>
+                <span class="game-badge">Multiplayer</span>
+                <h2>${game.name}</h2>
+                <p>${game.description || 'Join friends for an exciting multiplayer experience!'}</p>
+                <div class="button-container">
+                    <a href="${gameUrl}" class="play-button">Play Now</a>
+                </div>
+            `;
+
+            return card;
+        }
+
+        // Load backend games on page load
+        loadBackendGames();
+    </script>
 </body>
 </html>
