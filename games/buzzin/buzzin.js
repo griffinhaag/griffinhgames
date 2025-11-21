@@ -96,9 +96,14 @@ function init() {
         return;
     }
 
-    // Connect to socket
+    // Connect to socket with reconnection
     const backendUrl = window.BACKEND_URL || 'http://localhost:3000';
-    socket = io(backendUrl);
+    socket = io(backendUrl, {
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: 5
+    });
 
     setupSocketListeners();
     setupUIListeners();
@@ -134,7 +139,19 @@ function setupSocketListeners() {
     
     socket.on('disconnect', () => {
         console.log('Disconnected from server');
-        showScreen('connecting');
+        // Don't immediately show connecting - might be reconnecting
+    });
+    
+    socket.on('reconnect', () => {
+        console.log('Reconnected to server');
+        if (roomCode && playerName) {
+            socket.emit('player:joinRoom', { roomCode, name: playerName });
+        }
+    });
+    
+    socket.on('connect_error', (error) => {
+        console.error('Connection error:', error);
+        // Show error but don't block UI
     });
     
     socket.on('room:error', (message) => {
@@ -197,6 +214,11 @@ function setupSocketListeners() {
         console.log('Game state received:', state);
         gameState = state;
         renderGameState();
+        
+        // Update countdown display if in countdown phase
+        if (state.phase === 'countdown') {
+            renderCountdown();
+        }
     });
 
     // Game events (sound effects, toasts, specific triggers)
@@ -206,6 +228,16 @@ function setupSocketListeners() {
         // Handle error events
         if (event.type === 'error') {
             alert(event.message || 'An error occurred');
+        }
+        
+        // Handle game ended
+        if (event.type === 'game_ended') {
+            if (event.reason === 'ended_by_host') {
+                alert('Host ended the game. Returning to main menu...');
+                setTimeout(() => {
+                    window.location.href = '../../index.html';
+                }, 2000);
+            }
         }
     });
 }
@@ -297,6 +329,25 @@ function setupUIListeners() {
             window.location.href = '../../index.html';
         });
     }
+    
+    // Host controls
+    const btnRestart = document.getElementById('btn-restart-game');
+    if (btnRestart) {
+        btnRestart.addEventListener('click', () => {
+            if (confirm('Restart the game? All scores will reset.')) {
+                socket.emit('host:restartGame', { roomCode: roomCode });
+            }
+        });
+    }
+    
+    const btnEndGame = document.getElementById('btn-end-game');
+    if (btnEndGame) {
+        btnEndGame.addEventListener('click', () => {
+            if (confirm('End the game? This will return everyone to the main menu.')) {
+                socket.emit('host:endGame', { roomCode: roomCode });
+            }
+        });
+    }
 }
 
 // --- Render Logic ---
@@ -362,20 +413,48 @@ function renderGameState() {
     // Switch screens based on phase
     if (gameState.phase === 'lobby') {
         showScreen('lobby');
+    } else if (gameState.phase === 'countdown') {
+        showScreen('game');
+        renderCountdown();
     } else if (gameState.phase === 'end') {
         showScreen('end');
         renderEndScreen();
     } else {
         showScreen('game');
-        // Show appropriate view based on role
+        // Host can play too - show player view for host as well
         if (isHost) {
+            // Host sees both views - host controls + player buzzer
             hostEls.view.classList.remove('hidden');
-            playerEls.view.classList.add('hidden');
+            playerEls.view.classList.remove('hidden');
             renderHostView();
+            renderPlayerView();
         } else {
             hostEls.view.classList.add('hidden');
             playerEls.view.classList.remove('hidden');
             renderPlayerView();
+        }
+    }
+}
+
+function renderCountdown() {
+    // Show countdown on both host and player views
+    const countdownEl = document.getElementById('countdown-display');
+    if (!countdownEl) {
+        // Create countdown element if it doesn't exist
+        const countdownDiv = document.createElement('div');
+        countdownDiv.id = 'countdown-display';
+        countdownDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 8rem; font-weight: 900; color: var(--primary); z-index: 1000; text-shadow: 0 0 30px rgba(255,0,85,0.8);';
+        document.body.appendChild(countdownDiv);
+    }
+    
+    const seconds = gameState.countdownSeconds || 0;
+    const countdownDisplay = document.getElementById('countdown-display');
+    if (countdownDisplay) {
+        if (seconds > 0) {
+            countdownDisplay.textContent = seconds;
+            countdownDisplay.style.display = 'block';
+        } else {
+            countdownDisplay.style.display = 'none';
         }
     }
 }
@@ -437,6 +516,16 @@ function renderHostView() {
             return `<div>${i+1}. ${name}: ${p.score}</div>`;
         })
         .join('');
+    
+    // Show host control buttons (restart/end) if game is in progress or ended
+    const hostControlPanel = document.getElementById('host-control-panel');
+    if (hostControlPanel) {
+        if (phase === 'end' || phase === 'result' || phase === 'question' || phase === 'buzzed' || phase === 'answering') {
+            hostControlPanel.style.display = 'block';
+        } else {
+            hostControlPanel.style.display = 'none';
+        }
+    }
 }
 
 function renderPlayerView() {

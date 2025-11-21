@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BuzzIn! - Game Setup</title>
+    <link rel="stylesheet" href="buzzin.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+        
+        .setup-container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .setup-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        
+        .setup-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(to right, #ff0055, #ffcc00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .name-input-section {
+            margin-bottom: 30px;
+        }
+        
+        .name-input-section label {
+            display: block;
+            color: white;
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+        
+        .name-input-section input {
+            width: 100%;
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 1.1rem;
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        .name-input-section input:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: rgba(255,255,255,0.15);
+        }
+        
+        .name-input-section input::placeholder {
+            color: rgba(255,255,255,0.5);
+        }
+        
+        .setup-section {
+            margin-bottom: 30px;
+        }
+        
+        .setup-section h3 {
+            color: white;
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+        }
+        
+        .question-count-control {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .question-count-control input[type="range"] {
+            width: 100%;
+            max-width: 400px;
+            height: 8px;
+            border-radius: 5px;
+            background: rgba(255,255,255,0.2);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .question-count-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+        }
+        
+        .question-count-display {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .btn-create-room {
+            width: 100%;
+            padding: 18px;
+            font-size: 1.3rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            border: none;
+            border-radius: 50px;
+            background: linear-gradient(45deg, #ff0055, #ff4444);
+            color: white;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        
+        .btn-create-room:hover {
+            transform: scale(1.02);
+        }
+        
+        .btn-create-room:active {
+            transform: scale(0.98);
+        }
+        
+        .btn-create-room:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .error-message {
+            background: rgba(255, 0, 0, 0.2);
+            color: #ffcccc;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+            text-align: center;
+        }
+        
+        .error-message.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <div class="setup-card">
+            <h1 class="setup-title">BuzzIn! Setup</h1>
+            
+            <div class="error-message" id="error-message"></div>
+            
+            <div class="name-input-section">
+                <label for="host-name">Your Name</label>
+                <input type="text" id="host-name" placeholder="Enter your name" maxlength="20" autocomplete="off">
+            </div>
+            
+            <div class="setup-section">
+                <h3>Select Categories:</h3>
+                <div id="category-checkboxes" class="category-grid">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+            
+            <div class="setup-section">
+                <h3>Number of Questions:</h3>
+                <div class="question-count-control">
+                    <input type="range" id="q-count-slider" min="5" max="30" value="10" step="1">
+                    <div class="question-count-display">
+                        <span id="q-count-display">10</span> questions
+                    </div>
+                </div>
+            </div>
+            
+            <button id="btn-create-room" class="btn-create-room">Create Room</button>
+        </div>
+    </div>
+    
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="../../config.js"></script>
+    <script>
+        const CATEGORIES = [
+            "General Knowledge",
+            "Science",
+            "Movies & TV",
+            "Music",
+            "Sports",
+            "History",
+            "Geography",
+            "Pop Culture",
+            "Games",
+            "Random"
+        ];
+        
+        const backendUrl = window.BACKEND_URL || 'http://localhost:3000';
+        const socket = io(backendUrl, {
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            reconnectionAttempts: 5
+        });
+        
+        let hostName = '';
+        let selectedCategories = [];
+        let questionCount = 10;
+        
+        // Initialize category checkboxes
+        const categoryContainer = document.getElementById('category-checkboxes');
+        categoryContainer.innerHTML = CATEGORIES.map(cat => `
+            <label class="category-checkbox">
+                <input type="checkbox" value="${cat}" checked>
+                <span>${cat}</span>
+            </label>
+        `).join('');
+        
+        // Question count slider
+        const qCountSlider = document.getElementById('q-count-slider');
+        const qCountDisplay = document.getElementById('q-count-display');
+        qCountSlider.addEventListener('input', (e) => {
+            questionCount = parseInt(e.target.value);
+            qCountDisplay.textContent = questionCount;
+        });
+        
+        // Update selected categories
+        categoryContainer.addEventListener('change', (e) => {
+            if (e.target.type === 'checkbox') {
+                selectedCategories = Array.from(categoryContainer.querySelectorAll('input:checked'))
+                    .map(cb => cb.value);
+            }
+        });
+        
+        // Initialize selected categories
+        selectedCategories = CATEGORIES;
+        
+        // Create room button
+        document.getElementById('btn-create-room').addEventListener('click', () => {
+            const nameInput = document.getElementById('host-name');
+            hostName = nameInput.value.trim();
+            
+            if (!hostName) {
+                showError('Please enter your name');
+                return;
+            }
+            
+            if (selectedCategories.length === 0) {
+                showError('Please select at least one category');
+                return;
+            }
+            
+            // Store settings in sessionStorage
+            sessionStorage.setItem('buzzin_settings', JSON.stringify({
+                categories: selectedCategories,
+                questionCount: questionCount,
+                hostName: hostName
+            }));
+            
+            // Set name and create room
+            socket.emit('player:setName', hostName);
+            socket.emit('host:createRoom', { gameType: 'buzzin' });
+        });
+        
+        function showError(message) {
+            const errorEl = document.getElementById('error-message');
+            errorEl.textContent = message;
+            errorEl.classList.add('show');
+            setTimeout(() => {
+                errorEl.classList.remove('show');
+            }, 5000);
+        }
+        
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+        
+        socket.on('disconnect', () => {
+            showError('Disconnected from server. Reconnecting...');
+        });
+        
+        socket.on('connect_error', (error) => {
+            showError('Connection error. Please check your connection.');
+        });
+        
+        socket.on('room:created', (roomState) => {
+            // Redirect to lobby with room code
+            const lobbyUrl = `../multiplayer/lobby.html?room=${roomState.code}&name=${encodeURIComponent(hostName)}&host=true&game=buzzin`;
+            window.location.href = lobbyUrl;
+        });
+        
+        socket.on('room:error', (message) => {
+            showError(message);
+        });
+    </script>
+</body>
+</html>
+

@@ -205,7 +205,10 @@
     <script>
         // Get game type from URL
         const urlParams = new URLSearchParams(window.location.search);
-        const gameType = urlParams.get('game') || 'reflex';
+        const gameType = urlParams.get('game') || 'buzzin';
+        const roomCodeFromUrl = urlParams.get('room');
+        const nameFromUrl = urlParams.get('name');
+        const isHostFromUrl = urlParams.get('host') === 'true';
 
         // Backend configuration - use values from config.js
         // The config.js script should have already set window.BACKEND_URL
@@ -216,8 +219,13 @@
                             ? 'https://griffinhgames-server.fly.dev' 
                             : 'http://localhost:3000');
 
-        // Initialize socket connection
-        const socket = io(BACKEND_URL);
+        // Initialize socket connection with reconnection
+        const socket = io(BACKEND_URL, {
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            reconnectionAttempts: 5
+        });
 
         let isHost = false;
         let currentRoomCode = null;
@@ -234,9 +242,26 @@
 
         // Show initial UI (host or join)
         function showInitialUI() {
-            // For now, show both options. You can customize this
-            hostSection.style.display = 'block';
-            joinSection.style.display = 'block';
+            // If coming from setup or URL params, join existing room
+            if (roomCodeFromUrl && nameFromUrl) {
+                playerName = nameFromUrl;
+                isHost = isHostFromUrl;
+                currentRoomCode = roomCodeFromUrl;
+                
+                socket.emit('player:setName', playerName);
+                socket.emit('player:joinRoom', { roomCode: roomCodeFromUrl, name: playerName });
+                
+                hostSection.style.display = 'none';
+                joinSection.style.display = 'none';
+                lobbySection.style.display = 'block';
+                if (isHost) {
+                    hostControls.style.display = 'block';
+                }
+            } else {
+                // Show both options
+                hostSection.style.display = 'block';
+                joinSection.style.display = 'block';
+            }
         }
 
         // Show status message
@@ -284,13 +309,41 @@
 
         // Start game (host only)
         document.getElementById('start-game-btn').addEventListener('click', () => {
-            socket.emit('host:startGame', { roomCode: currentRoomCode, gameType });
+            // Get settings from sessionStorage (set by setup.html)
+            const settings = sessionStorage.getItem('buzzin_settings');
+            let payload = { roomCode: currentRoomCode, gameType };
+            
+            if (settings) {
+                try {
+                    const parsed = JSON.parse(settings);
+                    payload.categories = parsed.categories || [];
+                    payload.questionCount = parsed.questionCount || 10;
+                } catch (e) {
+                    console.error('Failed to parse settings:', e);
+                }
+            }
+            
+            socket.emit('host:startGame', payload);
         });
 
         // Socket event handlers
         socket.on('connect', () => {
             console.log('Connected to server');
-            showInitialUI();
+            // If we have room code from URL, rejoin
+            if (roomCodeFromUrl && nameFromUrl) {
+                socket.emit('player:setName', nameFromUrl);
+                socket.emit('player:joinRoom', { roomCode: roomCodeFromUrl, name: nameFromUrl });
+            } else {
+                showInitialUI();
+            }
+        });
+        
+        socket.on('reconnect', () => {
+            console.log('Reconnected to server');
+            if (currentRoomCode && playerName) {
+                socket.emit('player:setName', playerName);
+                socket.emit('player:joinRoom', { roomCode: currentRoomCode, name: playerName });
+            }
         });
 
         socket.on('room:created', (roomState) => {
@@ -305,6 +358,15 @@
         });
 
         socket.on('room:state', (roomState) => {
+            currentRoomCode = roomState.code;
+            // Update host status
+            const me = roomState.players.find(p => p.socketId === socket.id);
+            if (me) {
+                isHost = me.isHost;
+                if (isHost) {
+                    hostControls.style.display = 'block';
+                }
+            }
             updateLobby(roomState);
         });
 
@@ -332,23 +394,35 @@
         });
 
         function updateLobby(roomState) {
-            roomCodeDisplay.textContent = roomState.code;
+            if (!roomState) return;
+            
+            roomCodeDisplay.textContent = roomState.code || '----';
             playersList.innerHTML = '';
             
-            roomState.players.forEach(player => {
-                const li = document.createElement('li');
-                li.className = 'player-item';
-                li.innerHTML = `
-                    <span class="player-name">${player.name}</span>
-                    ${player.isHost ? '<span class="host-badge">Host</span>' : ''}
-                `;
-                playersList.appendChild(li);
-            });
+            if (roomState.players && roomState.players.length > 0) {
+                roomState.players.forEach(player => {
+                    const li = document.createElement('li');
+                    li.className = 'player-item';
+                    const name = player.name || `Player-${player.socketId?.slice(0, 4) || '?'}`;
+                    li.innerHTML = `
+                        <span class="player-name">${name}</span>
+                        ${player.isHost ? '<span class="host-badge">Host</span>' : ''}
+                    `;
+                    playersList.appendChild(li);
+                });
+            } else {
+                playersList.innerHTML = '<li class="player-item"><span class="player-name" style="opacity: 0.5;">No players yet...</span></li>';
+            }
         }
 
         // Handle disconnect
         socket.on('disconnect', () => {
-            showStatus('Disconnected from server', 'error');
+            // Don't show error immediately - might be reconnecting
+            console.log('Disconnected from server');
+        });
+        
+        socket.on('connect_error', (error) => {
+            showStatus('Connection error. Please check your connection.', 'error');
         });
     </script>
 </body>

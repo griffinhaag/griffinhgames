@@ -254,6 +254,28 @@ body {
     margin: 20px 0;
 }
 
+.host-control-panel {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
+    padding: 20px;
+}
+
+.host-control-panel button {
+    padding: 12px 24px;
+    font-size: 1rem;
+}
+
+#countdown-display {
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.1); }
+}
+
 /* --- Host View --- */
 .game-view {
     width: 100%;
