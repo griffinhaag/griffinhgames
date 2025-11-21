@@ -329,10 +329,25 @@
         // Socket event handlers
         socket.on('connect', () => {
             console.log('Connected to server');
+            // Clear any error messages
+            statusEl.style.display = 'none';
+            
             // If we have room code from URL, rejoin
             if (roomCodeFromUrl && nameFromUrl) {
+                playerName = nameFromUrl;
+                isHost = isHostFromUrl;
+                currentRoomCode = roomCodeFromUrl;
+                
                 socket.emit('player:setName', nameFromUrl);
                 socket.emit('player:joinRoom', { roomCode: roomCodeFromUrl, name: nameFromUrl });
+                
+                // Show lobby immediately
+                hostSection.style.display = 'none';
+                joinSection.style.display = 'none';
+                lobbySection.style.display = 'block';
+                if (isHost) {
+                    hostControls.style.display = 'block';
+                }
             } else {
                 showInitialUI();
             }
@@ -343,6 +358,9 @@
             if (currentRoomCode && playerName) {
                 socket.emit('player:setName', playerName);
                 socket.emit('player:joinRoom', { roomCode: currentRoomCode, name: playerName });
+            } else if (roomCodeFromUrl && nameFromUrl) {
+                socket.emit('player:setName', nameFromUrl);
+                socket.emit('player:joinRoom', { roomCode: roomCodeFromUrl, name: nameFromUrl });
             }
         });
 
@@ -375,13 +393,27 @@
         });
 
         socket.on('game:started', (data) => {
-            showStatus('Game starting!', 'success');
+            console.log('Game started event received:', data);
             
-            // Redirect to the specific game page
+            // For BuzzIn!, wait for countdown to complete before redirecting
             if (data.gameType === 'buzzin') {
-                // Pass room code, player name, and host status
-                const target = `../buzzin/index.html?room=${currentRoomCode}&name=${encodeURIComponent(playerName)}&host=${isHost}`;
-                window.location.href = target;
+                // Don't redirect immediately - wait for countdown
+                // The game page will handle the countdown and transition
+                showStatus('Game starting! Get ready...', 'success');
+                
+                // Store redirect info
+                sessionStorage.setItem('buzzin_redirect', JSON.stringify({
+                    room: currentRoomCode,
+                    name: playerName,
+                    host: isHost
+                }));
+                
+                // Redirect after a short delay to ensure socket events are processed
+                setTimeout(() => {
+                    const target = `../buzzin/index.html?room=${currentRoomCode}&name=${encodeURIComponent(playerName)}&host=${isHost}`;
+                    // Use replace to prevent back button issues
+                    window.location.replace(target);
+                }, 500);
             } else {
                 alert(`Game started: ${data.gameType} (UI not implemented yet)`);
             }
