@@ -40,6 +40,12 @@ const lobbyEls = {
     btnStart: document.getElementById('btn-start-game')
 };
 
+const answerEls = {
+    section: document.getElementById('player-answer-section'),
+    input: document.getElementById('player-answer-input'),
+    btnSubmit: document.getElementById('btn-submit-answer')
+};
+
 const hostEls = {
     view: document.getElementById('view-host'),
     qIndex: document.getElementById('host-q-index'),
@@ -49,11 +55,15 @@ const hostEls = {
     answer: document.getElementById('host-answer-text'),
     buzzArea: document.getElementById('host-buzz-area'),
     phases: {
+        waiting: document.getElementById('host-phase-waiting'),
         question: document.getElementById('host-phase-question'),
         buzzed: document.getElementById('host-phase-buzzed'),
+        answering: document.getElementById('host-phase-answering'),
         result: document.getElementById('host-phase-result')
     },
     buzzedName: document.getElementById('buzzed-player-name'),
+    answeringName: document.getElementById('answering-player-name'),
+    btnShowQuestion: document.getElementById('btn-show-question'),
     btnCorrect: document.getElementById('btn-correct'),
     btnWrong: document.getElementById('btn-wrong'),
     btnNext: document.getElementById('btn-next-question'),
@@ -86,9 +96,14 @@ function init() {
         return;
     }
 
-    // Connect to socket
+    // Connect to socket with reconnection
     const backendUrl = window.BACKEND_URL || 'http://localhost:3000';
-    socket = io(backendUrl);
+    socket = io(backendUrl, {
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: 5
+    });
 
     setupSocketListeners();
     setupUIListeners();
@@ -102,12 +117,30 @@ function setupSocketListeners() {
         console.log('Connected to BuzzIn! server');
         clearTimeout(connectionTimeout);
         
+        // Check if we have redirect info from lobby
+        const redirectInfo = sessionStorage.getItem('buzzin_redirect');
+        if (redirectInfo) {
+            try {
+                const info = JSON.parse(redirectInfo);
+                roomCode = info.room || roomCode;
+                playerName = info.name || playerName;
+                isHost = info.host === true || isHost;
+                sessionStorage.removeItem('buzzin_redirect');
+            } catch (e) {
+                console.error('Failed to parse redirect info:', e);
+            }
+        }
+        
         // Join room immediately after connection
         if (roomCode && playerName) {
-            console.log('Joining room:', roomCode, 'as', playerName);
+            console.log('Joining room:', roomCode, 'as', playerName, 'host:', isHost);
             socket.emit('player:joinRoom', { roomCode, name: playerName });
         } else {
             console.error('Missing roomCode or playerName:', { roomCode, playerName });
+            // Redirect back to lobby if missing info
+            setTimeout(() => {
+                window.location.href = '../multiplayer/lobby.html';
+            }, 2000);
         }
     });
     
@@ -124,7 +157,19 @@ function setupSocketListeners() {
     
     socket.on('disconnect', () => {
         console.log('Disconnected from server');
-        showScreen('connecting');
+        // Don't immediately show connecting - might be reconnecting
+    });
+    
+    socket.on('reconnect', () => {
+        console.log('Reconnected to server');
+        if (roomCode && playerName) {
+            socket.emit('player:joinRoom', { roomCode, name: playerName });
+        }
+    });
+    
+    socket.on('connect_error', (error) => {
+        console.error('Connection error:', error);
+        // Show error but don't block UI
     });
     
     socket.on('room:error', (message) => {
@@ -176,10 +221,11 @@ function setupSocketListeners() {
         updateHostControlsVisibility();
     });
 
-    // Game started event
+    // Game started event - this happens when host clicks Start Game
     socket.on('game:started', (data) => {
         console.log('Game started!', data);
-        // Game state will come via game:state event
+        // Don't do anything here - wait for game:state with countdown phase
+        // The countdown will be handled by renderGameState()
     });
 
     // Game specific state updates
@@ -187,11 +233,31 @@ function setupSocketListeners() {
         console.log('Game state received:', state);
         gameState = state;
         renderGameState();
+        
+        // Update countdown display if in countdown phase
+        if (state.phase === 'countdown') {
+            renderCountdown();
+        }
     });
 
     // Game events (sound effects, toasts, specific triggers)
     socket.on('game:event', (event) => {
         handleGameEvent(event);
+        
+        // Handle error events
+        if (event.type === 'error') {
+            alert(event.message || 'An error occurred');
+        }
+        
+        // Handle game ended
+        if (event.type === 'game_ended') {
+            if (event.reason === 'ended_by_host') {
+                alert('Host ended the game. Returning to main menu...');
+                setTimeout(() => {
+                    window.location.href = '../../index.html';
+                }, 2000);
+            }
+        }
     });
 }
 
@@ -199,7 +265,17 @@ function setupSocketListeners() {
 function setupUIListeners() {
     // Initialize category checkboxes
     setupCategoryCheckboxes();
+    
+    // Question count slider
+    if (lobbyEls.qCountSlider) {
+        lobbyEls.qCountSlider.addEventListener('input', (e) => {
+            if (lobbyEls.qCountDisplay) {
+                lobbyEls.qCountDisplay.textContent = e.target.value;
+            }
+        });
+    }
 
+    // Start game button
     lobbyEls.btnStart.addEventListener('click', () => {
         const selectedCategories = Array.from(document.querySelectorAll('#category-checkboxes input:checked'))
             .map(cb => cb.value);
@@ -209,36 +285,88 @@ function setupUIListeners() {
             return;
         }
         
-        // Emit host:startGame with categories
+        const questionCount = parseInt(lobbyEls.qCountSlider?.value || 10);
+        
+        // Emit host:startGame with categories and question count
         socket.emit('host:startGame', {
             roomCode: roomCode,
             gameType: 'buzzin',
-            categories: selectedCategories
+            categories: selectedCategories,
+            questionCount: questionCount
         });
     });
 
     // Host Actions
+    if (hostEls.btnShowQuestion) {
+        hostEls.btnShowQuestion.addEventListener('click', () => {
+            socket.emit('host:showQuestion', { roomCode: roomCode });
+        });
+    }
+    
     hostEls.btnCorrect.addEventListener('click', () => {
-        socket.emit('host:judgeAnswer', { correct: true });
+        socket.emit('host:judgeAnswer', { roomCode: roomCode, correct: true });
     });
     
     hostEls.btnWrong.addEventListener('click', () => {
-        socket.emit('host:judgeAnswer', { correct: false });
+        socket.emit('host:judgeAnswer', { roomCode: roomCode, correct: false });
     });
     
     hostEls.btnNext.addEventListener('click', () => {
-        socket.emit('host:nextQuestion');
+        socket.emit('host:nextQuestion', { roomCode: roomCode });
     });
 
     // Player Actions
     playerEls.btnBuzz.addEventListener('click', () => {
-        socket.emit('player:buzz');
+        socket.emit('player:buzz', { roomCode: roomCode });
     });
     
+    // Answer submission
+    if (answerEls.btnSubmit) {
+        answerEls.btnSubmit.addEventListener('click', () => {
+            const answer = answerEls.input?.value?.trim() || '';
+            if (answer.length > 0) {
+                socket.emit('player:submitAnswer', { roomCode: roomCode, answer: answer });
+                answerEls.section.classList.add('hidden');
+                answerEls.input.value = '';
+            }
+        });
+    }
+    
+    // Allow Enter key to submit answer
+    if (answerEls.input) {
+        answerEls.input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                answerEls.btnSubmit.click();
+            }
+        });
+    }
+    
     // Return to main lobby
-    document.getElementById('btn-return-lobby').addEventListener('click', () => {
-        window.location.href = '../../index.html';
-    });
+    const btnReturn = document.getElementById('btn-return-lobby');
+    if (btnReturn) {
+        btnReturn.addEventListener('click', () => {
+            window.location.href = '../../index.html';
+        });
+    }
+    
+    // Host controls
+    const btnRestart = document.getElementById('btn-restart-game');
+    if (btnRestart) {
+        btnRestart.addEventListener('click', () => {
+            if (confirm('Restart the game? All scores will reset.')) {
+                socket.emit('host:restartGame', { roomCode: roomCode });
+            }
+        });
+    }
+    
+    const btnEndGame = document.getElementById('btn-end-game');
+    if (btnEndGame) {
+        btnEndGame.addEventListener('click', () => {
+            if (confirm('End the game? This will return everyone to the main menu.')) {
+                socket.emit('host:endGame', { roomCode: roomCode });
+            }
+        });
+    }
 }
 
 // --- Render Logic ---
@@ -275,10 +403,13 @@ function updateLobbyUI(rs) {
         lobbyEls.code.textContent = roomCode || '----';
     }
     
-    // Update player list with animations
+    // Update player list with animations - ensure no null names
     if (rs.players && rs.players.length > 0) {
         lobbyEls.list.innerHTML = rs.players
-            .map(p => `<div class="player-tag">${p.name} ${p.isHost ? '👑' : ''}</div>`)
+            .map(p => {
+                const name = p.name || `Player-${p.socketId?.slice(0, 4) || '?'}`;
+                return `<div class="player-tag">${name} ${p.isHost ? '👑' : ''}</div>`;
+            })
             .join('');
     } else {
         lobbyEls.list.innerHTML = '<div class="player-tag" style="opacity: 0.5;">No players yet...</div>';
@@ -301,16 +432,21 @@ function renderGameState() {
     // Switch screens based on phase
     if (gameState.phase === 'lobby') {
         showScreen('lobby');
+    } else if (gameState.phase === 'countdown') {
+        showScreen('game');
+        renderCountdown();
     } else if (gameState.phase === 'end') {
         showScreen('end');
         renderEndScreen();
     } else {
         showScreen('game');
-        // Show appropriate view based on role
+        // Host can play too - show player view for host as well
         if (isHost) {
+            // Host sees both views - host controls + player buzzer
             hostEls.view.classList.remove('hidden');
-            playerEls.view.classList.add('hidden');
+            playerEls.view.classList.remove('hidden');
             renderHostView();
+            renderPlayerView();
         } else {
             hostEls.view.classList.add('hidden');
             playerEls.view.classList.remove('hidden');
@@ -319,90 +455,182 @@ function renderGameState() {
     }
 }
 
+function renderCountdown() {
+    // Show countdown on both host and player views
+    let countdownDisplay = document.getElementById('countdown-display');
+    if (!countdownDisplay) {
+        // Create countdown element if it doesn't exist
+        countdownDisplay = document.createElement('div');
+        countdownDisplay.id = 'countdown-display';
+        countdownDisplay.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: clamp(4rem, 15vw, 8rem); font-weight: 900; color: var(--primary); z-index: 1000; text-shadow: 0 0 30px rgba(255,0,85,0.8); pointer-events: none; user-select: none;';
+        document.body.appendChild(countdownDisplay);
+    }
+    
+    const seconds = gameState.countdownSeconds || 0;
+    if (seconds > 0) {
+        countdownDisplay.textContent = seconds;
+        countdownDisplay.style.display = 'block';
+        // Add pulse animation
+        countdownDisplay.style.animation = 'pulse 1s infinite';
+    } else {
+        countdownDisplay.style.display = 'none';
+        countdownDisplay.style.animation = 'none';
+    }
+}
+
 function renderHostView() {
     const { currentQuestion, currentQuestionIndex, totalQuestions, phase, buzzState } = gameState;
     
     // Header
-    hostEls.qIndex.textContent = currentQuestionIndex + 1;
-    hostEls.qTotal.textContent = totalQuestions;
+    hostEls.qIndex.textContent = (currentQuestionIndex + 1) || 0;
+    hostEls.qTotal.textContent = totalQuestions || 0;
     hostEls.category.textContent = currentQuestion ? currentQuestion.category : '-';
     
-    // Question Card
-    hostEls.question.textContent = currentQuestion ? currentQuestion.question : '...';
-    hostEls.answer.textContent = currentQuestion ? currentQuestion.answer : '...';
+    // Question Card - only show if question is revealed
+    if (phase === 'waiting') {
+        hostEls.question.textContent = 'Ready to show question?';
+        hostEls.answer.textContent = '---';
+    } else if (currentQuestion) {
+        hostEls.question.textContent = currentQuestion.question || '...';
+        hostEls.answer.textContent = currentQuestion.answer || '...';
+    } else {
+        hostEls.question.textContent = '...';
+        hostEls.answer.textContent = '...';
+    }
 
-    // Phase Controls
-    Object.values(hostEls.phases).forEach(el => el.classList.add('hidden'));
+    // Phase Controls - hide all first
+    Object.values(hostEls.phases).forEach(el => {
+        if (el) el.classList.add('hidden');
+    });
     
-    if (phase === 'question') {
-        hostEls.phases.question.classList.remove('hidden');
+    if (phase === 'waiting') {
+        if (hostEls.phases.waiting) hostEls.phases.waiting.classList.remove('hidden');
+        hostEls.buzzArea.innerHTML = '<div class="status-text">Click "Show Question" to reveal</div>';
+    } else if (phase === 'question') {
+        if (hostEls.phases.question) hostEls.phases.question.classList.remove('hidden');
         hostEls.buzzArea.innerHTML = '<div class="status-text">Waiting for buzz...</div>';
     } else if (phase === 'buzzed') {
-        hostEls.phases.buzzed.classList.remove('hidden');
-        hostEls.buzzedName.textContent = buzzState.buzzedPlayerName || 'Unknown';
+        if (hostEls.phases.buzzed) hostEls.phases.buzzed.classList.remove('hidden');
+        const buzzedName = buzzState.buzzedPlayerName || 'Unknown';
+        if (hostEls.buzzedName) hostEls.buzzedName.textContent = buzzedName;
         hostEls.buzzArea.innerHTML = `
             <div class="buzzed-alert" style="color: var(--primary);">
-                🚨 ${buzzState.buzzedPlayerName} 🚨
+                🚨 ${buzzedName} 🚨
             </div>`;
+    } else if (phase === 'answering') {
+        if (hostEls.phases.answering) hostEls.phases.answering.classList.remove('hidden');
+        const answeringName = buzzState.buzzedPlayerName || 'Player';
+        if (hostEls.answeringName) hostEls.answeringName.textContent = answeringName;
+        hostEls.buzzArea.innerHTML = `<div class="status-text">Waiting for ${answeringName} to submit answer...</div>`;
     } else if (phase === 'result') {
-        hostEls.phases.result.classList.remove('hidden');
+        if (hostEls.phases.result) hostEls.phases.result.classList.remove('hidden');
         hostEls.buzzArea.innerHTML = '<div class="status-text" style="color: var(--success);">Answer Revealed</div>';
     }
 
-    // Leaderboard (Mini)
-    const sortedScores = [...gameState.scores].sort((a, b) => b.score - a.score);
+    // Leaderboard (Mini) - ensure no null names
+    const sortedScores = [...(gameState.scores || [])].sort((a, b) => b.score - a.score);
     hostEls.leaderboard.innerHTML = sortedScores.slice(0, 5)
-        .map((p, i) => `<div>${i+1}. ${p.name}: ${p.score}</div>`)
+        .map((p, i) => {
+            const name = p.name || `Player-${p.socketId?.slice(0, 4) || '?'}`;
+            return `<div>${i+1}. ${name}: ${p.score}</div>`;
+        })
         .join('');
+    
+    // Show host control buttons (restart/end) if game is in progress or ended
+    const hostControlPanel = document.getElementById('host-control-panel');
+    if (hostControlPanel) {
+        if (phase === 'end' || phase === 'result' || phase === 'question' || phase === 'buzzed' || phase === 'answering') {
+            hostControlPanel.style.display = 'block';
+        } else {
+            hostControlPanel.style.display = 'none';
+        }
+    }
 }
 
 function renderPlayerView() {
     const { currentQuestion, phase, buzzState, scores } = gameState;
-    const myScoreEntry = scores.find(s => s.socketId === socket.id) || { score: 0 };
+    const myScoreEntry = (scores || []).find(s => s.socketId === socket.id) || { score: 0 };
     
     // Score & Rank
-    playerEls.score.textContent = myScoreEntry.score;
+    playerEls.score.textContent = myScoreEntry.score || 0;
     // Calc rank
-    const sorted = [...scores].sort((a, b) => b.score - a.score);
+    const sorted = [...(scores || [])].sort((a, b) => b.score - a.score);
     const myRank = sorted.findIndex(s => s.socketId === socket.id) + 1;
-    playerEls.rank.textContent = `#${myRank}`;
+    playerEls.rank.textContent = myRank > 0 ? `#${myRank}` : '-';
 
-    // Question info
-    playerEls.category.textContent = currentQuestion ? currentQuestion.category : '';
-    playerEls.question.textContent = currentQuestion ? currentQuestion.question : 'Wait for it...';
+    // Question info - only show if question is revealed
+    if (phase === 'waiting') {
+        playerEls.category.textContent = 'Waiting...';
+        playerEls.question.textContent = 'Waiting for host to show question...';
+    } else if (currentQuestion) {
+        playerEls.category.textContent = currentQuestion.category || '';
+        playerEls.question.textContent = currentQuestion.question || 'Wait for it...';
+    } else {
+        playerEls.category.textContent = '';
+        playerEls.question.textContent = 'Wait for it...';
+    }
 
-    // Buzzer State
-    if (phase === 'question' && !buzzState.locked) {
+    // Buzzer State & Answer Section
+    const iBuzzed = buzzState.buzzedPlayerId === socket.id;
+    
+    if (phase === 'waiting') {
+        // Waiting for question
+        playerEls.buzzStatus.classList.remove('hidden');
+        playerEls.buzzStatus.textContent = "WAITING FOR QUESTION";
+        playerEls.buzzStatus.style.color = "#aaa";
+        playerEls.btnBuzz.disabled = true;
+        if (answerEls.section) answerEls.section.classList.add('hidden');
+    } else if (phase === 'question' && !buzzState.locked) {
+        // Can buzz
         playerEls.buzzStatus.classList.add('hidden');
         playerEls.btnBuzz.disabled = false;
-    } else {
+        if (answerEls.section) answerEls.section.classList.add('hidden');
+    } else if (phase === 'buzzed' || phase === 'answering') {
+        // Someone buzzed
         playerEls.buzzStatus.classList.remove('hidden');
         playerEls.btnBuzz.disabled = true;
         
-        if (phase === 'buzzed') {
-            if (buzzState.buzzedPlayerId === socket.id) {
-                playerEls.buzzStatus.textContent = "YOU BUZZED!";
-                playerEls.buzzStatus.style.color = "var(--success)";
-            } else {
-                playerEls.buzzStatus.textContent = `${buzzState.buzzedPlayerName} BUZZED`;
-                playerEls.buzzStatus.style.color = "var(--danger)";
+        if (iBuzzed) {
+            // I buzzed - show answer input
+            playerEls.buzzStatus.textContent = "YOU BUZZED!";
+            playerEls.buzzStatus.style.color = "var(--success)";
+            if (answerEls.section) {
+                answerEls.section.classList.remove('hidden');
+                if (phase === 'answering') {
+                    answerEls.input.focus();
+                }
             }
         } else {
-            playerEls.buzzStatus.textContent = "LOCKED";
-            playerEls.buzzStatus.style.color = "#aaa";
+            // Someone else buzzed
+            const buzzedName = buzzState.buzzedPlayerName || 'Someone';
+            playerEls.buzzStatus.textContent = `${buzzedName} BUZZED`;
+            playerEls.buzzStatus.style.color = "var(--danger)";
+            if (answerEls.section) answerEls.section.classList.add('hidden');
         }
+    } else {
+        // Locked/other phase
+        playerEls.buzzStatus.classList.remove('hidden');
+        playerEls.buzzStatus.textContent = "LOCKED";
+        playerEls.buzzStatus.style.color = "#aaa";
+        playerEls.btnBuzz.disabled = true;
+        if (answerEls.section) answerEls.section.classList.add('hidden');
     }
 }
 
 function renderEndScreen() {
     const podium = document.getElementById('winner-podium');
+    if (!podium || !gameState.scores) return;
+    
     const sorted = [...gameState.scores].sort((a, b) => b.score - a.score);
     
-    podium.innerHTML = sorted.map((p, i) => `
+    podium.innerHTML = sorted.map((p, i) => {
+        const name = p.name || `Player-${p.socketId?.slice(0, 4) || '?'}`;
+        return `
         <div class="podium-entry" style="font-size: ${2 - i * 0.2}rem; margin: 10px 0;">
-            ${i === 0 ? '🏆 ' : ''}${i+1}. ${p.name} - ${p.score}pts
+            ${i === 0 ? '🏆 ' : ''}${i+1}. ${name} - ${p.score}pts
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function handleGameEvent(event) {

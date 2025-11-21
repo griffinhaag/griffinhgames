@@ -250,9 +250,10 @@
             const card = document.createElement('div');
             card.className = 'game-card';
             
-            // Create game page URL (we'll create these later)
-            // For now, link to a placeholder or create a lobby page
-            const gameUrl = `games/multiplayer/lobby.html?game=${game.id}`;
+            // BuzzIn! uses setup.html, others use lobby.html
+            const gameUrl = game.id === 'buzzin' 
+                ? `games/buzzin/setup.html`
+                : `games/multiplayer/lobby.html?game=${game.id}`;
             
             card.innerHTML = `
                 <div class="game-icon">${game.icon || '🎮'}</div>
