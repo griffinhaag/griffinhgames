@@ -120,6 +120,46 @@ body {
     to { transform: scale(1); opacity: 1; }
 }
 
+.category-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin: 15px 0;
+    max-width: 600px;
+}
+
+.category-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.category-checkbox:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+.category-checkbox input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.category-checkbox span {
+    color: white;
+    font-weight: 500;
+}
+
+.settings-group h3 {
+    color: white;
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+}
+
 /* --- Host View --- */
 .game-view {
     width: 100%;

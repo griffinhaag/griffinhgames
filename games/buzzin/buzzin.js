@@ -6,6 +6,21 @@ let roomCode = null;
 let playerName = null;
 let isHost = false;
 let gameState = null;
+let roomState = null; // Store room state for lobby display
+
+// Available categories (should match backend)
+const CATEGORIES = [
+  "General Knowledge",
+  "Science",
+  "Movies & TV",
+  "Music",
+  "Sports",
+  "History",
+  "Geography",
+  "Pop Culture",
+  "Games",
+  "Random"
+];
 
 // --- DOM Elements ---
 const screens = {
@@ -78,30 +93,76 @@ function init() {
     setupSocketListeners();
     setupUIListeners();
     
-    // Re-join room to ensure socket connection is mapped to room
-    socket.emit('player:joinRoom', { roomCode, name: playerName });
+    // Handle connection and room join
+    function joinRoom() {
+        if (socket.connected && roomCode && playerName) {
+            socket.emit('player:joinRoom', { roomCode, name: playerName });
+        }
+    }
+    
+    // Join when connected
+    socket.on('connect', () => {
+        console.log('Socket connected, joining room...');
+        joinRoom();
+    });
+    
+    // If already connected, join immediately
+    if (socket.connected) {
+        joinRoom();
+    }
 }
 
 // --- Socket Listeners ---
 function setupSocketListeners() {
     socket.on('connect', () => {
         console.log('Connected to BuzzIn! server');
-        showScreen('lobby');
+        // Room join will trigger room:state, which will show lobby
+    });
+    
+    socket.on('disconnect', () => {
+        console.log('Disconnected from server');
+        showScreen('connecting');
+    });
+    
+    socket.on('room:error', (message) => {
+        console.error('Room error:', message);
+        alert(message);
     });
 
     // Generic room state updates (lobby phase)
-    socket.on('room:state', (roomState) => {
-        updateLobbyUI(roomState);
+    socket.on('room:state', (rs) => {
+        roomState = rs; // Store for later use
+        
+        // If room is in-progress, we need game state, not room state
+        if (rs.phase === 'in-progress') {
+            // Request game state via game:event
+            socket.emit('game:event', {
+                roomCode: rs.code,
+                eventName: 'player:requestState',
+                payload: {}
+            });
+            return;
+        }
+        
+        // Otherwise, show lobby
+        updateLobbyUI(rs);
         
         // Sync host status
-        const me = roomState.players.find(p => p.socketId === socket.id);
+        const me = rs.players.find(p => p.socketId === socket.id);
         if (me) isHost = me.isHost;
         
         updateHostControlsVisibility();
     });
 
+    // Game started event
+    socket.on('game:started', (data) => {
+        console.log('Game started!', data);
+        // Game state will come via game:state event
+    });
+
     // Game specific state updates
     socket.on('game:state', (state) => {
+        console.log('Game state received:', state);
         gameState = state;
         renderGameState();
     });
@@ -114,14 +175,24 @@ function setupSocketListeners() {
 
 // --- UI Listeners ---
 function setupUIListeners() {
-    // Lobby
-    lobbyEls.qCountSlider.addEventListener('input', (e) => {
-        lobbyEls.qCountDisplay.textContent = e.target.value;
-    });
+    // Initialize category checkboxes
+    setupCategoryCheckboxes();
 
     lobbyEls.btnStart.addEventListener('click', () => {
-        const count = parseInt(lobbyEls.qCountSlider.value);
-        socket.emit('host:startGame', { questionCount: count });
+        const selectedCategories = Array.from(document.querySelectorAll('#category-checkboxes input:checked'))
+            .map(cb => cb.value);
+        
+        if (selectedCategories.length === 0) {
+            alert('Please select at least one category!');
+            return;
+        }
+        
+        // Emit host:startGame with categories
+        socket.emit('host:startGame', {
+            roomCode: roomCode,
+            gameType: 'buzzin',
+            categories: selectedCategories
+        });
     });
 
     // Host Actions
@@ -154,11 +225,35 @@ function showScreen(screenName) {
     screens[screenName].classList.add('active');
 }
 
-function updateLobbyUI(roomState) {
-    lobbyEls.code.textContent = roomState.code;
-    lobbyEls.list.innerHTML = roomState.players
-        .map(p => `<div class="player-tag">${p.name} ${p.isHost ? '👑' : ''}</div>`)
-        .join('');
+function setupCategoryCheckboxes() {
+    const container = document.getElementById('category-checkboxes');
+    container.innerHTML = CATEGORIES.map(cat => `
+        <label class="category-checkbox">
+            <input type="checkbox" value="${cat}" checked>
+            <span>${cat}</span>
+        </label>
+    `).join('');
+}
+
+function updateLobbyUI(rs) {
+    if (!rs) return;
+    
+    // Switch to lobby screen when we get room state
+    showScreen('lobby');
+    
+    // Update room code
+    if (rs.code) {
+        lobbyEls.code.textContent = rs.code;
+    }
+    
+    // Update player list with animations
+    if (rs.players && rs.players.length > 0) {
+        lobbyEls.list.innerHTML = rs.players
+            .map(p => `<div class="player-tag">${p.name} ${p.isHost ? '👑' : ''}</div>`)
+            .join('');
+    } else {
+        lobbyEls.list.innerHTML = '<div class="player-tag" style="opacity: 0.5;">No players yet...</div>';
+    }
 }
 
 function updateHostControlsVisibility() {
