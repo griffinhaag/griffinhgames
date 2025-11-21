@@ -203,8 +203,7 @@
     <script src="config.js"></script>
     <script>
         // Use values from config.js (already set on window)
-        const BACKEND_URL = window.BACKEND_URL;
-        const isProduction = window.isProduction;
+        // Access directly from window to avoid redeclaration errors
 
         // Fetch games from backend
         async function loadBackendGames() {
@@ -213,7 +212,8 @@
             const gamesGrid = document.getElementById('games-grid');
 
             try {
-                const response = await fetch(`${BACKEND_URL}/games`);
+                // Use window.BACKEND_URL directly (set by config.js)
+                const response = await fetch(`${window.BACKEND_URL}/games`);
                 
                 if (!response.ok) {
                     throw new Error(`Failed to fetch games: ${response.status}`);
@@ -236,7 +236,7 @@
                 loadingEl.style.display = 'none';
                 
                 // Only show error if we're in production (backend should be available)
-                if (isProduction) {
+                if (window.isProduction) {
                     errorEl.textContent = `Unable to connect to game server. ${error.message}`;
                     errorEl.style.display = 'block';
                 } else {
