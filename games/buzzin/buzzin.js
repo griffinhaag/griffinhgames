@@ -92,32 +92,35 @@ function init() {
 
     setupSocketListeners();
     setupUIListeners();
-    
-    // Handle connection and room join
-    function joinRoom() {
-        if (socket.connected && roomCode && playerName) {
-            socket.emit('player:joinRoom', { roomCode, name: playerName });
-        }
-    }
-    
-    // Join when connected
-    socket.on('connect', () => {
-        console.log('Socket connected, joining room...');
-        joinRoom();
-    });
-    
-    // If already connected, join immediately
-    if (socket.connected) {
-        joinRoom();
-    }
 }
 
 // --- Socket Listeners ---
 function setupSocketListeners() {
+    let connectionTimeout;
+    
     socket.on('connect', () => {
         console.log('Connected to BuzzIn! server');
-        // Room join will trigger room:state, which will show lobby
+        clearTimeout(connectionTimeout);
+        
+        // Join room immediately after connection
+        if (roomCode && playerName) {
+            console.log('Joining room:', roomCode, 'as', playerName);
+            socket.emit('player:joinRoom', { roomCode, name: playerName });
+        } else {
+            console.error('Missing roomCode or playerName:', { roomCode, playerName });
+        }
     });
+    
+    // Set timeout for connection
+    connectionTimeout = setTimeout(() => {
+        if (!socket.connected) {
+            console.error('Connection timeout');
+            const errorMsg = document.createElement('div');
+            errorMsg.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,0,0,0.9); color: white; padding: 20px; border-radius: 10px; z-index: 1000; text-align: center;';
+            errorMsg.innerHTML = '<h2>Connection Failed</h2><p>Unable to connect to server. Please check your connection and try again.</p>';
+            document.body.appendChild(errorMsg);
+        }
+    }, 10000);
     
     socket.on('disconnect', () => {
         console.log('Disconnected from server');
@@ -126,21 +129,37 @@ function setupSocketListeners() {
     
     socket.on('room:error', (message) => {
         console.error('Room error:', message);
-        alert(message);
+        
+        // Show error on screen instead of alert
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(255,0,0,0.9); color: white; padding: 15px 30px; border-radius: 10px; z-index: 1000;';
+        errorDiv.textContent = message;
+        document.body.appendChild(errorDiv);
+        
+        // If room not found, redirect back to lobby after delay
+        if (message.includes('not found') || message.includes('Invalid') || message.includes('Unable')) {
+            setTimeout(() => {
+                window.location.href = '../multiplayer/lobby.html';
+            }, 3000);
+        } else {
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
     });
 
     // Generic room state updates (lobby phase)
     socket.on('room:state', (rs) => {
+        console.log('Room state received:', rs);
         roomState = rs; // Store for later use
         
         // If room is in-progress, we need game state, not room state
+        // But still update lobby info in case game state hasn't arrived yet
         if (rs.phase === 'in-progress') {
-            // Request game state via game:event
-            socket.emit('game:event', {
-                roomCode: rs.code,
-                eventName: 'player:requestState',
-                payload: {}
-            });
+            console.log('Room is in-progress, waiting for game state...');
+            // Show a "Game in progress" message while waiting
+            showScreen('lobby');
+            lobbyEls.code.textContent = rs.code || roomCode || '----';
+            lobbyEls.list.innerHTML = '<div class="player-tag">Game in progress, loading...</div>';
+            // Game state should arrive shortly via game:state event
             return;
         }
         
@@ -149,7 +168,10 @@ function setupSocketListeners() {
         
         // Sync host status
         const me = rs.players.find(p => p.socketId === socket.id);
-        if (me) isHost = me.isHost;
+        if (me) {
+            isHost = me.isHost;
+            console.log('I am host:', isHost);
+        }
         
         updateHostControlsVisibility();
     });
@@ -236,7 +258,12 @@ function setupCategoryCheckboxes() {
 }
 
 function updateLobbyUI(rs) {
-    if (!rs) return;
+    if (!rs) {
+        console.warn('updateLobbyUI called with no room state');
+        return;
+    }
+    
+    console.log('Updating lobby UI with room state:', rs);
     
     // Switch to lobby screen when we get room state
     showScreen('lobby');
@@ -244,6 +271,8 @@ function updateLobbyUI(rs) {
     // Update room code
     if (rs.code) {
         lobbyEls.code.textContent = rs.code;
+    } else {
+        lobbyEls.code.textContent = roomCode || '----';
     }
     
     // Update player list with animations
