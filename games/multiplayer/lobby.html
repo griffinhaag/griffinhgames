@@ -314,11 +314,15 @@
 
         socket.on('game:started', (data) => {
             showStatus('Game starting!', 'success');
-            // Redirect to game page or show game UI
-            // For now, just show a message
-            setTimeout(() => {
-                alert('Game started! (Game UI to be implemented)');
-            }, 1000);
+            
+            // Redirect to the specific game page
+            if (data.gameType === 'buzzin') {
+                // Pass room code, player name, and host status
+                const target = `../buzzin/index.html?room=${currentRoomCode}&name=${encodeURIComponent(playerName)}&host=${isHost}`;
+                window.location.href = target;
+            } else {
+                alert(`Game started: ${data.gameType} (UI not implemented yet)`);
+            }
         });
 
         socket.on('room:closed', () => {
