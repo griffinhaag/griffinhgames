@@ -117,12 +117,30 @@ function setupSocketListeners() {
         console.log('Connected to BuzzIn! server');
         clearTimeout(connectionTimeout);
         
+        // Check if we have redirect info from lobby
+        const redirectInfo = sessionStorage.getItem('buzzin_redirect');
+        if (redirectInfo) {
+            try {
+                const info = JSON.parse(redirectInfo);
+                roomCode = info.room || roomCode;
+                playerName = info.name || playerName;
+                isHost = info.host === true || isHost;
+                sessionStorage.removeItem('buzzin_redirect');
+            } catch (e) {
+                console.error('Failed to parse redirect info:', e);
+            }
+        }
+        
         // Join room immediately after connection
         if (roomCode && playerName) {
-            console.log('Joining room:', roomCode, 'as', playerName);
+            console.log('Joining room:', roomCode, 'as', playerName, 'host:', isHost);
             socket.emit('player:joinRoom', { roomCode, name: playerName });
         } else {
             console.error('Missing roomCode or playerName:', { roomCode, playerName });
+            // Redirect back to lobby if missing info
+            setTimeout(() => {
+                window.location.href = '../multiplayer/lobby.html';
+            }, 2000);
         }
     });
     
@@ -203,10 +221,11 @@ function setupSocketListeners() {
         updateHostControlsVisibility();
     });
 
-    // Game started event
+    // Game started event - this happens when host clicks Start Game
     socket.on('game:started', (data) => {
         console.log('Game started!', data);
-        // Game state will come via game:state event
+        // Don't do anything here - wait for game:state with countdown phase
+        // The countdown will be handled by renderGameState()
     });
 
     // Game specific state updates
@@ -438,24 +457,24 @@ function renderGameState() {
 
 function renderCountdown() {
     // Show countdown on both host and player views
-    const countdownEl = document.getElementById('countdown-display');
-    if (!countdownEl) {
+    let countdownDisplay = document.getElementById('countdown-display');
+    if (!countdownDisplay) {
         // Create countdown element if it doesn't exist
-        const countdownDiv = document.createElement('div');
-        countdownDiv.id = 'countdown-display';
-        countdownDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 8rem; font-weight: 900; color: var(--primary); z-index: 1000; text-shadow: 0 0 30px rgba(255,0,85,0.8);';
-        document.body.appendChild(countdownDiv);
+        countdownDisplay = document.createElement('div');
+        countdownDisplay.id = 'countdown-display';
+        countdownDisplay.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: clamp(4rem, 15vw, 8rem); font-weight: 900; color: var(--primary); z-index: 1000; text-shadow: 0 0 30px rgba(255,0,85,0.8); pointer-events: none; user-select: none;';
+        document.body.appendChild(countdownDisplay);
     }
     
     const seconds = gameState.countdownSeconds || 0;
-    const countdownDisplay = document.getElementById('countdown-display');
-    if (countdownDisplay) {
-        if (seconds > 0) {
-            countdownDisplay.textContent = seconds;
-            countdownDisplay.style.display = 'block';
-        } else {
-            countdownDisplay.style.display = 'none';
-        }
+    if (seconds > 0) {
+        countdownDisplay.textContent = seconds;
+        countdownDisplay.style.display = 'block';
+        // Add pulse animation
+        countdownDisplay.style.animation = 'pulse 1s infinite';
+    } else {
+        countdownDisplay.style.display = 'none';
+        countdownDisplay.style.animation = 'none';
     }
 }
 

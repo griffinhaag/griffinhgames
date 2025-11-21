@@ -8,56 +8,69 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
         
+        body {
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+        
         .setup-container {
             min-height: 100vh;
+            min-height: 100dvh; /* Dynamic viewport height for mobile */
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: clamp(10px, 3vw, 20px);
+            box-sizing: border-box;
         }
         
         .setup-card {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
             border-radius: 20px;
-            padding: 40px;
-            max-width: 600px;
+            padding: clamp(20px, 5vw, 40px);
+            max-width: min(600px, 95vw);
             width: 100%;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-sizing: border-box;
+            margin: auto;
         }
         
         .setup-title {
-            font-size: 2.5rem;
+            font-size: clamp(1.8rem, 5vw, 2.5rem);
             font-weight: 800;
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: clamp(20px, 4vw, 30px);
             background: linear-gradient(to right, #ff0055, #ffcc00);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            line-height: 1.2;
         }
         
         .name-input-section {
-            margin-bottom: 30px;
+            margin-bottom: clamp(20px, 4vw, 30px);
         }
         
         .name-input-section label {
             display: block;
             color: white;
             font-weight: 600;
-            margin-bottom: 10px;
-            font-size: 1.1rem;
+            margin-bottom: clamp(8px, 2vw, 10px);
+            font-size: clamp(1rem, 3vw, 1.1rem);
         }
         
         .name-input-section input {
             width: 100%;
-            padding: 15px;
+            padding: clamp(12px, 3vw, 15px);
             border-radius: 10px;
             border: 2px solid rgba(255,255,255,0.3);
             background: rgba(255,255,255,0.1);
             color: white;
-            font-size: 1.1rem;
+            font-size: clamp(1rem, 3vw, 1.1rem);
             font-family: 'Poppins', sans-serif;
+            box-sizing: border-box;
         }
         
         .name-input-section input:focus {
@@ -71,13 +84,13 @@
         }
         
         .setup-section {
-            margin-bottom: 30px;
+            margin-bottom: clamp(20px, 4vw, 30px);
         }
         
         .setup-section h3 {
             color: white;
-            font-size: 1.2rem;
-            margin-bottom: 15px;
+            font-size: clamp(1rem, 3vw, 1.2rem);
+            margin-bottom: clamp(10px, 2vw, 15px);
         }
         
         .question-count-control {
@@ -108,15 +121,15 @@
         }
         
         .question-count-display {
-            font-size: 1.5rem;
+            font-size: clamp(1.2rem, 4vw, 1.5rem);
             font-weight: 600;
             color: white;
         }
         
         .btn-create-room {
             width: 100%;
-            padding: 18px;
-            font-size: 1.3rem;
+            padding: clamp(15px, 4vw, 18px);
+            font-size: clamp(1.1rem, 3.5vw, 1.3rem);
             font-weight: 800;
             text-transform: uppercase;
             border: none;
@@ -126,6 +139,7 @@
             cursor: pointer;
             transition: transform 0.1s, box-shadow 0.2s;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            box-sizing: border-box;
         }
         
         .btn-create-room:hover {
@@ -216,6 +230,7 @@
         let hostName = '';
         let selectedCategories = [];
         let questionCount = 10;
+        let availableQuestions = 0; // Will be calculated based on categories
         
         // Initialize category checkboxes
         const categoryContainer = document.getElementById('category-checkboxes');
@@ -226,12 +241,47 @@
             </label>
         `).join('');
         
+        // Calculate available questions (this is an estimate - actual count will be validated server-side)
+        function calculateAvailableQuestions() {
+            // This is a client-side estimate. Server will do actual validation.
+            // For now, we'll use a conservative estimate based on typical question distribution
+            const questionsPerCategory = 3; // Average based on current question bank
+            return selectedCategories.length * questionsPerCategory;
+        }
+        
+        function updateQuestionCountLimits() {
+            availableQuestions = calculateAvailableQuestions();
+            const maxQuestions = Math.min(30, availableQuestions); // Cap at 30 (current question bank size)
+            const slider = document.getElementById('q-count-slider');
+            const currentValue = parseInt(slider.value);
+            
+            // Update slider max
+            slider.max = maxQuestions;
+            
+            // If current value exceeds max, adjust it
+            if (currentValue > maxQuestions) {
+                slider.value = maxQuestions;
+                questionCount = maxQuestions;
+                document.getElementById('q-count-display').textContent = maxQuestions;
+            }
+            
+            // Update display with available count
+            const display = document.getElementById('q-count-display');
+            display.textContent = questionCount;
+            if (availableQuestions < questionCount) {
+                display.parentElement.style.color = '#ffcccc';
+            } else {
+                display.parentElement.style.color = 'white';
+            }
+        }
+        
         // Question count slider
         const qCountSlider = document.getElementById('q-count-slider');
         const qCountDisplay = document.getElementById('q-count-display');
         qCountSlider.addEventListener('input', (e) => {
             questionCount = parseInt(e.target.value);
             qCountDisplay.textContent = questionCount;
+            updateQuestionCountLimits();
         });
         
         // Update selected categories
@@ -239,14 +289,17 @@
             if (e.target.type === 'checkbox') {
                 selectedCategories = Array.from(categoryContainer.querySelectorAll('input:checked'))
                     .map(cb => cb.value);
+                updateQuestionCountLimits();
             }
         });
         
         // Initialize selected categories
         selectedCategories = CATEGORIES;
+        updateQuestionCountLimits();
         
         // Create room button
-        document.getElementById('btn-create-room').addEventListener('click', () => {
+        const btnCreateRoom = document.getElementById('btn-create-room');
+        btnCreateRoom.addEventListener('click', () => {
             const nameInput = document.getElementById('host-name');
             hostName = nameInput.value.trim();
             
@@ -260,6 +313,16 @@
                 return;
             }
             
+            // Validate question count
+            if (questionCount < 5) {
+                showError('Please select at least 5 questions');
+                return;
+            }
+            
+            // Disable button to prevent double-clicks
+            btnCreateRoom.disabled = true;
+            btnCreateRoom.textContent = 'Creating Room...';
+            
             // Store settings in sessionStorage
             sessionStorage.setItem('buzzin_settings', JSON.stringify({
                 categories: selectedCategories,
@@ -267,10 +330,23 @@
                 hostName: hostName
             }));
             
+            // Wait for socket to be connected before creating room
+            if (socket.connected) {
+                createRoom();
+            } else {
+                // Wait for connection
+                socket.once('connect', () => {
+                    createRoom();
+                });
+                socket.connect();
+            }
+        });
+        
+        function createRoom() {
             // Set name and create room
             socket.emit('player:setName', hostName);
             socket.emit('host:createRoom', { gameType: 'buzzin' });
-        });
+        }
         
         function showError(message) {
             const errorEl = document.getElementById('error-message');
@@ -283,24 +359,46 @@
         
         socket.on('connect', () => {
             console.log('Connected to server');
+            // Clear any error messages on successful connection
+            const errorEl = document.getElementById('error-message');
+            if (errorEl && errorEl.classList.contains('show')) {
+                errorEl.classList.remove('show');
+            }
         });
         
         socket.on('disconnect', () => {
-            showError('Disconnected from server. Reconnecting...');
+            // Don't show error immediately - might be reconnecting
+            console.log('Disconnected from server');
+        });
+        
+        socket.on('reconnect', () => {
+            console.log('Reconnected to server');
         });
         
         socket.on('connect_error', (error) => {
             showError('Connection error. Please check your connection.');
+            // Re-enable button if connection fails
+            btnCreateRoom.disabled = false;
+            btnCreateRoom.textContent = 'Create Room';
         });
         
         socket.on('room:created', (roomState) => {
-            // Redirect to lobby with room code
+            // Store room info before redirect
+            sessionStorage.setItem('buzzin_room', JSON.stringify({
+                code: roomState.code,
+                hostName: hostName
+            }));
+            
+            // Redirect to lobby with room code - use replace to prevent back button issues
             const lobbyUrl = `../multiplayer/lobby.html?room=${roomState.code}&name=${encodeURIComponent(hostName)}&host=true&game=buzzin`;
-            window.location.href = lobbyUrl;
+            window.location.replace(lobbyUrl);
         });
         
         socket.on('room:error', (message) => {
             showError(message);
+            // Re-enable button on error
+            btnCreateRoom.disabled = false;
+            btnCreateRoom.textContent = 'Create Room';
         });
     </script>
 </body>
