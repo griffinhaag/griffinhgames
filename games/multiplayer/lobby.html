@@ -207,14 +207,14 @@
         const urlParams = new URLSearchParams(window.location.search);
         const gameType = urlParams.get('game') || 'reflex';
 
-        // Backend configuration
-        const isProduction = window.location.hostname !== 'localhost' && 
-                           window.location.hostname !== '127.0.0.1' &&
-                           !window.location.hostname.startsWith('192.168.');
-        
-        // You can override this by setting window.BACKEND_URL before this script runs
+        // Backend configuration - use values from config.js
+        // The config.js script should have already set window.BACKEND_URL
         const BACKEND_URL = window.BACKEND_URL || 
-                           (isProduction ? 'https://griffinhgames-production.up.railway.app' : 'http://localhost:3000');
+                           (window.location.hostname !== 'localhost' && 
+                            window.location.hostname !== '127.0.0.1' &&
+                            !window.location.hostname.startsWith('192.168.')
+                            ? 'https://griffinhgames-server.fly.dev' 
+                            : 'http://localhost:3000');
 
         // Initialize socket connection
         const socket = io(BACKEND_URL);

@@ -4,8 +4,8 @@
   'use strict';
   
   const BACKEND_CONFIG = {
-    // Production: Use Railway backend URL
-    production: 'https://griffinhgames-production.up.railway.app',
+    // Production: Use Fly.io backend URL
+    production: 'https://griffinhgames-server.fly.dev',
     
     // Development: Use localhost
     development: 'http://localhost:3000'
