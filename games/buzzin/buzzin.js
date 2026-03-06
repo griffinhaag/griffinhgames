@@ -66,6 +66,26 @@ let selectedChoice = null;
 // Cache shuffled choices per question to prevent re-shuffling every timer tick
 let lastRenderedQuestionKey = null;
 let cachedShuffledChoices = null;
+let lastChoiceRenderKey = null; // prevent full DOM rebuild on every timer tick
+
+// --- Leaderboard tracking ---
+let previousScores = null;
+
+// --- Session question history (resets on browser close via sessionStorage) ---
+function getSeenQuestions() {
+    try {
+        return JSON.parse(sessionStorage.getItem('buzzin_seen_questions') || '[]');
+    } catch (e) { return []; }
+}
+
+function addSeenQuestion(questionText) {
+    if (!questionText) return;
+    const seen = getSeenQuestions();
+    if (!seen.includes(questionText)) {
+        seen.push(questionText);
+        sessionStorage.setItem('buzzin_seen_questions', JSON.stringify(seen));
+    }
+}
 
 // --- YouTube Players ---
 let lobbyPlayer = null;
@@ -284,6 +304,9 @@ function setupSocketListeners() {
     
     socket.on('reconnect', () => {
         console.log('Reconnected to server');
+        // Re-establish isHost from URL params in case it was lost
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('host') === 'true') isHost = true;
         if (roomCode && playerName) {
             socket.emit('player:joinRoom', { roomCode, name: playerName, isHost: isHost });
         }
@@ -354,6 +377,11 @@ function setupSocketListeners() {
     socket.on('game:state', (state) => {
         console.log('Game state received:', state);
         gameState = state;
+        // Restore isHost from game state in case of reconnect (socket ID may have changed)
+        if (state.players) {
+            const me = state.players.find(p => p.name === playerName);
+            if (me && me.isHost) isHost = true;
+        }
         renderGameState();
         
         // Update countdown display if in countdown phase
@@ -394,7 +422,6 @@ const adminMenuEls = {
     toggle: document.getElementById('admin-menu-toggle'),
     dropdown: document.getElementById('admin-menu-dropdown'),
     roomCodeValue: document.getElementById('admin-room-code-value'),
-    skipQuestion: document.getElementById('admin-skip-question'),
     shuffleQuestions: document.getElementById('admin-shuffle-questions'),
     newGame: document.getElementById('admin-new-game'),
     endGame: document.getElementById('admin-end-game')
@@ -423,26 +450,30 @@ function setupUIListeners() {
         });
     }
 
-    // Start game button
+    // Start game button — read settings from sessionStorage (configured in setup.html)
     lobbyEls.btnStart.addEventListener('click', () => {
-        const selectedCategories = Array.from(document.querySelectorAll('#category-checkboxes input:checked'))
-            .map(cb => cb.value);
+        let categories = [], questionCount = 10, timerDurationValue = 30, bonusFirstCorrect = true;
+        try {
+            const settings = JSON.parse(sessionStorage.getItem('buzzin_settings') || '{}');
+            categories = settings.categories || [];
+            questionCount = settings.questionCount || 10;
+            timerDurationValue = settings.timerDuration || 30;
+            bonusFirstCorrect = settings.bonusFirstCorrect !== false;
+        } catch (e) {}
 
-        if (selectedCategories.length === 0) {
-            alert('Please select at least one category!');
+        if (categories.length === 0) {
+            alert('No categories found. Please return to setup and create the room again.');
             return;
         }
 
-        const questionCount = parseInt(lobbyEls.qCountSlider?.value || 10);
-        const timerDurationValue = parseInt(lobbyEls.timerSlider?.value || 30);
-
-        // Emit host:startGame with categories, question count, and timer duration
         socket.emit('host:startGame', {
             roomCode: roomCode,
             gameType: 'buzzin',
-            categories: selectedCategories,
-            questionCount: questionCount,
-            timerDuration: timerDurationValue
+            categories,
+            questionCount,
+            timerDuration: timerDurationValue,
+            bonusFirstCorrect,
+            seenQuestions: getSeenQuestions()
         });
     });
 
@@ -459,13 +490,6 @@ function setupUIListeners() {
             socket.emit('host:nextQuestion', { roomCode: roomCode });
         });
     }
-
-    // Skip round button (dynamically added, so we use event delegation)
-    document.addEventListener('click', (e) => {
-        if (e.target && e.target.id === 'btn-skip-round') {
-            socket.emit('host:skipRound', { roomCode: roomCode });
-        }
-    });
 
     // Player Actions
     playerEls.btnBuzz.addEventListener('click', () => {
@@ -493,11 +517,19 @@ function setupUIListeners() {
         });
     }
 
-    // Return to main lobby
+    // Return to main menu
     const btnReturn = document.getElementById('btn-return-lobby');
     if (btnReturn) {
         btnReturn.addEventListener('click', () => {
             window.location.href = '../../index.html';
+        });
+    }
+
+    // Play Again with same players (host only)
+    const btnPlayAgain = document.getElementById('btn-play-again');
+    if (btnPlayAgain) {
+        btnPlayAgain.addEventListener('click', () => {
+            showPlayAgainModal();
         });
     }
 
@@ -523,14 +555,6 @@ function setupAdminMenu() {
         }
     });
 
-    // Skip Question
-    if (adminMenuEls.skipQuestion) {
-        adminMenuEls.skipQuestion.addEventListener('click', () => {
-            socket.emit('host:skipRound', { roomCode: roomCode });
-            closeAdminMenu();
-        });
-    }
-
     // Shuffle Questions
     if (adminMenuEls.shuffleQuestions) {
         adminMenuEls.shuffleQuestions.addEventListener('click', () => {
@@ -545,7 +569,7 @@ function setupAdminMenu() {
     if (adminMenuEls.newGame) {
         adminMenuEls.newGame.addEventListener('click', () => {
             if (confirm('Start a new game? All scores will be reset and questions reshuffled.')) {
-                socket.emit('host:restartGame', { roomCode: roomCode });
+                socket.emit('host:restartGame', { roomCode: roomCode, seenQuestions: getSeenQuestions() });
                 closeAdminMenu();
             }
         });
@@ -584,11 +608,6 @@ function updateAdminMenuVisibility() {
             }
 
             // Update button states based on phase
-            if (adminMenuEls.skipQuestion) {
-                const canSkip = gameState.phase === 'question' || gameState.phase === 'result';
-                adminMenuEls.skipQuestion.disabled = !canSkip;
-                adminMenuEls.skipQuestion.style.opacity = canSkip ? '1' : '0.4';
-            }
             if (adminMenuEls.shuffleQuestions) {
                 const canShuffle = gameState.phase !== 'end' && gameState.currentQuestionIndex < gameState.totalQuestions - 1;
                 adminMenuEls.shuffleQuestions.disabled = !canShuffle;
@@ -614,6 +633,7 @@ function showScreen(screenName) {
 
 function setupCategoryCheckboxes() {
     const container = document.getElementById('category-checkboxes');
+    if (!container) return;
     container.innerHTML = CATEGORIES.map(cat => `
         <label class="category-checkbox">
             <input type="checkbox" value="${cat}" checked>
@@ -640,14 +660,26 @@ function updateLobbyUI(rs) {
         lobbyEls.code.textContent = roomCode || '----';
     }
     
-    // Update player list with animations - ensure no null names
+    // Update player list — host gets tap-to-kick on other players
     if (rs.players && rs.players.length > 0) {
-        lobbyEls.list.innerHTML = rs.players
-            .map(p => {
-                const name = p.name || `Player-${p.socketId?.slice(0, 4) || '?'}`;
-                return `<div class="player-tag">${name} ${p.isHost ? '👑' : ''}</div>`;
-            })
-            .join('');
+        lobbyEls.list.innerHTML = rs.players.map(p => {
+            const name = p.name || `Player-${p.socketId?.slice(0, 4) || '?'}`;
+            if (isHost && !p.isHost) {
+                return `<div class="player-tag kickable" data-socket-id="${p.socketId}">
+                    <span class="player-tag-name">${name}</span>
+                    <button class="kick-btn" data-socket-id="${p.socketId}" aria-label="Kick ${name}">✕</button>
+                </div>`;
+            }
+            return `<div class="player-tag">${name}${p.isHost ? ' 👑' : ''}</div>`;
+        }).join('');
+
+        // Kick button listeners
+        lobbyEls.list.querySelectorAll('.kick-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                socket.emit('host:kickPlayer', { roomCode, socketId: btn.dataset.socketId });
+            });
+        });
     } else {
         lobbyEls.list.innerHTML = '<div class="player-tag" style="opacity: 0.5;">No players yet...</div>';
     }
@@ -657,9 +689,24 @@ function updateHostControlsVisibility() {
     if (isHost) {
         lobbyEls.hostControls.classList.remove('hidden');
         lobbyEls.playerMsg.classList.add('hidden');
+        renderSelectedCategories();
     } else {
         lobbyEls.hostControls.classList.add('hidden');
         lobbyEls.playerMsg.classList.remove('hidden');
+    }
+}
+
+function renderSelectedCategories() {
+    const listEl = document.getElementById('selected-categories-list');
+    if (!listEl) return;
+    try {
+        const settings = JSON.parse(sessionStorage.getItem('buzzin_settings') || '{}');
+        const cats = settings.categories || [];
+        listEl.innerHTML = cats.length
+            ? cats.map(c => `<span class="selected-cat-tag">${c}</span>`).join('')
+            : '<span style="opacity:0.5">All categories</span>';
+    } catch (e) {
+        listEl.innerHTML = '<span style="opacity:0.5">All categories</span>';
     }
 }
 
@@ -668,14 +715,22 @@ function renderGameState() {
 
     const currentPhase = gameState.phase;
 
-    // Auto-advance: after "Next Question", skip the "Show Question" step for all questions after the first
-    if (isHost && currentPhase === 'waiting' && previousPhase === 'result') {
-        socket.emit('host:showQuestion', { roomCode });
+    // After results, show 3-second animated countdown on ALL clients, then host auto-advances
+    if (currentPhase === 'waiting' && previousPhase === 'result') {
+        startPreQuestionCountdown(3, () => {
+            if (isHost) socket.emit('host:showQuestion', { roomCode });
+        });
     }
 
     // Question music: play from start when question begins, stop when it ends
     if (currentPhase === 'question' && previousPhase !== 'question') {
         startQuestionMusic();
+        // Capture leaderboard snapshot before this question's scores arrive
+        if (gameState.scores) previousScores = JSON.parse(JSON.stringify(gameState.scores));
+        // Track seen question
+        if (gameState.currentQuestion?.question) {
+            addSeenQuestion(gameState.currentQuestion.question);
+        }
     } else if (currentPhase !== 'question' && previousPhase === 'question') {
         stopQuestionMusic();
     }
@@ -693,6 +748,12 @@ function renderGameState() {
     } else if (gameState.phase === 'end') {
         showScreen('end');
         renderEndScreen();
+        // Show Play Again button for host
+        const btnPlayAgain = document.getElementById('btn-play-again');
+        if (btnPlayAgain) {
+            if (isHost) btnPlayAgain.classList.remove('hidden');
+            else btnPlayAgain.classList.add('hidden');
+        }
     } else {
         showScreen('game');
         // Host can play too - show player view for host as well
@@ -733,6 +794,65 @@ function renderCountdown() {
         countdownDisplay.style.display = 'none';
         countdownDisplay.style.animation = 'none';
     }
+}
+
+let preQuestionCountdownTimer = null;
+
+function startPreQuestionCountdown(seconds, onComplete) {
+    // Clear any existing countdown
+    if (preQuestionCountdownTimer) {
+        clearInterval(preQuestionCountdownTimer);
+        preQuestionCountdownTimer = null;
+    }
+    const existing = document.getElementById('pre-q-countdown');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'pre-q-countdown';
+    overlay.style.cssText = [
+        'position:fixed;top:0;left:0;width:100%;height:100%',
+        'background:rgba(0,0,0,0.82)',
+        'display:flex;flex-direction:column;align-items:center;justify-content:center',
+        'z-index:6000;pointer-events:none;font-family:var(--font-main)',
+    ].join(';');
+
+    overlay.innerHTML = `
+        <div style="color:rgba(255,255,255,0.55);font-size:clamp(0.9rem,2.5vw,1.1rem);font-weight:700;text-transform:uppercase;letter-spacing:3px;margin-bottom:18px;">Next Question</div>
+        <div id="pqc-number" style="font-size:clamp(5rem,20vw,9rem);font-weight:900;color:var(--primary);text-shadow:0 0 40px rgba(255,0,85,0.7);line-height:1;">${seconds}</div>
+        <div style="width:180px;height:5px;background:rgba(255,255,255,0.15);border-radius:3px;overflow:hidden;margin-top:28px;">
+            <div id="pqc-bar" style="height:100%;background:var(--primary);border-radius:3px;width:100%;transition:width ${seconds}s linear;"></div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Trigger bar drain
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            const bar = document.getElementById('pqc-bar');
+            if (bar) bar.style.width = '0%';
+        });
+    });
+
+    let count = seconds;
+    preQuestionCountdownTimer = setInterval(() => {
+        count--;
+        const numEl = document.getElementById('pqc-number');
+        if (count <= 0) {
+            clearInterval(preQuestionCountdownTimer);
+            preQuestionCountdownTimer = null;
+            overlay.style.transition = 'opacity 0.25s ease-out';
+            overlay.style.opacity = '0';
+            setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 250);
+            if (onComplete) onComplete();
+        } else {
+            if (numEl) {
+                numEl.style.animation = 'none';
+                numEl.offsetHeight; // reflow
+                numEl.style.animation = 'pqcBeat 0.4s ease-out';
+                numEl.textContent = count;
+            }
+        }
+    }, 1000);
 }
 
 function renderHostView() {
@@ -813,7 +933,10 @@ function renderHostView() {
 
 function renderPlayerView() {
     const { currentQuestion, phase, playerBuzzStatus, scores, answeredCount, totalPlayers, isOffTheDome, isFirstOffTheDome } = gameState;
-    const myScoreEntry = (scores || []).find(s => s.socketId === socket.id) || { score: 0 };
+    // Fallback to name match in case socketId changed after reconnect
+    const myScoreEntry = (scores || []).find(s => s.socketId === socket.id)
+        || (scores || []).find(s => s.name === playerName)
+        || { score: 0 };
 
     // Update timer state
     timerRemaining = gameState.timerRemaining || 0;
@@ -900,7 +1023,10 @@ function renderPlayerView() {
         // Waiting for question - reset choice cache for incoming question
         lastRenderedQuestionKey = null;
         cachedShuffledChoices = null;
+        lastChoiceRenderKey = null;
         selectedChoice = null;
+        // Clear the choices grid DOM to prevent stale selected/hover states (especially on mobile)
+        if (choicesEls.grid) choicesEls.grid.innerHTML = '';
         playerEls.buzzStatus.classList.remove('hidden');
         playerEls.buzzStatus.textContent = "WAITING FOR QUESTION";
         playerEls.buzzStatus.style.color = "#aaa";
@@ -961,7 +1087,7 @@ function renderPlayerView() {
 function renderMultipleChoiceButtons(choices) {
     if (!choicesEls.grid || !choices) return;
 
-    // Only shuffle once per question; re-use the same order on every timer tick
+    // Only shuffle once per question
     const questionKey = gameState?.currentQuestion?.question;
     if (questionKey !== lastRenderedQuestionKey) {
         lastRenderedQuestionKey = questionKey;
@@ -969,7 +1095,12 @@ function renderMultipleChoiceButtons(choices) {
     }
     const shuffledChoices = cachedShuffledChoices || choices;
 
-    choicesEls.grid.innerHTML = shuffledChoices.map((choice, i) => `
+    // Skip full DOM rebuild if nothing visible has changed (prevents click-miss on re-render)
+    const renderKey = `${questionKey}|${hasAnswered}|${selectedChoice || ''}`;
+    if (renderKey === lastChoiceRenderKey) return;
+    lastChoiceRenderKey = renderKey;
+
+    choicesEls.grid.innerHTML = shuffledChoices.map(choice => `
         <button class="choice-btn ${selectedChoice === choice ? 'selected' : ''}"
                 data-choice="${choice}"
                 ${hasAnswered ? 'disabled' : ''}>
@@ -977,7 +1108,6 @@ function renderMultipleChoiceButtons(choices) {
         </button>
     `).join('');
 
-    // Add click handlers
     choicesEls.grid.querySelectorAll('.choice-btn').forEach(btn => {
         btn.addEventListener('click', () => handleChoiceClick(btn.dataset.choice));
     });
@@ -1025,17 +1155,119 @@ function showOffTheDomeOverlay() {
 function renderEndScreen() {
     const podium = document.getElementById('winner-podium');
     if (!podium || !gameState.scores) return;
-    
+
     const sorted = [...gameState.scores].sort((a, b) => b.score - a.score);
-    
+    const medals = ['🏆', '🥈', '🥉'];
+
     podium.innerHTML = sorted.map((p, i) => {
         const name = p.name || `Player-${p.socketId?.slice(0, 4) || '?'}`;
+        const medal = medals[i] || `${i + 1}.`;
         return `
-        <div class="podium-entry" style="font-size: ${2 - i * 0.2}rem; margin: 10px 0;">
-            ${i === 0 ? '🏆 ' : ''}${i+1}. ${name} - ${p.score}pts
+            <div class="podium-entry" style="animation-delay:${i * 80}ms">
+                <span class="podium-rank">${medal}</span>
+                <span class="podium-name">${name}</span>
+                <span class="podium-score">${p.score} pts</span>
+            </div>
+        `;
+    }).join('');
+}
+
+function showPlayAgainModal() {
+    const existing = document.getElementById('play-again-modal');
+    if (existing) existing.remove();
+
+    // Pre-fill from last session settings
+    let lastSettings = {};
+    try { lastSettings = JSON.parse(sessionStorage.getItem('buzzin_settings') || '{}'); } catch (e) {}
+    const cats = lastSettings.categories || [];
+    const qCount = lastSettings.questionCount || 10;
+    const timer = lastSettings.timerDuration || 30;
+    const bonus = lastSettings.bonusFirstCorrect !== false;
+
+    const CATEGORIES = [
+        "General Knowledge","Science","Movies & TV","Music","Sports",
+        "History","Geography","Pop Culture","Games","Random"
+    ];
+
+    const modal = document.createElement('div');
+    modal.id = 'play-again-modal';
+    modal.className = 'play-again-modal';
+    modal.innerHTML = `
+        <div class="play-again-card">
+            <h2>Play Again</h2>
+            <p style="color:rgba(255,255,255,0.6);margin:0 0 20px;font-size:0.9rem;">Same players, new game</p>
+            <div class="pa-section">
+                <label class="pa-label">Categories:</label>
+                <div class="pa-cat-grid">
+                    ${CATEGORIES.map(c => `
+                        <label class="pa-cat-item">
+                            <input type="checkbox" value="${c}" ${cats.includes(c) ? 'checked' : ''}>
+                            <span>${c}</span>
+                        </label>
+                    `).join('')}
+                </div>
+            </div>
+            <div class="pa-section">
+                <label class="pa-label">Questions: <span id="pa-q-val">${qCount}</span></label>
+                <input type="range" id="pa-q-slider" min="5" max="100" value="${qCount}" step="1" style="width:100%">
+            </div>
+            <div class="pa-section">
+                <label class="pa-label">Timer: <span id="pa-t-val">${timer}</span>s per question</label>
+                <input type="range" id="pa-t-slider" min="5" max="120" value="${timer}" step="5" style="width:100%">
+            </div>
+            <div class="pa-section">
+                <label class="pa-toggle">
+                    <input type="checkbox" id="pa-bonus" ${bonus ? 'checked' : ''}>
+                    <span>First correct +50 bonus</span>
+                </label>
+            </div>
+            <div class="pa-actions">
+                <button id="pa-cancel" class="btn-secondary">Cancel</button>
+                <button id="pa-start" class="btn-primary">Start Game!</button>
+            </div>
         </div>
     `;
-    }).join('');
+    document.body.appendChild(modal);
+
+    modal.querySelector('#pa-q-slider').addEventListener('input', (e) => {
+        modal.querySelector('#pa-q-val').textContent = e.target.value;
+    });
+    modal.querySelector('#pa-t-slider').addEventListener('input', (e) => {
+        modal.querySelector('#pa-t-val').textContent = e.target.value;
+    });
+
+    modal.querySelector('#pa-cancel').addEventListener('click', () => modal.remove());
+
+    modal.querySelector('#pa-start').addEventListener('click', () => {
+        const selectedCats = [...modal.querySelectorAll('.pa-cat-item input:checked')].map(cb => cb.value);
+        if (selectedCats.length === 0) {
+            alert('Please select at least one category.');
+            return;
+        }
+        const newQCount = parseInt(modal.querySelector('#pa-q-slider').value);
+        const newTimer = parseInt(modal.querySelector('#pa-t-slider').value);
+        const newBonus = modal.querySelector('#pa-bonus').checked;
+
+        // Save updated settings
+        sessionStorage.setItem('buzzin_settings', JSON.stringify({
+            ...lastSettings,
+            categories: selectedCats,
+            questionCount: newQCount,
+            timerDuration: newTimer,
+            bonusFirstCorrect: newBonus
+        }));
+
+        socket.emit('host:restartGame', {
+            roomCode,
+            categories: selectedCats,
+            questionCount: newQCount,
+            timerDuration: newTimer,
+            bonusFirstCorrect: newBonus,
+            seenQuestions: getSeenQuestions()
+        });
+
+        modal.remove();
+    });
 }
 
 function handleGameEvent(event) {
@@ -1090,47 +1322,97 @@ function showResultsOverlay(event) {
     overlay.id = 'results-overlay';
     overlay.className = 'results-overlay';
 
-    const resultsHTML = (event.results || []).map(r => {
+    // Build results list — always show all players, even those who didn't answer
+    const allPlayers = gameState?.scores || [];
+    const resultsMap = {};
+    (event.results || []).forEach(r => { resultsMap[r.name] = r; });
+
+    // Merge: ensure everyone is represented
+    const allResults = event.results && event.results.length > 0
+        ? event.results
+        : allPlayers.map(p => ({ name: p.name, answer: null, isCorrect: false }));
+
+    const resultsHTML = allResults.map(r => {
         let itemClass = r.isCorrect ? 'correct' : 'wrong';
         if (r.isFirstCorrect) itemClass += ' first';
 
+        const answerText = r.answer ? `"${r.answer}"` : '<em style="opacity:0.5">no answer</em>';
+
         let badge = '';
         if (r.isFirstCorrect) {
-            badge = '<span class="first-badge">FIRST! +150</span>';
+            const pts = r.points || 150;
+            badge = `<span class="first-badge">1ST +${pts}</span>`;
         } else if (r.isCorrect) {
-            badge = '<span class="correct-badge">+100</span>';
+            const pts = r.points || 100;
+            badge = `<span class="correct-badge">+${pts}</span>`;
+        } else {
+            badge = `<span class="wrong-badge">✗</span>`;
         }
 
         return `
             <div class="result-item ${itemClass}">
                 <span class="result-name">${r.name}</span>
-                <span class="result-answer">${r.answer}</span>
+                <span class="result-answer">${answerText}</span>
                 ${badge}
             </div>
         `;
     }).join('');
 
+    // Animated leaderboard — show score deltas from before this question
+    const currentScores = [...(gameState?.scores || [])].sort((a, b) => b.score - a.score);
+    const prevScoreMap = {};
+    (previousScores || []).forEach(p => { prevScoreMap[p.name] = p.score; });
+    const medals = ['🥇', '🥈', '🥉'];
+
+    const leaderboardHTML = currentScores.slice(0, 8).map((p, i) => {
+        const prev = prevScoreMap[p.name] ?? p.score;
+        const delta = p.score - prev;
+        const rank = medals[i] || `${i + 1}.`;
+        const deltaEl = delta > 0
+            ? `<span class="lb-result-delta">+${delta}</span>`
+            : '';
+        return `
+            <div class="lb-result-row" style="animation-delay:${i * 55}ms">
+                <span class="lb-result-rank">${rank}</span>
+                <span class="lb-result-name">${p.name}</span>
+                <span class="lb-result-score">${p.score}</span>
+                ${deltaEl}
+            </div>
+        `;
+    }).join('');
+
     overlay.innerHTML = `
-        <div class="results-card">
+        <div class="results-card" id="results-card-inner">
             <h2>Round Results</h2>
             <div class="correct-answer">
                 Correct Answer: <strong>${event.correctAnswer || 'N/A'}</strong>
             </div>
             <div class="results-list">
-                ${resultsHTML || '<div class="result-item">No answers submitted</div>'}
+                ${resultsHTML || '<div class="result-item" style="justify-content:center;color:#888;">No answers submitted</div>'}
             </div>
+            ${currentScores.length > 0 ? `
+            <div class="results-leaderboard">
+                <div class="results-lb-title">Standings</div>
+                ${leaderboardHTML}
+            </div>` : ''}
         </div>
     `;
 
     document.body.appendChild(overlay);
 
-    // Click to dismiss
-    overlay.addEventListener('click', () => overlay.remove());
+    // Click backdrop to dismiss, but not the card itself
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
+    });
 
-    // Auto-remove after 5 seconds
+    // Auto-remove after 8 seconds
     setTimeout(() => {
-        if (overlay.parentNode) overlay.remove();
-    }, 5000);
+        if (overlay.parentNode) {
+            overlay.style.transition = 'opacity 0.4s ease-out';
+            overlay.style.opacity = '0';
+            setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 400);
+        }
+    }, 8000);
 }
 
 function showPointsAnimation(points) {

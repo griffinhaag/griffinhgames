@@ -30,29 +30,9 @@
 
             <!-- Host Controls -->
             <div id="lobby-host-controls" class="host-controls hidden">
-                <div class="settings-group">
-                    <h3>Select Categories:</h3>
-                    <div id="category-checkboxes" class="category-grid">
-                        <!-- Categories will be populated by JS -->
-                    </div>
-                </div>
-                <div class="settings-group">
-                    <h3>Number of Questions:</h3>
-                    <div class="question-count-control">
-                        <input type="range" id="q-count-slider" min="5" max="30" value="10" step="1">
-                        <div class="question-count-display">
-                            <span id="q-count-display">10</span> questions
-                        </div>
-                    </div>
-                </div>
-                <div class="settings-group">
-                    <h3>Answer Timer:</h3>
-                    <div class="timer-duration-control">
-                        <input type="range" id="timer-duration-slider" min="5" max="120" value="30" step="5">
-                        <div class="timer-duration-display">
-                            <span id="timer-duration-display">30</span> seconds per question
-                        </div>
-                    </div>
+                <div class="lobby-settings-summary">
+                    <p class="summary-label">Selected Categories</p>
+                    <div id="selected-categories-list" class="selected-cat-tags"></div>
                 </div>
                 <button id="btn-start-game" class="btn-primary large">START GAME</button>
             </div>
@@ -79,9 +59,6 @@
                         Room: <span id="admin-room-code-value">----</span>
                     </div>
                     <div class="admin-menu-divider"></div>
-                    <button id="admin-skip-question" class="admin-menu-item">
-                        <span class="admin-icon">&#10074;&#10074;</span> Skip Question
-                    </button>
                     <button id="admin-shuffle-questions" class="admin-menu-item">
                         <span class="admin-icon">&#x1F500;</span> Shuffle Questions
                     </button>
@@ -175,7 +152,10 @@
         <div id="screen-end" class="screen">
             <h1>Game Over!</h1>
             <div class="winner-podium" id="winner-podium"></div>
-            <button id="btn-return-lobby" class="btn-secondary">Return to Lobby</button>
+            <div class="end-screen-actions">
+                <button id="btn-play-again" class="btn-primary hidden">Play Again (Same Players)</button>
+                <button id="btn-return-lobby" class="btn-secondary">Return to Main Menu</button>
+            </div>
         </div>
     </div>
 
