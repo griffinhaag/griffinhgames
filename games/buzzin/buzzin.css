@@ -530,49 +530,55 @@ body {
 /* Host panel card - wraps all host controls into a cohesive sidebar */
 .host-panel-card {
     width: 100%;
-    background: rgba(0, 0, 0, 0.35);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 20px;
-    padding: clamp(15px, 3vw, 22px);
+    padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    backdrop-filter: blur(8px);
+    gap: 10px;
+    backdrop-filter: blur(10px);
 }
 
-/* In host-playing mode, compact the host card (question text is visible in player view too) */
+/* Host card (answer reveal) — compact in the sidebar */
 #screen-game.host-playing .host-card {
-    padding: 14px 16px;
+    padding: 12px 14px;
     margin: 0;
-    border-radius: 14px;
+    border-radius: 12px;
+    box-shadow: none;
 }
 
 #screen-game.host-playing .host-card h2 {
-    font-size: clamp(0.85rem, 1.8vw, 1rem);
-    margin-bottom: 10px;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+    line-height: 1.4;
+    color: #333;
 }
 
 #screen-game.host-playing .host-answer-box {
-    font-size: clamp(0.8rem, 1.6vw, 0.95rem);
-    padding: 10px 12px;
-    margin-top: 10px;
+    font-size: 0.9rem;
+    padding: 8px 10px;
+    margin-top: 8px;
 }
 
-/* Hide redundant timer from host panel — player view already shows it */
+/* Buzz/status area — no min-height, clean */
 #screen-game.host-playing #host-buzz-area {
     min-height: unset;
     margin: 0;
+    font-size: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 #screen-game.host-playing .host-header {
     margin-bottom: 0;
-    padding: clamp(8px, 1.5vw, 12px) clamp(12px, 2vw, 16px);
+    padding: 10px 14px;
+    border-radius: 12px;
 }
 
 #screen-game.host-playing .host-actions {
     width: 100%;
-    display: flex;
-    justify-content: center;
 }
 
 #screen-game.host-playing .phase-controls {
@@ -584,10 +590,100 @@ body {
 #screen-game.host-playing .phase-controls .btn-primary {
     width: 100%;
     text-align: center;
+    padding: 14px 20px;
+    font-size: 1rem;
+    border-radius: 12px;
+}
+
+#screen-game.host-playing .info-text {
+    font-size: 0.85rem;
+    opacity: 0.7;
+    margin: 6px 0;
+    text-align: center;
+}
+
+/* Timer row in host panel */
+.host-timer-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.host-timer-num {
+    font-size: 1.3rem;
+    font-weight: 900;
+    min-width: 36px;
+}
+
+.host-timer-track {
+    flex: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.host-answered-badge {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.7);
+    white-space: nowrap;
+}
+
+/* Status pill for waiting/loading state */
+.host-status-pill {
+    text-align: center;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.5);
+    padding: 6px 0;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.host-no-answers {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.4);
+    font-style: italic;
+}
+
+/* --- Mini Leaderboard rows --- */
+.lb-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 0.85rem;
+}
+
+.lb-row:last-child {
+    border-bottom: none;
+}
+
+.lb-rank {
+    min-width: 24px;
+    font-size: 0.9rem;
+}
+
+.lb-name {
+    flex: 1;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lb-score {
+    font-weight: 700;
+    color: var(--accent);
+    white-space: nowrap;
 }
 
 #screen-game.host-playing .mini-leaderboard {
-    margin-top: 8px;
+    margin-top: 4px;
+    padding: 10px 12px;
+    border-radius: 12px;
 }
 
 .host-card {

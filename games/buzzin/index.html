@@ -150,19 +150,19 @@
                     </div>
 
                     <div class="host-actions">
-                        <!-- Phase: Waiting (Show Question) -->
+                        <!-- Phase: Waiting (auto-advances after first question; fallback for Q1) -->
                         <div id="host-phase-waiting" class="phase-controls">
-                            <button id="btn-show-question" class="btn-primary large">SHOW QUESTION</button>
+                            <button id="btn-show-question" class="btn-primary large">START ROUND</button>
                         </div>
 
-                        <!-- Phase: Question (Timer running, players answering) -->
+                        <!-- Phase: Question (Timer running) -->
                         <div id="host-phase-question" class="phase-controls hidden">
                             <div class="info-text">Players are answering...</div>
                         </div>
 
                         <!-- Phase: Result (Round complete) -->
                         <div id="host-phase-result" class="phase-controls hidden">
-                            <button id="btn-next-question" class="btn-primary large">Next Question</button>
+                            <button id="btn-next-question" class="btn-primary large">NEXT QUESTION</button>
                         </div>
                     </div>
 

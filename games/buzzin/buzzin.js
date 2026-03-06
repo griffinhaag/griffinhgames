@@ -666,8 +666,14 @@ function updateHostControlsVisibility() {
 function renderGameState() {
     if (!gameState) return;
 
-    // Question music: play from start when question begins, stop when it ends
     const currentPhase = gameState.phase;
+
+    // Auto-advance: after "Next Question", skip the "Show Question" step for all questions after the first
+    if (isHost && currentPhase === 'waiting' && previousPhase === 'result') {
+        socket.emit('host:showQuestion', { roomCode });
+    }
+
+    // Question music: play from start when question begins, stop when it ends
     if (currentPhase === 'question' && previousPhase !== 'question') {
         startQuestionMusic();
     } else if (currentPhase !== 'question' && previousPhase === 'question') {
@@ -732,108 +738,77 @@ function renderCountdown() {
 function renderHostView() {
     const { currentQuestion, currentQuestionIndex, totalQuestions, phase, playerBuzzStatus, answeredCount, totalPlayers, isOffTheDome } = gameState;
 
-    // Update timer state
     timerRemaining = gameState.timerRemaining || 0;
     timerDuration = gameState.timerDuration || 30;
 
     // Header
     hostEls.qIndex.textContent = (currentQuestionIndex + 1) || 0;
     hostEls.qTotal.textContent = totalQuestions || 0;
-    hostEls.category.textContent = currentQuestion ? currentQuestion.category : '-';
-
-    // Show OFF THE DOME badge if applicable
-    const categoryEl = hostEls.category;
-    if (isOffTheDome && categoryEl) {
-        categoryEl.innerHTML = `<span class="off-the-dome-badge">OFF THE DOME</span> ${currentQuestion?.category || ''}`;
+    if (isOffTheDome) {
+        hostEls.category.innerHTML = `<span class="off-the-dome-badge">OFF THE DOME</span>`;
+    } else {
+        hostEls.category.textContent = currentQuestion ? currentQuestion.category : '-';
     }
 
-    // Question Card - only show if question is revealed
-    // IMPORTANT: Hide answer from host until results phase
+    // Host card: hidden during question (player view shows it), only shown for answer reveal in result
+    const hostCard = hostEls.view.querySelector('.host-card');
     const answerBox = document.getElementById('host-answer-text');
     const answerContainer = answerBox?.parentElement;
 
-    if (phase === 'waiting') {
-        hostEls.question.textContent = 'Ready to show question?';
-        if (answerBox) {
-            answerBox.textContent = '---';
-            answerContainer?.classList.add('hidden-answer');
-            answerContainer?.classList.remove('revealed');
-        }
-    } else if (phase === 'question') {
+    if (phase === 'result') {
+        if (hostCard) hostCard.classList.remove('hidden');
         hostEls.question.textContent = currentQuestion?.question || '...';
-        // Hide answer during question phase so host can play fairly
-        if (answerBox) {
-            answerBox.textContent = '(Hidden until results)';
-            answerContainer?.classList.add('hidden-answer');
-            answerContainer?.classList.remove('revealed');
-        }
-    } else if (phase === 'result') {
-        hostEls.question.textContent = currentQuestion?.question || '...';
-        // Reveal answer during results
         if (answerBox) {
             answerBox.textContent = currentQuestion?.answer || '...';
             answerContainer?.classList.remove('hidden-answer');
             answerContainer?.classList.add('revealed');
         }
-    } else if (currentQuestion) {
-        hostEls.question.textContent = currentQuestion.question || '...';
-        if (answerBox) {
-            answerBox.textContent = currentQuestion.answer || '...';
-        }
     } else {
-        hostEls.question.textContent = '...';
-        if (answerBox) {
-            answerBox.textContent = '...';
-        }
+        if (hostCard) hostCard.classList.add('hidden');
     }
 
-    // Phase Controls - hide all first
-    Object.values(hostEls.phases).forEach(el => {
-        if (el) el.classList.add('hidden');
-    });
+    // Phase controls — hide all first
+    Object.values(hostEls.phases).forEach(el => { if (el) el.classList.add('hidden'); });
 
     if (phase === 'waiting') {
+        // Auto-advance is triggered in renderGameState; show minimal state while server responds
         if (hostEls.phases.waiting) hostEls.phases.waiting.classList.remove('hidden');
-        hostEls.buzzArea.innerHTML = '<div class="status-text">Click "Show Question" to reveal</div>';
+        hostEls.buzzArea.innerHTML = '<div class="host-status-pill">Getting ready...</div>';
     } else if (phase === 'question') {
         if (hostEls.phases.question) hostEls.phases.question.classList.remove('hidden');
 
-        // Calculate timer progress
         const timerPct = timerDuration > 0 ? (timerRemaining / timerDuration) * 100 : 0;
         let timerColor = 'var(--success)';
         if (timerPct <= 25) timerColor = 'var(--danger)';
         else if (timerPct <= 50) timerColor = 'var(--accent)';
 
-        // Build buzzed players list
         const buzzedPlayers = (playerBuzzStatus || []).filter(p => p.hasBuzzed);
-        const buzzedList = buzzedPlayers.map(p => {
-            const statusClass = p.hasAnswered ? 'answered' : 'waiting';
-            return `<span class="buzzed-tag ${statusClass}">${p.name}</span>`;
-        }).join('');
+        const buzzedList = buzzedPlayers.map(p =>
+            `<span class="buzzed-tag ${p.hasAnswered ? 'answered' : 'waiting'}">${p.name}</span>`
+        ).join('');
 
         hostEls.buzzArea.innerHTML = `
-            <div class="timer-display-host">
-                <div class="timer-number" style="color: ${timerColor}">${timerRemaining}s</div>
-                <div class="timer-bar-container">
-                    <div class="timer-bar" style="width: ${timerPct}%; background: ${timerColor}"></div>
+            <div class="host-timer-row">
+                <span class="host-timer-num" style="color:${timerColor}">${timerRemaining}s</span>
+                <div class="host-timer-track">
+                    <div class="timer-bar" style="width:${timerPct}%;background:${timerColor}"></div>
                 </div>
+                <span class="host-answered-badge">${answeredCount || 0}/${totalPlayers || 0}</span>
             </div>
-            <div class="answered-status">${answeredCount || 0}/${totalPlayers || 0} answered</div>
-            <div class="buzzed-players-list">${buzzedList || '<span style="opacity:0.5">No buzzes yet...</span>'}</div>
+            <div class="buzzed-players-list">${buzzedList || '<span class="host-no-answers">Waiting for answers...</span>'}</div>
         `;
     } else if (phase === 'result') {
         if (hostEls.phases.result) hostEls.phases.result.classList.remove('hidden');
-        hostEls.buzzArea.innerHTML = '<div class="status-text" style="color: var(--success);">Round Complete - See Results</div>';
+        hostEls.buzzArea.innerHTML = '';
     }
 
-    // Leaderboard (Mini) - ensure no null names
+    // Leaderboard
+    const medals = ['🥇', '🥈', '🥉', '4.', '5.'];
     const sortedScores = [...(gameState.scores || [])].sort((a, b) => b.score - a.score);
-    hostEls.leaderboard.innerHTML = sortedScores.slice(0, 5)
-        .map((p, i) => {
-            const name = p.name || `Player-${p.socketId?.slice(0, 4) || '?'}`;
-            return `<div>${i+1}. ${name}: ${p.score}</div>`;
-        })
-        .join('');
+    hostEls.leaderboard.innerHTML = sortedScores.slice(0, 5).map((p, i) => {
+        const name = p.name || `Player-${p.socketId?.slice(0, 4) || '?'}`;
+        return `<div class="lb-row"><span class="lb-rank">${medals[i]}</span><span class="lb-name">${name}</span><span class="lb-score">${p.score}</span></div>`;
+    }).join('');
 }
 
 function renderPlayerView() {
