@@ -67,6 +67,70 @@ let selectedChoice = null;
 let lastRenderedQuestionKey = null;
 let cachedShuffledChoices = null;
 
+// --- YouTube Players ---
+let lobbyPlayer = null;
+let questionMusicPlayer = null;
+let lobbyPlayerReady = false;
+let questionMusicReady = false;
+let previousPhase = null;
+
+// Called automatically by YouTube IFrame API once loaded
+function onYouTubeIframeAPIReady() {
+    lobbyPlayer = new YT.Player('lobby-video-player', {
+        videoId: '8YGlzSl6cxU',
+        playerVars: {
+            autoplay: 1,
+            loop: 1,
+            playlist: '8YGlzSl6cxU',
+            controls: 1,
+            modestbranding: 1,
+            rel: 0
+        },
+        events: {
+            onReady: (e) => {
+                lobbyPlayerReady = true;
+                e.target.playVideo();
+            }
+        }
+    });
+
+    questionMusicPlayer = new YT.Player('question-music-player', {
+        videoId: 'jTbA70qUyVY',
+        playerVars: {
+            autoplay: 0,
+            controls: 0,
+            modestbranding: 1,
+            rel: 0
+        },
+        events: {
+            onReady: () => {
+                questionMusicReady = true;
+            }
+        }
+    });
+}
+
+function playLobbyVideo() {
+    if (lobbyPlayerReady && lobbyPlayer?.playVideo) lobbyPlayer.playVideo();
+}
+
+function stopLobbyVideo() {
+    if (lobbyPlayerReady && lobbyPlayer?.pauseVideo) lobbyPlayer.pauseVideo();
+}
+
+function startQuestionMusic() {
+    if (questionMusicReady && questionMusicPlayer?.seekTo) {
+        questionMusicPlayer.seekTo(0);
+        questionMusicPlayer.playVideo();
+    }
+}
+
+function stopQuestionMusic() {
+    if (questionMusicReady && questionMusicPlayer?.stopVideo) {
+        questionMusicPlayer.stopVideo();
+    }
+}
+
 const hostEls = {
     view: document.getElementById('view-host'),
     qIndex: document.getElementById('host-q-index'),
@@ -540,6 +604,12 @@ function updateAdminMenuVisibility() {
 function showScreen(screenName) {
     Object.values(screens).forEach(el => el.classList.remove('active'));
     screens[screenName].classList.add('active');
+
+    if (screenName === 'lobby') {
+        playLobbyVideo();
+    } else {
+        stopLobbyVideo();
+    }
 }
 
 function setupCategoryCheckboxes() {
@@ -595,6 +665,15 @@ function updateHostControlsVisibility() {
 
 function renderGameState() {
     if (!gameState) return;
+
+    // Question music: play from start when question begins, stop when it ends
+    const currentPhase = gameState.phase;
+    if (currentPhase === 'question' && previousPhase !== 'question') {
+        startQuestionMusic();
+    } else if (currentPhase !== 'question' && previousPhase === 'question') {
+        stopQuestionMusic();
+    }
+    previousPhase = currentPhase;
 
     // Update admin menu visibility
     updateAdminMenuVisibility();
