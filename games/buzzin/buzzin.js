@@ -8,6 +8,12 @@ let isHost = false;
 let gameState = null;
 let roomState = null; // Store room state for lobby display
 
+// New state for "everyone answers" mechanic
+let timerRemaining = 0;
+let timerDuration = 30;
+let hasAnswered = false;
+let hasBuzzed = false;
+
 // Available categories (should match backend)
 const CATEGORIES = [
   "General Knowledge",
@@ -37,6 +43,8 @@ const lobbyEls = {
     playerMsg: document.getElementById('lobby-player-msg'),
     qCountSlider: document.getElementById('q-count-slider'),
     qCountDisplay: document.getElementById('q-count-display'),
+    timerSlider: document.getElementById('timer-duration-slider'),
+    timerDisplay: document.getElementById('timer-duration-display'),
     btnStart: document.getElementById('btn-start-game')
 };
 
@@ -90,9 +98,23 @@ function init() {
     playerName = urlParams.get('name');
     isHost = urlParams.get('host') === 'true';
 
+    // Check sessionStorage for redirect info (from lobby/join page)
+    const redirectInfo = sessionStorage.getItem('buzzin_redirect');
+    if (redirectInfo) {
+        try {
+            const info = JSON.parse(redirectInfo);
+            roomCode = roomCode || info.room;
+            playerName = playerName || info.name;
+            isHost = isHost || info.host === true;
+            sessionStorage.removeItem('buzzin_redirect');
+        } catch (e) {
+            console.error('Failed to parse redirect info:', e);
+        }
+    }
+
     if (!roomCode || !playerName) {
-        alert("Invalid game session. Redirecting to lobby...");
-        window.location.href = 'games/multiplayer/lobby.html';
+        alert("Invalid game session. Redirecting to join page...");
+        window.location.href = 'join.html';
         return;
     }
 
@@ -107,6 +129,42 @@ function init() {
 
     setupSocketListeners();
     setupUIListeners();
+
+    // Restore settings from sessionStorage (for host coming from setup page)
+    restoreSettingsFromStorage();
+}
+
+// --- Restore Settings from SessionStorage ---
+function restoreSettingsFromStorage() {
+    const settingsStr = sessionStorage.getItem('buzzin_settings');
+    if (!settingsStr || !isHost) return;
+
+    try {
+        const settings = JSON.parse(settingsStr);
+        console.log('Restoring settings:', settings);
+
+        // Restore question count
+        if (settings.questionCount && lobbyEls.qCountSlider && lobbyEls.qCountDisplay) {
+            lobbyEls.qCountSlider.value = settings.questionCount;
+            lobbyEls.qCountDisplay.textContent = settings.questionCount;
+        }
+
+        // Restore timer duration
+        if (settings.timerDuration && lobbyEls.timerSlider && lobbyEls.timerDisplay) {
+            lobbyEls.timerSlider.value = settings.timerDuration;
+            lobbyEls.timerDisplay.textContent = settings.timerDuration;
+        }
+
+        // Restore selected categories
+        if (settings.categories && settings.categories.length > 0) {
+            const checkboxes = document.querySelectorAll('#category-checkboxes input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                cb.checked = settings.categories.includes(cb.value);
+            });
+        }
+    } catch (e) {
+        console.error('Failed to restore settings:', e);
+    }
 }
 
 // --- Socket Listeners ---
@@ -116,30 +174,17 @@ function setupSocketListeners() {
     socket.on('connect', () => {
         console.log('Connected to BuzzIn! server');
         clearTimeout(connectionTimeout);
-        
-        // Check if we have redirect info from lobby
-        const redirectInfo = sessionStorage.getItem('buzzin_redirect');
-        if (redirectInfo) {
-            try {
-                const info = JSON.parse(redirectInfo);
-                roomCode = info.room || roomCode;
-                playerName = info.name || playerName;
-                isHost = info.host === true || isHost;
-                sessionStorage.removeItem('buzzin_redirect');
-            } catch (e) {
-                console.error('Failed to parse redirect info:', e);
-            }
-        }
-        
+
         // Join room immediately after connection
+        // Server handles reconnection by player name automatically
         if (roomCode && playerName) {
             console.log('Joining room:', roomCode, 'as', playerName, 'host:', isHost);
-            socket.emit('player:joinRoom', { roomCode, name: playerName });
+            socket.emit('player:joinRoom', { roomCode, name: playerName, isHost: isHost });
         } else {
             console.error('Missing roomCode or playerName:', { roomCode, playerName });
-            // Redirect back to lobby if missing info
+            // Redirect back to join page if missing info
             setTimeout(() => {
-                window.location.href = '../multiplayer/lobby.html';
+                window.location.href = 'join.html';
             }, 2000);
         }
     });
@@ -163,7 +208,7 @@ function setupSocketListeners() {
     socket.on('reconnect', () => {
         console.log('Reconnected to server');
         if (roomCode && playerName) {
-            socket.emit('player:joinRoom', { roomCode, name: playerName });
+            socket.emit('player:joinRoom', { roomCode, name: playerName, isHost: isHost });
         }
     });
     
@@ -251,6 +296,11 @@ function setupSocketListeners() {
         
         // Handle game ended
         if (event.type === 'game_ended') {
+            // Clear session storage
+            sessionStorage.removeItem('buzzin_redirect');
+            sessionStorage.removeItem('buzzin_room');
+            sessionStorage.removeItem('buzzin_settings');
+
             if (event.reason === 'ended_by_host') {
                 alert('Host ended the game. Returning to main menu...');
                 setTimeout(() => {
@@ -261,11 +311,23 @@ function setupSocketListeners() {
     });
 }
 
+// --- Admin Menu Elements ---
+const adminMenuEls = {
+    menu: document.getElementById('admin-menu'),
+    toggle: document.getElementById('admin-menu-toggle'),
+    dropdown: document.getElementById('admin-menu-dropdown'),
+    roomCodeValue: document.getElementById('admin-room-code-value'),
+    skipQuestion: document.getElementById('admin-skip-question'),
+    shuffleQuestions: document.getElementById('admin-shuffle-questions'),
+    newGame: document.getElementById('admin-new-game'),
+    endGame: document.getElementById('admin-end-game')
+};
+
 // --- UI Listeners ---
 function setupUIListeners() {
     // Initialize category checkboxes
     setupCategoryCheckboxes();
-    
+
     // Question count slider
     if (lobbyEls.qCountSlider) {
         lobbyEls.qCountSlider.addEventListener('input', (e) => {
@@ -275,24 +337,35 @@ function setupUIListeners() {
         });
     }
 
+    // Timer duration slider
+    if (lobbyEls.timerSlider) {
+        lobbyEls.timerSlider.addEventListener('input', (e) => {
+            if (lobbyEls.timerDisplay) {
+                lobbyEls.timerDisplay.textContent = e.target.value;
+            }
+        });
+    }
+
     // Start game button
     lobbyEls.btnStart.addEventListener('click', () => {
         const selectedCategories = Array.from(document.querySelectorAll('#category-checkboxes input:checked'))
             .map(cb => cb.value);
-        
+
         if (selectedCategories.length === 0) {
             alert('Please select at least one category!');
             return;
         }
-        
+
         const questionCount = parseInt(lobbyEls.qCountSlider?.value || 10);
-        
-        // Emit host:startGame with categories and question count
+        const timerDurationValue = parseInt(lobbyEls.timerSlider?.value || 30);
+
+        // Emit host:startGame with categories, question count, and timer duration
         socket.emit('host:startGame', {
             roomCode: roomCode,
             gameType: 'buzzin',
             categories: selectedCategories,
-            questionCount: questionCount
+            questionCount: questionCount,
+            timerDuration: timerDurationValue
         });
     });
 
@@ -302,24 +375,26 @@ function setupUIListeners() {
             socket.emit('host:showQuestion', { roomCode: roomCode });
         });
     }
-    
-    hostEls.btnCorrect.addEventListener('click', () => {
-        socket.emit('host:judgeAnswer', { roomCode: roomCode, correct: true });
-    });
-    
-    hostEls.btnWrong.addEventListener('click', () => {
-        socket.emit('host:judgeAnswer', { roomCode: roomCode, correct: false });
-    });
-    
-    hostEls.btnNext.addEventListener('click', () => {
-        socket.emit('host:nextQuestion', { roomCode: roomCode });
+
+    // Next question button
+    if (hostEls.btnNext) {
+        hostEls.btnNext.addEventListener('click', () => {
+            socket.emit('host:nextQuestion', { roomCode: roomCode });
+        });
+    }
+
+    // Skip round button (dynamically added, so we use event delegation)
+    document.addEventListener('click', (e) => {
+        if (e.target && e.target.id === 'btn-skip-round') {
+            socket.emit('host:skipRound', { roomCode: roomCode });
+        }
     });
 
     // Player Actions
     playerEls.btnBuzz.addEventListener('click', () => {
         socket.emit('player:buzz', { roomCode: roomCode });
     });
-    
+
     // Answer submission
     if (answerEls.btnSubmit) {
         answerEls.btnSubmit.addEventListener('click', () => {
@@ -331,7 +406,7 @@ function setupUIListeners() {
             }
         });
     }
-    
+
     // Allow Enter key to submit answer
     if (answerEls.input) {
         answerEls.input.addEventListener('keypress', (e) => {
@@ -340,7 +415,7 @@ function setupUIListeners() {
             }
         });
     }
-    
+
     // Return to main lobby
     const btnReturn = document.getElementById('btn-return-lobby');
     if (btnReturn) {
@@ -348,24 +423,103 @@ function setupUIListeners() {
             window.location.href = '../../index.html';
         });
     }
-    
-    // Host controls
-    const btnRestart = document.getElementById('btn-restart-game');
-    if (btnRestart) {
-        btnRestart.addEventListener('click', () => {
-            if (confirm('Restart the game? All scores will reset.')) {
-                socket.emit('host:restartGame', { roomCode: roomCode });
+
+    // --- Admin Menu Setup ---
+    setupAdminMenu();
+}
+
+// --- Admin Menu Functions ---
+function setupAdminMenu() {
+    // Toggle menu dropdown
+    if (adminMenuEls.toggle) {
+        adminMenuEls.toggle.addEventListener('click', () => {
+            adminMenuEls.toggle.classList.toggle('active');
+            adminMenuEls.dropdown.classList.toggle('hidden');
+        });
+    }
+
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+        if (adminMenuEls.menu && !adminMenuEls.menu.contains(e.target)) {
+            adminMenuEls.toggle?.classList.remove('active');
+            adminMenuEls.dropdown?.classList.add('hidden');
+        }
+    });
+
+    // Skip Question
+    if (adminMenuEls.skipQuestion) {
+        adminMenuEls.skipQuestion.addEventListener('click', () => {
+            socket.emit('host:skipRound', { roomCode: roomCode });
+            closeAdminMenu();
+        });
+    }
+
+    // Shuffle Questions
+    if (adminMenuEls.shuffleQuestions) {
+        adminMenuEls.shuffleQuestions.addEventListener('click', () => {
+            if (confirm('Shuffle remaining questions? This will randomize the order of upcoming questions.')) {
+                socket.emit('host:shuffleQuestions', { roomCode: roomCode });
+                closeAdminMenu();
             }
         });
     }
-    
-    const btnEndGame = document.getElementById('btn-end-game');
-    if (btnEndGame) {
-        btnEndGame.addEventListener('click', () => {
-            if (confirm('End the game? This will return everyone to the main menu.')) {
-                socket.emit('host:endGame', { roomCode: roomCode });
+
+    // Start New Game
+    if (adminMenuEls.newGame) {
+        adminMenuEls.newGame.addEventListener('click', () => {
+            if (confirm('Start a new game? All scores will be reset and questions reshuffled.')) {
+                socket.emit('host:restartGame', { roomCode: roomCode });
+                closeAdminMenu();
             }
         });
+    }
+
+    // End Game
+    if (adminMenuEls.endGame) {
+        adminMenuEls.endGame.addEventListener('click', () => {
+            if (confirm('End the game? This will return everyone to the main menu.')) {
+                socket.emit('host:endGame', { roomCode: roomCode });
+                closeAdminMenu();
+            }
+        });
+    }
+}
+
+function closeAdminMenu() {
+    adminMenuEls.toggle?.classList.remove('active');
+    adminMenuEls.dropdown?.classList.add('hidden');
+}
+
+function updateAdminMenuVisibility() {
+    if (adminMenuEls.menu) {
+        // Show admin menu for host during game phases (including end screen)
+        if (isHost && gameState && (
+            gameState.phase === 'waiting' ||
+            gameState.phase === 'question' ||
+            gameState.phase === 'result' ||
+            gameState.phase === 'end'
+        )) {
+            adminMenuEls.menu.classList.remove('hidden');
+
+            // Update room code display
+            if (adminMenuEls.roomCodeValue) {
+                adminMenuEls.roomCodeValue.textContent = roomCode || '----';
+            }
+
+            // Update button states based on phase
+            if (adminMenuEls.skipQuestion) {
+                const canSkip = gameState.phase === 'question' || gameState.phase === 'result';
+                adminMenuEls.skipQuestion.disabled = !canSkip;
+                adminMenuEls.skipQuestion.style.opacity = canSkip ? '1' : '0.4';
+            }
+            if (adminMenuEls.shuffleQuestions) {
+                const canShuffle = gameState.phase !== 'end' && gameState.currentQuestionIndex < gameState.totalQuestions - 1;
+                adminMenuEls.shuffleQuestions.disabled = !canShuffle;
+                adminMenuEls.shuffleQuestions.style.opacity = canShuffle ? '1' : '0.4';
+            }
+        } else {
+            adminMenuEls.menu.classList.add('hidden');
+        }
     }
 }
 
@@ -429,6 +583,9 @@ function updateHostControlsVisibility() {
 function renderGameState() {
     if (!gameState) return;
 
+    // Update admin menu visibility
+    updateAdminMenuVisibility();
+
     // Switch screens based on phase
     if (gameState.phase === 'lobby') {
         showScreen('lobby');
@@ -443,11 +600,13 @@ function renderGameState() {
         // Host can play too - show player view for host as well
         if (isHost) {
             // Host sees both views - host controls + player buzzer
+            screens.game.classList.add('host-playing');
             hostEls.view.classList.remove('hidden');
             playerEls.view.classList.remove('hidden');
             renderHostView();
             renderPlayerView();
         } else {
+            screens.game.classList.remove('host-playing');
             hostEls.view.classList.add('hidden');
             playerEls.view.classList.remove('hidden');
             renderPlayerView();
@@ -479,13 +638,17 @@ function renderCountdown() {
 }
 
 function renderHostView() {
-    const { currentQuestion, currentQuestionIndex, totalQuestions, phase, buzzState } = gameState;
-    
+    const { currentQuestion, currentQuestionIndex, totalQuestions, phase, playerBuzzStatus, answeredCount, totalPlayers } = gameState;
+
+    // Update timer state
+    timerRemaining = gameState.timerRemaining || 0;
+    timerDuration = gameState.timerDuration || 30;
+
     // Header
     hostEls.qIndex.textContent = (currentQuestionIndex + 1) || 0;
     hostEls.qTotal.textContent = totalQuestions || 0;
     hostEls.category.textContent = currentQuestion ? currentQuestion.category : '-';
-    
+
     // Question Card - only show if question is revealed
     if (phase === 'waiting') {
         hostEls.question.textContent = 'Ready to show question?';
@@ -502,29 +665,39 @@ function renderHostView() {
     Object.values(hostEls.phases).forEach(el => {
         if (el) el.classList.add('hidden');
     });
-    
+
     if (phase === 'waiting') {
         if (hostEls.phases.waiting) hostEls.phases.waiting.classList.remove('hidden');
         hostEls.buzzArea.innerHTML = '<div class="status-text">Click "Show Question" to reveal</div>';
     } else if (phase === 'question') {
         if (hostEls.phases.question) hostEls.phases.question.classList.remove('hidden');
-        hostEls.buzzArea.innerHTML = '<div class="status-text">Waiting for buzz...</div>';
-    } else if (phase === 'buzzed') {
-        if (hostEls.phases.buzzed) hostEls.phases.buzzed.classList.remove('hidden');
-        const buzzedName = buzzState.buzzedPlayerName || 'Unknown';
-        if (hostEls.buzzedName) hostEls.buzzedName.textContent = buzzedName;
+
+        // Calculate timer progress
+        const timerPct = timerDuration > 0 ? (timerRemaining / timerDuration) * 100 : 0;
+        let timerColor = 'var(--success)';
+        if (timerPct <= 25) timerColor = 'var(--danger)';
+        else if (timerPct <= 50) timerColor = 'var(--accent)';
+
+        // Build buzzed players list
+        const buzzedPlayers = (playerBuzzStatus || []).filter(p => p.hasBuzzed);
+        const buzzedList = buzzedPlayers.map(p => {
+            const statusClass = p.hasAnswered ? 'answered' : 'waiting';
+            return `<span class="buzzed-tag ${statusClass}">${p.name}</span>`;
+        }).join('');
+
         hostEls.buzzArea.innerHTML = `
-            <div class="buzzed-alert" style="color: var(--primary);">
-                🚨 ${buzzedName} 🚨
-            </div>`;
-    } else if (phase === 'answering') {
-        if (hostEls.phases.answering) hostEls.phases.answering.classList.remove('hidden');
-        const answeringName = buzzState.buzzedPlayerName || 'Player';
-        if (hostEls.answeringName) hostEls.answeringName.textContent = answeringName;
-        hostEls.buzzArea.innerHTML = `<div class="status-text">Waiting for ${answeringName} to submit answer...</div>`;
+            <div class="timer-display-host">
+                <div class="timer-number" style="color: ${timerColor}">${timerRemaining}s</div>
+                <div class="timer-bar-container">
+                    <div class="timer-bar" style="width: ${timerPct}%; background: ${timerColor}"></div>
+                </div>
+            </div>
+            <div class="answered-status">${answeredCount || 0}/${totalPlayers || 0} answered</div>
+            <div class="buzzed-players-list">${buzzedList || '<span style="opacity:0.5">No buzzes yet...</span>'}</div>
+        `;
     } else if (phase === 'result') {
         if (hostEls.phases.result) hostEls.phases.result.classList.remove('hidden');
-        hostEls.buzzArea.innerHTML = '<div class="status-text" style="color: var(--success);">Answer Revealed</div>';
+        hostEls.buzzArea.innerHTML = '<div class="status-text" style="color: var(--success);">Round Complete - See Results</div>';
     }
 
     // Leaderboard (Mini) - ensure no null names
@@ -535,25 +708,23 @@ function renderHostView() {
             return `<div>${i+1}. ${name}: ${p.score}</div>`;
         })
         .join('');
-    
-    // Show host control buttons (restart/end) if game is in progress or ended
-    const hostControlPanel = document.getElementById('host-control-panel');
-    if (hostControlPanel) {
-        if (phase === 'end' || phase === 'result' || phase === 'question' || phase === 'buzzed' || phase === 'answering') {
-            hostControlPanel.style.display = 'block';
-        } else {
-            hostControlPanel.style.display = 'none';
-        }
-    }
 }
 
 function renderPlayerView() {
-    const { currentQuestion, phase, buzzState, scores } = gameState;
+    const { currentQuestion, phase, playerBuzzStatus, scores, answeredCount, totalPlayers } = gameState;
     const myScoreEntry = (scores || []).find(s => s.socketId === socket.id) || { score: 0 };
-    
+
+    // Update timer state
+    timerRemaining = gameState.timerRemaining || 0;
+    timerDuration = gameState.timerDuration || 30;
+
+    // Get my buzz/answer status
+    const myStatus = (playerBuzzStatus || []).find(p => p.socketId === socket.id);
+    hasBuzzed = myStatus?.hasBuzzed || false;
+    hasAnswered = myStatus?.hasAnswered || false;
+
     // Score & Rank
     playerEls.score.textContent = myScoreEntry.score || 0;
-    // Calc rank
     const sorted = [...(scores || [])].sort((a, b) => b.score - a.score);
     const myRank = sorted.findIndex(s => s.socketId === socket.id) + 1;
     playerEls.rank.textContent = myRank > 0 ? `#${myRank}` : '-';
@@ -570,9 +741,36 @@ function renderPlayerView() {
         playerEls.question.textContent = 'Wait for it...';
     }
 
-    // Buzzer State & Answer Section
-    const iBuzzed = buzzState.buzzedPlayerId === socket.id;
-    
+    // Show timer during question phase
+    let timerHTML = '';
+    if (phase === 'question') {
+        const timerPct = timerDuration > 0 ? (timerRemaining / timerDuration) * 100 : 0;
+        let timerColor = 'var(--success)';
+        if (timerPct <= 25) timerColor = 'var(--danger)';
+        else if (timerPct <= 50) timerColor = 'var(--accent)';
+
+        timerHTML = `
+            <div class="player-timer">
+                <div class="timer-bar-container">
+                    <div class="timer-bar" style="width: ${timerPct}%; background: ${timerColor}"></div>
+                </div>
+                <span class="timer-text" style="color: ${timerColor}">${timerRemaining}s</span>
+            </div>
+        `;
+    }
+
+    // Update timer display if element exists
+    let timerContainer = document.getElementById('player-timer-container');
+    if (!timerContainer && phase === 'question') {
+        timerContainer = document.createElement('div');
+        timerContainer.id = 'player-timer-container';
+        playerEls.view.insertBefore(timerContainer, playerEls.view.firstChild);
+    }
+    if (timerContainer) {
+        timerContainer.innerHTML = timerHTML;
+    }
+
+    // Buzzer State & Answer Section - NEW FLOW
     if (phase === 'waiting') {
         // Waiting for question
         playerEls.buzzStatus.classList.remove('hidden');
@@ -580,39 +778,48 @@ function renderPlayerView() {
         playerEls.buzzStatus.style.color = "#aaa";
         playerEls.btnBuzz.disabled = true;
         if (answerEls.section) answerEls.section.classList.add('hidden');
-    } else if (phase === 'question' && !buzzState.locked) {
-        // Can buzz
-        playerEls.buzzStatus.classList.add('hidden');
-        playerEls.btnBuzz.disabled = false;
-        if (answerEls.section) answerEls.section.classList.add('hidden');
-    } else if (phase === 'buzzed' || phase === 'answering') {
-        // Someone buzzed
-        playerEls.buzzStatus.classList.remove('hidden');
-        playerEls.btnBuzz.disabled = true;
-        
-        if (iBuzzed) {
-            // I buzzed - show answer input
-            playerEls.buzzStatus.textContent = "YOU BUZZED!";
+    } else if (phase === 'question') {
+        if (hasAnswered) {
+            // Already submitted answer
+            playerEls.buzzStatus.classList.remove('hidden');
+            playerEls.buzzStatus.textContent = "ANSWER SUBMITTED!";
             playerEls.buzzStatus.style.color = "var(--success)";
+            playerEls.btnBuzz.disabled = true;
+            playerEls.btnBuzz.style.display = 'none';
+            if (answerEls.section) answerEls.section.classList.add('hidden');
+        } else if (hasBuzzed) {
+            // Buzzed but haven't answered - show answer input
+            playerEls.buzzStatus.classList.remove('hidden');
+            playerEls.buzzStatus.textContent = "TYPE YOUR ANSWER!";
+            playerEls.buzzStatus.style.color = "var(--accent)";
+            playerEls.btnBuzz.disabled = true;
+            playerEls.btnBuzz.style.display = 'none';
             if (answerEls.section) {
                 answerEls.section.classList.remove('hidden');
-                if (phase === 'answering') {
-                    answerEls.input.focus();
-                }
+                answerEls.input.focus();
             }
         } else {
-            // Someone else buzzed
-            const buzzedName = buzzState.buzzedPlayerName || 'Someone';
-            playerEls.buzzStatus.textContent = `${buzzedName} BUZZED`;
-            playerEls.buzzStatus.style.color = "var(--danger)";
+            // Can still buzz
+            playerEls.buzzStatus.classList.add('hidden');
+            playerEls.btnBuzz.disabled = false;
+            playerEls.btnBuzz.style.display = 'block';
             if (answerEls.section) answerEls.section.classList.add('hidden');
         }
-    } else {
-        // Locked/other phase
+    } else if (phase === 'result') {
+        // Results phase
         playerEls.buzzStatus.classList.remove('hidden');
-        playerEls.buzzStatus.textContent = "LOCKED";
+        playerEls.buzzStatus.textContent = "ROUND COMPLETE";
+        playerEls.buzzStatus.style.color = "var(--accent)";
+        playerEls.btnBuzz.disabled = true;
+        playerEls.btnBuzz.style.display = 'block';
+        if (answerEls.section) answerEls.section.classList.add('hidden');
+    } else {
+        // Other phases
+        playerEls.buzzStatus.classList.remove('hidden');
+        playerEls.buzzStatus.textContent = "PLEASE WAIT";
         playerEls.buzzStatus.style.color = "#aaa";
         playerEls.btnBuzz.disabled = true;
+        playerEls.btnBuzz.style.display = 'block';
         if (answerEls.section) answerEls.section.classList.add('hidden');
     }
 }
@@ -634,32 +841,185 @@ function renderEndScreen() {
 }
 
 function handleGameEvent(event) {
-    if (event.type === 'correct') {
-        showFeedback('CORRECT!', 'success');
-        if (event.playerId === socket.id) playSound('correct');
-    } else if (event.type === 'wrong') {
-        showFeedback('WRONG!', 'danger');
-        if (event.playerId === socket.id) playSound('wrong');
-    } else if (event.type === 'buzz') {
+    if (event.type === 'round_results') {
+        // Show results overlay with all answers
+        showResultsOverlay(event);
+    } else if (event.type === 'first_correct') {
+        // First correct answer bonus
         if (event.playerId === socket.id) {
-             navigator.vibrate?.(200); // Vibrate phone on success buzz
+            showFeedback('FIRST CORRECT! +150', 'success');
+            showPointsAnimation(150);
+            playSound('correct');
         }
+    } else if (event.type === 'correct') {
+        // Standard correct
+        if (event.playerId === socket.id) {
+            showFeedback('CORRECT! +100', 'success');
+            showPointsAnimation(100);
+            playSound('correct');
+        }
+    } else if (event.type === 'wrong') {
+        if (event.playerId === socket.id) {
+            showFeedback('WRONG!', 'danger');
+            playSound('wrong');
+        }
+    } else if (event.type === 'player_buzzed') {
+        // Someone buzzed - show brief notification
+        if (event.playerId !== socket.id) {
+            showBuzzNotification(event.playerName);
+        } else {
+            navigator.vibrate?.(200); // Vibrate on own buzz
+        }
+    } else if (event.type === 'player_answered') {
+        // Someone submitted their answer (notification optional)
+    } else if (event.type === 'round_skipped') {
+        showFeedback('ROUND SKIPPED', 'warning');
+    } else if (event.type === 'questions_shuffled') {
+        showFeedback('QUESTIONS SHUFFLED', 'info');
+    } else if (event.type === 'player_reconnected') {
+        showGlobalToast(`${event.playerName} reconnected!`, 'success');
+    } else if (event.type === 'player_disconnected') {
+        showGlobalToast(`${event.playerName} disconnected`, 'warning');
     }
 }
 
+function showResultsOverlay(event) {
+    // Remove any existing overlay
+    const existingOverlay = document.getElementById('results-overlay');
+    if (existingOverlay) existingOverlay.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'results-overlay';
+    overlay.className = 'results-overlay';
+
+    const resultsHTML = (event.results || []).map(r => {
+        let itemClass = r.isCorrect ? 'correct' : 'wrong';
+        if (r.isFirstCorrect) itemClass += ' first';
+
+        let badge = '';
+        if (r.isFirstCorrect) {
+            badge = '<span class="first-badge">FIRST! +150</span>';
+        } else if (r.isCorrect) {
+            badge = '<span class="correct-badge">+100</span>';
+        }
+
+        return `
+            <div class="result-item ${itemClass}">
+                <span class="result-name">${r.name}</span>
+                <span class="result-answer">${r.answer}</span>
+                ${badge}
+            </div>
+        `;
+    }).join('');
+
+    overlay.innerHTML = `
+        <div class="results-card">
+            <h2>Round Results</h2>
+            <div class="correct-answer">
+                Correct Answer: <strong>${event.correctAnswer || 'N/A'}</strong>
+            </div>
+            <div class="results-list">
+                ${resultsHTML || '<div class="result-item">No answers submitted</div>'}
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Click to dismiss
+    overlay.addEventListener('click', () => overlay.remove());
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (overlay.parentNode) overlay.remove();
+    }, 5000);
+}
+
+function showPointsAnimation(points) {
+    const anim = document.createElement('div');
+    anim.className = 'points-animation';
+    anim.textContent = `+${points}`;
+    document.body.appendChild(anim);
+    setTimeout(() => {
+        if (anim.parentNode) anim.remove();
+    }, 2000);
+}
+
+function showBuzzNotification(playerName) {
+    // Brief toast notification that someone buzzed
+    const toast = document.createElement('div');
+    toast.className = 'buzz-toast';
+    toast.textContent = `${playerName} buzzed!`;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        if (toast.parentNode) toast.remove();
+    }, 1500);
+}
+
 function showFeedback(text, type) {
-    if (isHost) return; // Don't show overlay on host
-    
+    // For host, use a global toast notification instead of player view
+    if (isHost && !playerEls.feedback) {
+        showGlobalToast(text, type);
+        return;
+    }
+
     const el = playerEls.feedback;
     const textEl = playerEls.feedbackText;
-    
+
+    if (!el || !textEl) {
+        showGlobalToast(text, type);
+        return;
+    }
+
     textEl.textContent = text;
-    textEl.style.color = type === 'success' ? 'var(--success)' : 'var(--danger)';
+    if (type === 'success') {
+        textEl.style.color = 'var(--success)';
+    } else if (type === 'danger') {
+        textEl.style.color = 'var(--danger)';
+    } else if (type === 'info') {
+        textEl.style.color = 'var(--accent)';
+    } else if (type === 'warning') {
+        textEl.style.color = '#ffcc00';
+    } else {
+        textEl.style.color = 'var(--accent)';
+    }
     el.classList.remove('hidden');
-    
+
     setTimeout(() => {
         el.classList.add('hidden');
     }, 1500);
+}
+
+function showGlobalToast(text, type) {
+    const toast = document.createElement('div');
+    toast.className = 'global-toast';
+
+    let bgColor = 'var(--accent)';
+    if (type === 'success') bgColor = 'var(--success)';
+    else if (type === 'danger') bgColor = 'var(--danger)';
+    else if (type === 'warning') bgColor = '#ffcc00';
+
+    toast.style.cssText = `
+        position: fixed;
+        top: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: ${bgColor};
+        color: ${type === 'warning' ? '#1a1a2e' : 'white'};
+        padding: 15px 30px;
+        border-radius: 25px;
+        font-weight: 700;
+        font-size: 1.1rem;
+        z-index: 2000;
+        animation: toastSlide 0.3s ease-out;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.4);
+    `;
+    toast.textContent = text;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        if (toast.parentNode) toast.remove();
+    }, 2000);
 }
 
 // Optional sound effects placeholders

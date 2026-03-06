@@ -45,6 +45,15 @@
                         </div>
                     </div>
                 </div>
+                <div class="settings-group">
+                    <h3>Answer Timer:</h3>
+                    <div class="timer-duration-control">
+                        <input type="range" id="timer-duration-slider" min="5" max="120" value="30" step="5">
+                        <div class="timer-duration-display">
+                            <span id="timer-duration-display">30</span> seconds per question
+                        </div>
+                    </div>
+                </div>
                 <button id="btn-start-game" class="btn-primary large">START GAME</button>
             </div>
 
@@ -55,6 +64,33 @@
 
         <!-- Game Screen -->
         <div id="screen-game" class="screen">
+            <!-- Admin Hamburger Menu (Host Only) -->
+            <div id="admin-menu" class="admin-menu hidden">
+                <button id="admin-menu-toggle" class="admin-menu-toggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <div id="admin-menu-dropdown" class="admin-menu-dropdown hidden">
+                    <div id="admin-room-code" class="admin-room-code">
+                        Room: <span id="admin-room-code-value">----</span>
+                    </div>
+                    <div class="admin-menu-divider"></div>
+                    <button id="admin-skip-question" class="admin-menu-item">
+                        <span class="admin-icon">&#10074;&#10074;</span> Skip Question
+                    </button>
+                    <button id="admin-shuffle-questions" class="admin-menu-item">
+                        <span class="admin-icon">&#x1F500;</span> Shuffle Questions
+                    </button>
+                    <button id="admin-new-game" class="admin-menu-item">
+                        <span class="admin-icon">&#x21BB;</span> Start New Game
+                    </button>
+                    <button id="admin-end-game" class="admin-menu-item danger">
+                        <span class="admin-icon">&#x2716;</span> End Game
+                    </button>
+                </div>
+            </div>
+
             <!-- Host View -->
             <div id="view-host" class="game-view hidden">
                 <div class="host-header">
@@ -79,40 +115,18 @@
                         <button id="btn-show-question" class="btn-primary large">SHOW QUESTION</button>
                     </div>
 
-                    <!-- Phase: Question -->
+                    <!-- Phase: Question (Timer running, players answering) -->
                     <div id="host-phase-question" class="phase-controls hidden">
-                        <div class="info-text">Players are buzzing in...</div>
+                        <div class="info-text">Players are answering...</div>
                     </div>
 
-                    <!-- Phase: Buzzed (Judge) -->
-                    <div id="host-phase-buzzed" class="phase-controls hidden">
-                        <div class="buzzed-alert">
-                            <span id="buzzed-player-name">Player</span> buzzed!
-                        </div>
-                        <div class="judge-buttons">
-                            <button id="btn-correct" class="btn-success">CORRECT (+100)</button>
-                            <button id="btn-wrong" class="btn-danger">WRONG (-50)</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Phase: Answering -->
-                    <div id="host-phase-answering" class="phase-controls hidden">
-                        <div class="info-text">Waiting for <span id="answering-player-name">Player</span> to submit answer...</div>
-                    </div>
-
-                    <!-- Phase: Result -->
+                    <!-- Phase: Result (Round complete) -->
                     <div id="host-phase-result" class="phase-controls hidden">
                         <button id="btn-next-question" class="btn-primary">Next Question</button>
                     </div>
                 </div>
 
                 <div class="mini-leaderboard" id="host-leaderboard"></div>
-                
-                <!-- Host Control Panel (Restart/End) -->
-                <div id="host-control-panel" class="host-control-panel" style="display: none;">
-                    <button id="btn-restart-game" class="btn-secondary">Restart Game</button>
-                    <button id="btn-end-game" class="btn-danger">End Game</button>
-                </div>
             </div>
 
             <!-- Player View -->
