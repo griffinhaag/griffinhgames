@@ -269,11 +269,22 @@ function setupSocketListeners() {
     });
 }
 
+// --- Admin Menu Elements ---
+const adminMenuEls = {
+    menu: document.getElementById('admin-menu'),
+    toggle: document.getElementById('admin-menu-toggle'),
+    dropdown: document.getElementById('admin-menu-dropdown'),
+    skipQuestion: document.getElementById('admin-skip-question'),
+    shuffleQuestions: document.getElementById('admin-shuffle-questions'),
+    newGame: document.getElementById('admin-new-game'),
+    endGame: document.getElementById('admin-end-game')
+};
+
 // --- UI Listeners ---
 function setupUIListeners() {
     // Initialize category checkboxes
     setupCategoryCheckboxes();
-    
+
     // Question count slider
     if (lobbyEls.qCountSlider) {
         lobbyEls.qCountSlider.addEventListener('input', (e) => {
@@ -340,7 +351,7 @@ function setupUIListeners() {
     playerEls.btnBuzz.addEventListener('click', () => {
         socket.emit('player:buzz', { roomCode: roomCode });
     });
-    
+
     // Answer submission
     if (answerEls.btnSubmit) {
         answerEls.btnSubmit.addEventListener('click', () => {
@@ -352,7 +363,7 @@ function setupUIListeners() {
             }
         });
     }
-    
+
     // Allow Enter key to submit answer
     if (answerEls.input) {
         answerEls.input.addEventListener('keypress', (e) => {
@@ -361,7 +372,7 @@ function setupUIListeners() {
             }
         });
     }
-    
+
     // Return to main lobby
     const btnReturn = document.getElementById('btn-return-lobby');
     if (btnReturn) {
@@ -369,24 +380,98 @@ function setupUIListeners() {
             window.location.href = '../../index.html';
         });
     }
-    
-    // Host controls
-    const btnRestart = document.getElementById('btn-restart-game');
-    if (btnRestart) {
-        btnRestart.addEventListener('click', () => {
-            if (confirm('Restart the game? All scores will reset.')) {
-                socket.emit('host:restartGame', { roomCode: roomCode });
+
+    // --- Admin Menu Setup ---
+    setupAdminMenu();
+}
+
+// --- Admin Menu Functions ---
+function setupAdminMenu() {
+    // Toggle menu dropdown
+    if (adminMenuEls.toggle) {
+        adminMenuEls.toggle.addEventListener('click', () => {
+            adminMenuEls.toggle.classList.toggle('active');
+            adminMenuEls.dropdown.classList.toggle('hidden');
+        });
+    }
+
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+        if (adminMenuEls.menu && !adminMenuEls.menu.contains(e.target)) {
+            adminMenuEls.toggle?.classList.remove('active');
+            adminMenuEls.dropdown?.classList.add('hidden');
+        }
+    });
+
+    // Skip Question
+    if (adminMenuEls.skipQuestion) {
+        adminMenuEls.skipQuestion.addEventListener('click', () => {
+            socket.emit('host:skipRound', { roomCode: roomCode });
+            closeAdminMenu();
+        });
+    }
+
+    // Shuffle Questions
+    if (adminMenuEls.shuffleQuestions) {
+        adminMenuEls.shuffleQuestions.addEventListener('click', () => {
+            if (confirm('Shuffle remaining questions? This will randomize the order of upcoming questions.')) {
+                socket.emit('host:shuffleQuestions', { roomCode: roomCode });
+                closeAdminMenu();
             }
         });
     }
-    
-    const btnEndGame = document.getElementById('btn-end-game');
-    if (btnEndGame) {
-        btnEndGame.addEventListener('click', () => {
-            if (confirm('End the game? This will return everyone to the main menu.')) {
-                socket.emit('host:endGame', { roomCode: roomCode });
+
+    // Start New Game
+    if (adminMenuEls.newGame) {
+        adminMenuEls.newGame.addEventListener('click', () => {
+            if (confirm('Start a new game? All scores will be reset and questions reshuffled.')) {
+                socket.emit('host:restartGame', { roomCode: roomCode });
+                closeAdminMenu();
             }
         });
+    }
+
+    // End Game
+    if (adminMenuEls.endGame) {
+        adminMenuEls.endGame.addEventListener('click', () => {
+            if (confirm('End the game? This will return everyone to the main menu.')) {
+                socket.emit('host:endGame', { roomCode: roomCode });
+                closeAdminMenu();
+            }
+        });
+    }
+}
+
+function closeAdminMenu() {
+    adminMenuEls.toggle?.classList.remove('active');
+    adminMenuEls.dropdown?.classList.add('hidden');
+}
+
+function updateAdminMenuVisibility() {
+    if (adminMenuEls.menu) {
+        // Show admin menu for host during game phases (including end screen)
+        if (isHost && gameState && (
+            gameState.phase === 'waiting' ||
+            gameState.phase === 'question' ||
+            gameState.phase === 'result' ||
+            gameState.phase === 'end'
+        )) {
+            adminMenuEls.menu.classList.remove('hidden');
+
+            // Update button states based on phase
+            if (adminMenuEls.skipQuestion) {
+                const canSkip = gameState.phase === 'question' || gameState.phase === 'result';
+                adminMenuEls.skipQuestion.disabled = !canSkip;
+                adminMenuEls.skipQuestion.style.opacity = canSkip ? '1' : '0.4';
+            }
+            if (adminMenuEls.shuffleQuestions) {
+                const canShuffle = gameState.phase !== 'end' && gameState.currentQuestionIndex < gameState.totalQuestions - 1;
+                adminMenuEls.shuffleQuestions.disabled = !canShuffle;
+                adminMenuEls.shuffleQuestions.style.opacity = canShuffle ? '1' : '0.4';
+            }
+        } else {
+            adminMenuEls.menu.classList.add('hidden');
+        }
     }
 }
 
@@ -450,6 +535,9 @@ function updateHostControlsVisibility() {
 function renderGameState() {
     if (!gameState) return;
 
+    // Update admin menu visibility
+    updateAdminMenuVisibility();
+
     // Switch screens based on phase
     if (gameState.phase === 'lobby') {
         showScreen('lobby');
@@ -464,11 +552,13 @@ function renderGameState() {
         // Host can play too - show player view for host as well
         if (isHost) {
             // Host sees both views - host controls + player buzzer
+            screens.game.classList.add('host-playing');
             hostEls.view.classList.remove('hidden');
             playerEls.view.classList.remove('hidden');
             renderHostView();
             renderPlayerView();
         } else {
+            screens.game.classList.remove('host-playing');
             hostEls.view.classList.add('hidden');
             playerEls.view.classList.remove('hidden');
             renderPlayerView();
@@ -556,7 +646,6 @@ function renderHostView() {
             </div>
             <div class="answered-status">${answeredCount || 0}/${totalPlayers || 0} answered</div>
             <div class="buzzed-players-list">${buzzedList || '<span style="opacity:0.5">No buzzes yet...</span>'}</div>
-            <button id="btn-skip-round" class="btn-secondary" style="margin-top: 15px;">Skip to Results</button>
         `;
     } else if (phase === 'result') {
         if (hostEls.phases.result) hostEls.phases.result.classList.remove('hidden');
@@ -571,16 +660,6 @@ function renderHostView() {
             return `<div>${i+1}. ${name}: ${p.score}</div>`;
         })
         .join('');
-
-    // Show host control buttons (restart/end) if game is in progress or ended
-    const hostControlPanel = document.getElementById('host-control-panel');
-    if (hostControlPanel) {
-        if (phase === 'end' || phase === 'result' || phase === 'question') {
-            hostControlPanel.style.display = 'block';
-        } else {
-            hostControlPanel.style.display = 'none';
-        }
-    }
 }
 
 function renderPlayerView() {
@@ -747,6 +826,8 @@ function handleGameEvent(event) {
         // Someone submitted their answer (notification optional)
     } else if (event.type === 'round_skipped') {
         showFeedback('ROUND SKIPPED', 'warning');
+    } else if (event.type === 'questions_shuffled') {
+        showFeedback('QUESTIONS SHUFFLED', 'info');
     }
 }
 
@@ -824,16 +905,29 @@ function showBuzzNotification(playerName) {
 }
 
 function showFeedback(text, type) {
+    // For host, use a global toast notification instead of player view
+    if (isHost && !playerEls.feedback) {
+        showGlobalToast(text, type);
+        return;
+    }
+
     const el = playerEls.feedback;
     const textEl = playerEls.feedbackText;
 
-    if (!el || !textEl) return;
+    if (!el || !textEl) {
+        showGlobalToast(text, type);
+        return;
+    }
 
     textEl.textContent = text;
     if (type === 'success') {
         textEl.style.color = 'var(--success)';
     } else if (type === 'danger') {
         textEl.style.color = 'var(--danger)';
+    } else if (type === 'info') {
+        textEl.style.color = 'var(--accent)';
+    } else if (type === 'warning') {
+        textEl.style.color = '#ffcc00';
     } else {
         textEl.style.color = 'var(--accent)';
     }
@@ -842,6 +936,38 @@ function showFeedback(text, type) {
     setTimeout(() => {
         el.classList.add('hidden');
     }, 1500);
+}
+
+function showGlobalToast(text, type) {
+    const toast = document.createElement('div');
+    toast.className = 'global-toast';
+
+    let bgColor = 'var(--accent)';
+    if (type === 'success') bgColor = 'var(--success)';
+    else if (type === 'danger') bgColor = 'var(--danger)';
+    else if (type === 'warning') bgColor = '#ffcc00';
+
+    toast.style.cssText = `
+        position: fixed;
+        top: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: ${bgColor};
+        color: ${type === 'warning' ? '#1a1a2e' : 'white'};
+        padding: 15px 30px;
+        border-radius: 25px;
+        font-weight: 700;
+        font-size: 1.1rem;
+        z-index: 2000;
+        animation: toastSlide 0.3s ease-out;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.4);
+    `;
+    toast.textContent = text;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        if (toast.parentNode) toast.remove();
+    }, 2000);
 }
 
 // Optional sound effects placeholders

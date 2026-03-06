@@ -206,13 +206,27 @@ body {
 .answer-section {
     width: 100%;
     max-width: 500px;
-    margin: 20px auto;
-    padding: 20px;
-    background: rgba(255,255,255,0.1);
+    margin: 15px auto;
+    padding: clamp(15px, 3vw, 20px);
+    background: rgba(0,212,255,0.15);
+    border: 2px solid var(--accent);
     border-radius: 15px;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 12px;
+    animation: pulseGlow 1.5s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 10px rgba(0,212,255,0.3); }
+    50% { box-shadow: 0 0 20px rgba(0,212,255,0.5); }
+}
+
+/* Compact answer section for host playing mode */
+.host-playing .answer-section {
+    max-width: 100%;
+    margin: 10px auto;
+    padding: clamp(12px, 2vw, 15px);
 }
 
 .answer-section h3 {
@@ -283,13 +297,45 @@ body {
     }
 }
 
+/* --- Game Screen Layout --- */
+#screen-game {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 15px;
+    padding-top: 70px; /* Space for admin menu */
+    overflow-y: auto;
+}
+
+/* When both views are shown (host playing) */
+#screen-game.host-playing {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    gap: 15px;
+}
+
+@media (min-width: 900px) {
+    #screen-game.host-playing {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr;
+    }
+}
+
 /* --- Host View --- */
 .game-view {
     width: 100%;
-    height: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
+}
+
+#view-host {
+    max-height: none;
+}
+
+#view-player {
+    max-height: none;
 }
 
 .host-card {
@@ -297,20 +343,20 @@ body {
     color: #222;
     width: 100%;
     max-width: 600px;
-    padding: 30px;
+    padding: clamp(20px, 4vw, 30px);
     border-radius: 20px;
     text-align: center;
-    margin: 20px 0;
+    margin: 15px 0;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    flex-grow: 1;
     display: flex;
     flex-direction: column;
     justify-content: center;
 }
 
 .host-card h2 {
-    font-size: 1.8rem;
-    margin-bottom: 20px;
+    font-size: clamp(1.2rem, 4vw, 1.8rem);
+    margin-bottom: 15px;
+    line-height: 1.4;
 }
 
 .host-answer-box {
@@ -386,11 +432,28 @@ body {
 
 .question-display {
     background: rgba(255,255,255,0.1);
-    padding: 20px;
+    padding: clamp(15px, 3vw, 25px);
     border-radius: 15px;
-    margin: 20px 0;
+    margin: 15px 0;
     width: 100%;
     text-align: center;
+    border: 1px solid rgba(255,255,255,0.15);
+}
+
+.question-display p {
+    font-size: clamp(1rem, 3vw, 1.3rem);
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* Compact question display for host playing mode */
+.host-playing .question-display {
+    padding: clamp(12px, 2vw, 18px);
+    margin: 10px 0;
+}
+
+.host-playing .question-display p {
+    font-size: clamp(0.95rem, 2.5vw, 1.1rem);
 }
 
 .cat-label {
@@ -408,6 +471,18 @@ body {
     justify-content: center;
     width: 100%;
     position: relative;
+    min-height: 200px;
+}
+
+/* Compact buzzer for host playing mode */
+.host-playing .buzzer-container {
+    min-height: 150px;
+}
+
+.host-playing .buzzer-btn {
+    width: 180px;
+    height: 180px;
+    font-size: 1.8rem;
 }
 
 .buzzer-btn {
@@ -438,19 +513,22 @@ body {
 
 .buzzer-status {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    background: rgba(0,0,0,0.8);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: auto;
+    padding: 15px 25px;
+    border-radius: 25px;
+    background: rgba(0,0,0,0.9);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2rem;
-    font-weight: 800;
+    font-size: clamp(1rem, 3vw, 1.3rem);
+    font-weight: 700;
     color: #aaa;
     backdrop-filter: blur(5px);
+    white-space: nowrap;
+    z-index: 10;
 }
 
 .feedback-overlay {
@@ -778,6 +856,41 @@ body {
     to { opacity: 1; }
 }
 
+/* --- End Screen --- */
+#screen-end {
+    padding-top: 80px; /* Space for admin menu */
+    justify-content: flex-start;
+}
+
+#screen-end h1 {
+    font-size: clamp(2rem, 6vw, 3rem);
+    background: linear-gradient(to right, #ff0055, #ffcc00);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 30px;
+}
+
+.winner-podium {
+    width: 100%;
+    max-width: 500px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 20px;
+    padding: 25px;
+    margin-bottom: 30px;
+}
+
+.podium-entry {
+    padding: 15px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    margin: 10px 0;
+}
+
+.podium-entry:first-child {
+    background: linear-gradient(135deg, rgba(255,204,0,0.3), rgba(255,204,0,0.1));
+    border: 2px solid gold;
+}
+
 /* --- Mini Leaderboard --- */
 .mini-leaderboard {
     background: rgba(0,0,0,0.3);
@@ -793,6 +906,121 @@ body {
     font-size: 0.95rem;
 }
 
+/* --- Admin Hamburger Menu --- */
+.admin-menu {
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    z-index: 1000;
+}
+
+.admin-menu-toggle {
+    width: 45px;
+    height: 45px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    padding: 10px;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.admin-menu-toggle:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: var(--primary);
+}
+
+.admin-menu-toggle.active {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+.admin-menu-toggle span {
+    display: block;
+    width: 22px;
+    height: 3px;
+    background: white;
+    border-radius: 2px;
+    transition: transform 0.2s, opacity 0.2s;
+}
+
+.admin-menu-toggle.active span:nth-child(1) {
+    transform: translateY(8px) rotate(45deg);
+}
+
+.admin-menu-toggle.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.admin-menu-toggle.active span:nth-child(3) {
+    transform: translateY(-8px) rotate(-45deg);
+}
+
+.admin-menu-dropdown {
+    position: absolute;
+    top: 55px;
+    right: 0;
+    background: rgba(30, 30, 50, 0.98);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 15px;
+    padding: 10px;
+    min-width: 200px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.admin-menu-item {
+    width: 100%;
+    padding: 12px 15px;
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: var(--font-main);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.2s;
+    text-align: left;
+}
+
+.admin-menu-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.admin-menu-item.danger {
+    color: var(--danger);
+}
+
+.admin-menu-item.danger:hover {
+    background: rgba(255, 51, 51, 0.2);
+}
+
+.admin-icon {
+    font-size: 1.1rem;
+    width: 24px;
+    text-align: center;
+}
+
 /* --- Mobile Optimizations --- */
 @media (max-width: 600px) {
     .logo { font-size: 2rem; }
@@ -802,5 +1030,24 @@ body {
     .results-card h2 { font-size: 1.4rem; }
     .result-item { padding: 10px; font-size: 0.9rem; }
     .points-animation { font-size: 3rem; }
+
+    .admin-menu {
+        top: 10px;
+        right: 10px;
+    }
+
+    .admin-menu-toggle {
+        width: 40px;
+        height: 40px;
+    }
+
+    .admin-menu-dropdown {
+        min-width: 180px;
+    }
+
+    .admin-menu-item {
+        padding: 10px 12px;
+        font-size: 0.9rem;
+    }
 }
 

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BuzzIn! - Join Game</title>
+    <link rel="stylesheet" href="buzzin.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        .join-container {
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: clamp(10px, 3vw, 20px);
+            box-sizing: border-box;
+        }
+
+        .join-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: clamp(30px, 5vw, 50px);
+            max-width: min(500px, 95vw);
+            width: 100%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-sizing: border-box;
+            margin: auto;
+            text-align: center;
+        }
+
+        .join-title {
+            font-size: clamp(2rem, 6vw, 3rem);
+            font-weight: 800;
+            margin-bottom: clamp(10px, 2vw, 15px);
+            background: linear-gradient(to right, #ff0055, #ffcc00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.2;
+        }
+
+        .join-subtitle {
+            color: rgba(255,255,255,0.7);
+            font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+            margin-bottom: clamp(25px, 5vw, 40px);
+        }
+
+        .input-group {
+            margin-bottom: clamp(15px, 3vw, 20px);
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            color: white;
+            font-weight: 600;
+            margin-bottom: clamp(6px, 1.5vw, 8px);
+            font-size: clamp(0.9rem, 2.5vw, 1rem);
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: clamp(14px, 3.5vw, 18px);
+            border-radius: 12px;
+            border: 2px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: clamp(1.1rem, 3.5vw, 1.3rem);
+            font-family: 'Poppins', sans-serif;
+            box-sizing: border-box;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: rgba(255,255,255,0.15);
+        }
+
+        .input-group input::placeholder {
+            color: rgba(255,255,255,0.4);
+        }
+
+        .room-code-input {
+            text-transform: uppercase;
+            text-align: center;
+            letter-spacing: 8px;
+            font-weight: 700;
+            font-size: clamp(1.5rem, 5vw, 2rem) !important;
+        }
+
+        .btn-join {
+            width: 100%;
+            padding: clamp(16px, 4vw, 20px);
+            font-size: clamp(1.2rem, 4vw, 1.5rem);
+            font-weight: 800;
+            text-transform: uppercase;
+            border: none;
+            border-radius: 50px;
+            background: linear-gradient(45deg, #00d4ff, #0099cc);
+            color: white;
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+            box-shadow: 0 4px 20px rgba(0,212,255,0.4);
+            box-sizing: border-box;
+            margin-top: clamp(10px, 2vw, 15px);
+        }
+
+        .btn-join:hover {
+            transform: scale(1.02);
+            box-shadow: 0 6px 25px rgba(0,212,255,0.5);
+        }
+
+        .btn-join:active {
+            transform: scale(0.98);
+        }
+
+        .btn-join:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: rgba(255, 0, 0, 0.2);
+            color: #ffcccc;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+            text-align: center;
+        }
+
+        .error-message.show {
+            display: block;
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: clamp(20px, 4vw, 30px);
+            color: rgba(255,255,255,0.6);
+            text-decoration: none;
+            font-size: clamp(0.85rem, 2.5vw, 1rem);
+            transition: color 0.2s;
+        }
+
+        .back-link:hover {
+            color: white;
+        }
+
+        .connecting-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .connecting-overlay.show {
+            display: flex;
+        }
+
+        .connecting-content {
+            text-align: center;
+            color: white;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.2);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="join-container">
+        <div class="join-card">
+            <h1 class="join-title">Join Game</h1>
+            <p class="join-subtitle">Enter the room code to join a BuzzIn! game</p>
+
+            <div class="error-message" id="error-message"></div>
+
+            <div class="input-group">
+                <label for="player-name">Your Name</label>
+                <input type="text" id="player-name" placeholder="Enter your name" maxlength="20" autocomplete="off">
+            </div>
+
+            <div class="input-group">
+                <label for="room-code">Room Code</label>
+                <input type="text" id="room-code" class="room-code-input" placeholder="----" maxlength="4" autocomplete="off">
+            </div>
+
+            <button id="btn-join" class="btn-join">Join Game</button>
+
+            <a href="../../index.html" class="back-link">Back to Main Menu</a>
+        </div>
+    </div>
+
+    <div class="connecting-overlay" id="connecting-overlay">
+        <div class="connecting-content">
+            <div class="spinner"></div>
+            <p>Joining game...</p>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="../../config.js"></script>
+    <script>
+        const backendUrl = window.BACKEND_URL || 'http://localhost:3000';
+        const socket = io(backendUrl, {
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            reconnectionAttempts: 5
+        });
+
+        const nameInput = document.getElementById('player-name');
+        const codeInput = document.getElementById('room-code');
+        const btnJoin = document.getElementById('btn-join');
+        const errorEl = document.getElementById('error-message');
+        const connectingOverlay = document.getElementById('connecting-overlay');
+
+        // Auto-uppercase room code
+        codeInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        });
+
+        // Allow Enter key to submit
+        nameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') codeInput.focus();
+        });
+
+        codeInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') btnJoin.click();
+        });
+
+        function showError(message) {
+            errorEl.textContent = message;
+            errorEl.classList.add('show');
+            setTimeout(() => {
+                errorEl.classList.remove('show');
+            }, 5000);
+        }
+
+        function showConnecting(show) {
+            if (show) {
+                connectingOverlay.classList.add('show');
+            } else {
+                connectingOverlay.classList.remove('show');
+            }
+        }
+
+        btnJoin.addEventListener('click', () => {
+            const playerName = nameInput.value.trim();
+            const roomCode = codeInput.value.trim().toUpperCase();
+
+            if (!playerName) {
+                showError('Please enter your name');
+                nameInput.focus();
+                return;
+            }
+
+            if (!roomCode || roomCode.length !== 4) {
+                showError('Please enter a valid 4-character room code');
+                codeInput.focus();
+                return;
+            }
+
+            btnJoin.disabled = true;
+            showConnecting(true);
+
+            // Set name and join room
+            socket.emit('player:setName', playerName);
+            socket.emit('player:joinRoom', { roomCode: roomCode, name: playerName });
+        });
+
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('connect_error', (error) => {
+            showConnecting(false);
+            btnJoin.disabled = false;
+            showError('Unable to connect to server. Please try again.');
+        });
+
+        socket.on('room:state', (roomState) => {
+            // Successfully joined - redirect to game page
+            const playerName = nameInput.value.trim();
+            const roomCode = codeInput.value.trim().toUpperCase();
+
+            // Store redirect info
+            sessionStorage.setItem('buzzin_redirect', JSON.stringify({
+                room: roomCode,
+                name: playerName,
+                host: false
+            }));
+
+            // Redirect to game page (lobby within game)
+            const target = `index.html?room=${roomCode}&name=${encodeURIComponent(playerName)}&host=false`;
+            window.location.replace(target);
+        });
+
+        socket.on('room:error', (message) => {
+            showConnecting(false);
+            btnJoin.disabled = false;
+            showError(message);
+        });
+
+        socket.on('game:started', (data) => {
+            // Game already started, redirect to game page
+            const playerName = nameInput.value.trim();
+            const roomCode = codeInput.value.trim().toUpperCase();
+
+            sessionStorage.setItem('buzzin_redirect', JSON.stringify({
+                room: roomCode,
+                name: playerName,
+                host: false
+            }));
+
+            const target = `index.html?room=${roomCode}&name=${encodeURIComponent(playerName)}&host=false`;
+            window.location.replace(target);
+        });
+    </script>
+</body>
+</html>

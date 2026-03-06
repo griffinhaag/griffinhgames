@@ -314,15 +314,22 @@
                 card.classList.add('buzzin-card');
             }
 
-            // BuzzIn! uses setup.html, others use lobby.html
-            const gameUrl = isBuzzin
-                ? `games/buzzin/setup.html`
-                : `games/multiplayer/lobby.html?game=${game.id}`;
-
             // Custom description for BuzzIn
             const description = isBuzzin
                 ? 'Race against the clock! Everyone answers, first correct wins big. Up to 16 players!'
                 : (game.description || 'Join friends for an exciting multiplayer experience!');
+
+            // BuzzIn! has Host/Player options, others use lobby.html
+            let buttonsHTML;
+            if (isBuzzin) {
+                buttonsHTML = `
+                    <a href="games/buzzin/setup.html" class="play-button">Host</a>
+                    <a href="games/buzzin/join.html" class="play-button" style="background: linear-gradient(45deg, #00d4ff, #0099cc);">Player</a>
+                `;
+            } else {
+                const gameUrl = `games/multiplayer/lobby.html?game=${game.id}`;
+                buttonsHTML = `<a href="${gameUrl}" class="play-button">Play Now</a>`;
+            }
 
             card.innerHTML = `
                 <div class="game-icon">${game.icon || '🎮'}</div>
@@ -330,7 +337,7 @@
                 <h2>${game.name}</h2>
                 <p>${description}</p>
                 <div class="button-container">
-                    <a href="${gameUrl}" class="play-button">Play Now</a>
+                    ${buttonsHTML}
                 </div>
             `;
 

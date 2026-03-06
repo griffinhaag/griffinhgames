@@ -64,6 +64,29 @@
 
         <!-- Game Screen -->
         <div id="screen-game" class="screen">
+            <!-- Admin Hamburger Menu (Host Only) -->
+            <div id="admin-menu" class="admin-menu hidden">
+                <button id="admin-menu-toggle" class="admin-menu-toggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <div id="admin-menu-dropdown" class="admin-menu-dropdown hidden">
+                    <button id="admin-skip-question" class="admin-menu-item">
+                        <span class="admin-icon">&#10074;&#10074;</span> Skip Question
+                    </button>
+                    <button id="admin-shuffle-questions" class="admin-menu-item">
+                        <span class="admin-icon">&#x1F500;</span> Shuffle Questions
+                    </button>
+                    <button id="admin-new-game" class="admin-menu-item">
+                        <span class="admin-icon">&#x21BB;</span> Start New Game
+                    </button>
+                    <button id="admin-end-game" class="admin-menu-item danger">
+                        <span class="admin-icon">&#x2716;</span> End Game
+                    </button>
+                </div>
+            </div>
+
             <!-- Host View -->
             <div id="view-host" class="game-view hidden">
                 <div class="host-header">
@@ -100,12 +123,6 @@
                 </div>
 
                 <div class="mini-leaderboard" id="host-leaderboard"></div>
-                
-                <!-- Host Control Panel (Restart/End) -->
-                <div id="host-control-panel" class="host-control-panel" style="display: none;">
-                    <button id="btn-restart-game" class="btn-secondary">Restart Game</button>
-                    <button id="btn-end-game" class="btn-danger">End Game</button>
-                </div>
             </div>
 
             <!-- Player View -->
