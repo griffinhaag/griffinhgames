@@ -44,34 +44,7 @@
 
         <!-- Game Screen -->
         <div id="screen-game" class="screen">
-            <!-- Admin Hamburger Menu (Host Only) -->
-            <div id="admin-menu" class="admin-menu hidden">
-                <div class="admin-menu-btn-wrap">
-                    <button id="admin-menu-toggle" class="admin-menu-toggle">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                    </button>
-                    <div class="admin-label">ADMIN</div>
-                </div>
-                <div id="admin-menu-dropdown" class="admin-menu-dropdown hidden">
-                    <div id="admin-room-code" class="admin-room-code">
-                        Room: <span id="admin-room-code-value">----</span>
-                    </div>
-                    <div class="admin-menu-divider"></div>
-                    <button id="admin-shuffle-questions" class="admin-menu-item">
-                        <span class="admin-icon">&#x1F500;</span> Shuffle Questions
-                    </button>
-                    <button id="admin-new-game" class="admin-menu-item">
-                        <span class="admin-icon">&#x21BB;</span> Start New Game
-                    </button>
-                    <button id="admin-end-game" class="admin-menu-item danger">
-                        <span class="admin-icon">&#x2716;</span> End Game
-                    </button>
-                </div>
-            </div>
-
-            <!-- Player View (first in DOM so it appears on top on mobile) -->
+            <!-- Player View -->
             <div id="view-player" class="game-view hidden">
                 <div class="player-header">
                     <div class="player-score-box">Score: <span id="player-score">0</span></div>
@@ -101,7 +74,7 @@
                     <input type="text" id="player-answer-input" placeholder="Type your answer..." maxlength="100">
                     <button id="btn-submit-answer" class="btn-primary">Submit Answer</button>
                 </div>
-                
+
                 <div id="player-feedback" class="feedback-overlay hidden">
                     <div class="feedback-content" id="feedback-text"></div>
                 </div>
@@ -127,17 +100,12 @@
                     </div>
 
                     <div class="host-actions">
-                        <!-- Phase: Waiting (auto-advances after first question; fallback for Q1) -->
                         <div id="host-phase-waiting" class="phase-controls">
                             <button id="btn-show-question" class="btn-primary large">START ROUND</button>
                         </div>
-
-                        <!-- Phase: Question (Timer running) -->
                         <div id="host-phase-question" class="phase-controls hidden">
                             <div class="info-text">Players are answering...</div>
                         </div>
-
-                        <!-- Phase: Result (Round complete) -->
                         <div id="host-phase-result" class="phase-controls hidden">
                             <button id="btn-next-question" class="btn-primary large">NEXT QUESTION</button>
                         </div>
@@ -156,6 +124,31 @@
                 <button id="btn-play-again" class="btn-primary hidden">Play Again (Same Players)</button>
                 <button id="btn-return-lobby" class="btn-secondary">Return to Main Menu</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Admin Hamburger Menu — body-level so position:fixed is never affected by parent display:none -->
+    <div id="admin-menu" class="admin-menu hidden">
+        <div class="admin-menu-btn-wrap">
+            <button id="admin-menu-toggle" class="admin-menu-toggle">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="admin-label">ADMIN</div>
+        </div>
+        <div id="admin-menu-dropdown" class="admin-menu-dropdown hidden">
+            <div id="admin-room-code" class="admin-room-code">
+                Room: <span id="admin-room-code-value">----</span>
+            </div>
+            <div class="admin-menu-divider"></div>
+            <button id="admin-shuffle-questions" class="admin-menu-item">
+                <span class="admin-icon">&#x1F500;</span> Shuffle Questions
+            </button>
+            <button id="admin-new-game" class="admin-menu-item">
+                <span class="admin-icon">&#x21BB;</span> Start New Game
+            </button>
+            <button id="admin-end-game" class="admin-menu-item danger">
+                <span class="admin-icon">&#x2716;</span> End Game
+            </button>
         </div>
     </div>
 

@@ -14,7 +14,7 @@
             --accent: #00d4ff;
             --success: #00ff88;
             --text: #ffffff;
-            --card-bg: rgba(255, 255, 255, 0.95);
+            --card-bg: rgba(255, 255, 255, 0.07);
             --bg-gradient: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f1e 100%);
         }
 
@@ -94,19 +94,23 @@
 
         .game-card {
             background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
             border-radius: clamp(15px, 3vw, 25px);
             padding: clamp(20px, 4vw, 35px);
             text-align: center;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
             cursor: pointer;
             position: relative;
             overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
         }
 
         .game-card:hover {
             transform: translateY(-8px) scale(1.02);
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            border-color: rgba(255, 255, 255, 0.22);
         }
 
         .game-card::before {
@@ -116,7 +120,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.06), transparent);
             transform: translateX(-100%);
             transition: 0.6s;
         }
@@ -126,14 +130,14 @@
         }
 
         .game-card h2 {
-            color: #222;
+            color: #ffffff;
             font-size: clamp(1.3rem, 4vw, 1.8rem);
             margin-bottom: clamp(10px, 2vh, 15px);
             font-weight: 700;
         }
 
         .game-card p {
-            color: #555;
+            color: rgba(255, 255, 255, 0.65);
             font-size: clamp(0.85rem, 2.5vw, 1rem);
             margin-bottom: clamp(18px, 4vh, 28px);
             line-height: 1.6;
@@ -202,25 +206,87 @@
             letter-spacing: 1px;
         }
 
+        /* Truth or Griddy card accent */
+        .game-card.griddy-card {
+            border-color: rgba(255, 165, 0, 0.25);
+        }
+        .game-card.griddy-card:hover {
+            border-color: rgba(255, 165, 0, 0.5);
+            box-shadow: 0 20px 50px rgba(255, 165, 0, 0.15);
+        }
+        .game-card.griddy-card .game-badge {
+            background: linear-gradient(45deg, #ff8c00, #ffb300);
+        }
+        .game-card.griddy-card h2 {
+            background: linear-gradient(to right, #ff8c00, #ffcc00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .game-card.griddy-card .play-button {
+            background: linear-gradient(45deg, #ff8c00, #ffb300);
+            box-shadow: 0 4px 15px rgba(255, 140, 0, 0.3);
+        }
+        .game-card.griddy-card .play-button:hover {
+            box-shadow: 0 6px 25px rgba(255, 140, 0, 0.5);
+        }
+
+        /* Kings Dice card accent */
+        .game-card.kings-card {
+            border-color: rgba(138, 43, 226, 0.25);
+        }
+        .game-card.kings-card:hover {
+            border-color: rgba(138, 43, 226, 0.5);
+            box-shadow: 0 20px 50px rgba(138, 43, 226, 0.15);
+        }
+        .game-card.kings-card .game-badge {
+            background: linear-gradient(45deg, #7b2fff, #a855f7);
+        }
+        .game-card.kings-card h2 {
+            background: linear-gradient(to right, #a855f7, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .game-card.kings-card .play-button {
+            background: linear-gradient(45deg, #7b2fff, #a855f7);
+            box-shadow: 0 4px 15px rgba(123, 47, 255, 0.3);
+        }
+        .game-card.kings-card .play-button:hover {
+            box-shadow: 0 6px 25px rgba(123, 47, 255, 0.5);
+        }
+
         /* LOCKED IN Special Card Styling */
         .game-card.lockedin-card {
-            background: linear-gradient(135deg, #fff 0%, #fff5f8 100%);
-            border: 3px solid var(--primary);
+            background: rgba(255, 0, 85, 0.08);
+            border: 2px solid rgba(255, 0, 85, 0.5);
             position: relative;
+            grid-column: 1 / -1;
+            max-width: 480px;
+            margin: 0 auto;
+            width: 100%;
         }
 
         .game-card.lockedin-card::after {
             content: '';
             position: absolute;
-            top: -3px;
-            left: -3px;
-            right: -3px;
-            bottom: -3px;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
             background: linear-gradient(45deg, #ff0055, #ffcc00, #ff0055);
+            background-size: 200% 200%;
             z-index: -1;
             border-radius: inherit;
             opacity: 0;
             transition: opacity 0.3s;
+            animation: gradientShift 3s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
 
         .game-card.lockedin-card:hover::after {
@@ -229,7 +295,8 @@
 
         .game-card.lockedin-card:hover {
             border-color: transparent;
-            box-shadow: 0 20px 50px rgba(255, 0, 85, 0.35);
+            background: rgba(255, 0, 85, 0.12);
+            box-shadow: 0 20px 60px rgba(255, 0, 85, 0.3), 0 0 40px rgba(255, 0, 85, 0.1);
         }
 
         .game-card.lockedin-card .game-icon {
@@ -241,10 +308,11 @@
         }
 
         .game-card.lockedin-card h2 {
-            background: linear-gradient(to right, #ff0055, #ff4444);
+            background: linear-gradient(to right, #ff0055, #ff6688);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            font-size: clamp(1.6rem, 5vw, 2.2rem);
         }
 
         .game-card.lockedin-card .play-button {
@@ -324,8 +392,20 @@
         <div id="error" class="error-message" style="display: none;"></div>
 
         <div class="games-grid" id="games-grid">
-            <!-- Static games (always shown) -->
-            <div class="game-card">
+            <!-- LOCKED IN — always first -->
+            <div class="game-card lockedin-card">
+                <div class="game-icon">🔒</div>
+                <span class="game-badge">Multiplayer</span>
+                <h2>LOCKED IN</h2>
+                <p>You ought to be the first to answer right! An abstract take on the modern trivia game.</p>
+                <div class="button-container">
+                    <a href="games/buzzin/setup.html" class="play-button">Host</a>
+                    <a href="games/buzzin/join.html" class="play-button player-btn">Join</a>
+                </div>
+            </div>
+
+            <!-- Static games -->
+            <div class="game-card griddy-card">
                 <div class="game-icon">🎯</div>
                 <span class="game-badge">Party Classic</span>
                 <h2>Truth or Griddy</h2>
@@ -335,7 +415,7 @@
                 </div>
             </div>
 
-            <div class="game-card">
+            <div class="game-card kings-card">
                 <div class="game-icon">🎲</div>
                 <span class="game-badge">Drinking Game</span>
                 <h2>Kings Dice</h2>
@@ -373,8 +453,9 @@
                 // Hide loading
                 loadingEl.style.display = 'none';
 
-                // Render backend games
+                // Render backend games (skip buzzin — static card already shown first)
                 games.forEach(game => {
+                    if (game.id === 'buzzin') return;
                     const gameCard = createGameCard(game);
                     gamesGrid.appendChild(gameCard);
                 });

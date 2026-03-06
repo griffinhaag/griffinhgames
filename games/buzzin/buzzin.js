@@ -465,8 +465,28 @@ function setupUIListeners() {
         });
     }
 
-    // Start game button — read settings from sessionStorage (configured in setup.html)
-    lobbyEls.btnStart.addEventListener('click', () => {
+    // Use event delegation on the lobby screen for reliability
+    // (direct element listeners can miss on mobile if the element reference is stale)
+    document.getElementById('screen-lobby').addEventListener('click', (e) => {
+        // START GAME
+        if (e.target.closest('#btn-start-game')) {
+            handleStartGame();
+            return;
+        }
+        // KICK buttons (delegated since they're dynamically rendered)
+        const kickBtn = e.target.closest('.kick-btn');
+        if (kickBtn && isHost) {
+            const sid = kickBtn.dataset.socketId;
+            if (sid) socket.emit('host:kickPlayer', { roomCode, socketId: sid });
+            return;
+        }
+    });
+
+    function handleStartGame() {
+        if (!isHost) return;
+        const btn = document.getElementById('btn-start-game');
+        if (btn && btn.disabled) return;
+
         let categories = [], questionCount = 10, timerDurationValue = 30, bonusFirstCorrect = true;
         try {
             const settings = JSON.parse(sessionStorage.getItem('buzzin_settings') || '{}');
@@ -477,9 +497,11 @@ function setupUIListeners() {
         } catch (e) {}
 
         if (categories.length === 0) {
-            alert('No categories found. Please return to setup and create the room again.');
+            showLobbyError('No categories found. Please go back to setup and create the room again.');
             return;
         }
+
+        if (btn) { btn.disabled = true; btn.textContent = 'Starting...'; }
 
         socket.emit('host:startGame', {
             roomCode: roomCode,
@@ -490,7 +512,25 @@ function setupUIListeners() {
             bonusFirstCorrect,
             seenQuestions: getSeenQuestions()
         });
-    });
+
+        // Re-enable if nothing happens after 5s
+        setTimeout(() => {
+            if (btn && btn.disabled) { btn.disabled = false; btn.textContent = 'START GAME'; }
+        }, 5000);
+    }
+
+    function showLobbyError(msg) {
+        let el = document.getElementById('lobby-error');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'lobby-error';
+            el.style.cssText = 'background:rgba(255,0,85,0.15);border:1px solid rgba(255,0,85,0.4);color:#ffaaaa;padding:12px 18px;border-radius:10px;text-align:center;font-size:0.9rem;margin-top:8px;';
+            document.getElementById('lobby-host-controls')?.appendChild(el);
+        }
+        el.textContent = msg;
+        el.style.display = 'block';
+        setTimeout(() => { if (el) el.style.display = 'none'; }, 5000);
+    }
 
     // Host Actions
     if (hostEls.btnShowQuestion) {
@@ -639,6 +679,13 @@ function showScreen(screenName) {
     Object.values(screens).forEach(el => el.classList.remove('active'));
     screens[screenName].classList.add('active');
 
+    // Clean up any overlays that could block clicks
+    ['results-overlay', 'pre-q-countdown', 'off-the-dome-overlay',
+     'play-again-modal', 'kicked-overlay'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    });
+
     if (screenName === 'lobby') {
         playLobbyVideo();
     } else {
@@ -688,13 +735,7 @@ function updateLobbyUI(rs) {
             return `<div class="player-tag">${name}${p.isHost ? ' 👑' : ''}</div>`;
         }).join('');
 
-        // Kick button listeners
-        lobbyEls.list.querySelectorAll('.kick-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                socket.emit('host:kickPlayer', { roomCode, socketId: btn.dataset.socketId });
-            });
-        });
+        // Kick button clicks are handled by event delegation on #screen-lobby
     } else {
         lobbyEls.list.innerHTML = '<div class="player-tag" style="opacity: 0.5;">No players yet...</div>';
     }
