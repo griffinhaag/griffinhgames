@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BuzzIn! - GriffinGames</title>
+    <title>LOCKED IN - GriffinGames</title>
     <link rel="stylesheet" href="buzzin.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
@@ -18,7 +18,7 @@
 
         <!-- Lobby Screen -->
         <div id="screen-lobby" class="screen">
-            <h1 class="logo">BuzzIn!</h1>
+            <h1 class="logo">LOCKED IN</h1>
             <div class="room-code-display">
                 Room Code: <span id="lobby-room-code">----</span>
             </div>
@@ -141,14 +141,21 @@
                     <p id="player-question-text">Look at the main screen!</p>
                 </div>
 
+                <!-- Multiple Choice Buttons -->
+                <div id="player-choices-section" class="choices-section hidden">
+                    <div id="choices-grid" class="choices-grid">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
                 <div class="buzzer-container">
-                    <button id="btn-buzz" class="buzzer-btn">BUZZ!</button>
+                    <button id="btn-buzz" class="buzzer-btn">LOCK IN</button>
                     <div id="buzzer-status" class="buzzer-status hidden">LOCKED</div>
                 </div>
-                
-                <!-- Answer Submission (shown when player buzzed) -->
+
+                <!-- Answer Submission (shown for OFF THE DOME questions) -->
                 <div id="player-answer-section" class="answer-section hidden">
-                    <h3>Submit Your Answer:</h3>
+                    <h3>Type Your Answer:</h3>
                     <input type="text" id="player-answer-input" placeholder="Type your answer..." maxlength="100">
                     <button id="btn-submit-answer" class="btn-primary">Submit Answer</button>
                 </div>

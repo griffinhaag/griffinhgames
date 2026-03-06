@@ -54,6 +54,15 @@ const answerEls = {
     btnSubmit: document.getElementById('btn-submit-answer')
 };
 
+const choicesEls = {
+    section: document.getElementById('player-choices-section'),
+    grid: document.getElementById('choices-grid')
+};
+
+// Track OFF THE DOME state
+let offTheDomeShown = false;
+let selectedChoice = null;
+
 const hostEls = {
     view: document.getElementById('view-host'),
     qIndex: document.getElementById('host-q-index'),
@@ -638,7 +647,7 @@ function renderCountdown() {
 }
 
 function renderHostView() {
-    const { currentQuestion, currentQuestionIndex, totalQuestions, phase, playerBuzzStatus, answeredCount, totalPlayers } = gameState;
+    const { currentQuestion, currentQuestionIndex, totalQuestions, phase, playerBuzzStatus, answeredCount, totalPlayers, isOffTheDome } = gameState;
 
     // Update timer state
     timerRemaining = gameState.timerRemaining || 0;
@@ -649,16 +658,50 @@ function renderHostView() {
     hostEls.qTotal.textContent = totalQuestions || 0;
     hostEls.category.textContent = currentQuestion ? currentQuestion.category : '-';
 
+    // Show OFF THE DOME badge if applicable
+    const categoryEl = hostEls.category;
+    if (isOffTheDome && categoryEl) {
+        categoryEl.innerHTML = `<span class="off-the-dome-badge">OFF THE DOME</span> ${currentQuestion?.category || ''}`;
+    }
+
     // Question Card - only show if question is revealed
+    // IMPORTANT: Hide answer from host until results phase
+    const answerBox = document.getElementById('host-answer-text');
+    const answerContainer = answerBox?.parentElement;
+
     if (phase === 'waiting') {
         hostEls.question.textContent = 'Ready to show question?';
-        hostEls.answer.textContent = '---';
+        if (answerBox) {
+            answerBox.textContent = '---';
+            answerContainer?.classList.add('hidden-answer');
+            answerContainer?.classList.remove('revealed');
+        }
+    } else if (phase === 'question') {
+        hostEls.question.textContent = currentQuestion?.question || '...';
+        // Hide answer during question phase so host can play fairly
+        if (answerBox) {
+            answerBox.textContent = '(Hidden until results)';
+            answerContainer?.classList.add('hidden-answer');
+            answerContainer?.classList.remove('revealed');
+        }
+    } else if (phase === 'result') {
+        hostEls.question.textContent = currentQuestion?.question || '...';
+        // Reveal answer during results
+        if (answerBox) {
+            answerBox.textContent = currentQuestion?.answer || '...';
+            answerContainer?.classList.remove('hidden-answer');
+            answerContainer?.classList.add('revealed');
+        }
     } else if (currentQuestion) {
         hostEls.question.textContent = currentQuestion.question || '...';
-        hostEls.answer.textContent = currentQuestion.answer || '...';
+        if (answerBox) {
+            answerBox.textContent = currentQuestion.answer || '...';
+        }
     } else {
         hostEls.question.textContent = '...';
-        hostEls.answer.textContent = '...';
+        if (answerBox) {
+            answerBox.textContent = '...';
+        }
     }
 
     // Phase Controls - hide all first
@@ -711,7 +754,7 @@ function renderHostView() {
 }
 
 function renderPlayerView() {
-    const { currentQuestion, phase, playerBuzzStatus, scores, answeredCount, totalPlayers } = gameState;
+    const { currentQuestion, phase, playerBuzzStatus, scores, answeredCount, totalPlayers, isOffTheDome, isFirstOffTheDome } = gameState;
     const myScoreEntry = (scores || []).find(s => s.socketId === socket.id) || { score: 0 };
 
     // Update timer state
@@ -722,6 +765,17 @@ function renderPlayerView() {
     const myStatus = (playerBuzzStatus || []).find(p => p.socketId === socket.id);
     hasBuzzed = myStatus?.hasBuzzed || false;
     hasAnswered = myStatus?.hasAnswered || false;
+
+    // Show OFF THE DOME announcement for first of last 3 questions
+    if (isFirstOffTheDome && phase === 'waiting' && !offTheDomeShown) {
+        showOffTheDomeOverlay();
+        offTheDomeShown = true;
+    }
+
+    // Reset OFF THE DOME shown flag when moving to a new question
+    if (!isFirstOffTheDome) {
+        offTheDomeShown = false;
+    }
 
     // Score & Rank
     playerEls.score.textContent = myScoreEntry.score || 0;
@@ -734,7 +788,12 @@ function renderPlayerView() {
         playerEls.category.textContent = 'Waiting...';
         playerEls.question.textContent = 'Waiting for host to show question...';
     } else if (currentQuestion) {
-        playerEls.category.textContent = currentQuestion.category || '';
+        // Show OFF THE DOME badge if applicable
+        if (isOffTheDome) {
+            playerEls.category.innerHTML = `<span class="off-the-dome-badge">OFF THE DOME</span>`;
+        } else {
+            playerEls.category.textContent = currentQuestion.category || '';
+        }
         playerEls.question.textContent = currentQuestion.question || 'Wait for it...';
     } else {
         playerEls.category.textContent = '';
@@ -770,40 +829,57 @@ function renderPlayerView() {
         timerContainer.innerHTML = timerHTML;
     }
 
-    // Buzzer State & Answer Section - NEW FLOW
+    // Check if this is a multiple choice question
+    const hasChoices = currentQuestion?.choices && currentQuestion.choices.length > 0 && !isOffTheDome;
+
+    // Hide all interactive elements first
+    if (choicesEls.section) choicesEls.section.classList.add('hidden');
+    if (answerEls.section) answerEls.section.classList.add('hidden');
+    playerEls.btnBuzz.style.display = 'none';
+
+    // Buzzer State & Answer Section
     if (phase === 'waiting') {
         // Waiting for question
         playerEls.buzzStatus.classList.remove('hidden');
         playerEls.buzzStatus.textContent = "WAITING FOR QUESTION";
         playerEls.buzzStatus.style.color = "#aaa";
         playerEls.btnBuzz.disabled = true;
-        if (answerEls.section) answerEls.section.classList.add('hidden');
+        selectedChoice = null;
     } else if (phase === 'question') {
         if (hasAnswered) {
             // Already submitted answer
             playerEls.buzzStatus.classList.remove('hidden');
-            playerEls.buzzStatus.textContent = "ANSWER SUBMITTED!";
+            playerEls.buzzStatus.textContent = "LOCKED IN!";
             playerEls.buzzStatus.style.color = "var(--success)";
             playerEls.btnBuzz.disabled = true;
-            playerEls.btnBuzz.style.display = 'none';
-            if (answerEls.section) answerEls.section.classList.add('hidden');
-        } else if (hasBuzzed) {
-            // Buzzed but haven't answered - show answer input
+        } else if (hasChoices) {
+            // Multiple choice mode - show choice buttons
+            playerEls.buzzStatus.classList.add('hidden');
+            renderMultipleChoiceButtons(currentQuestion.choices);
+            if (choicesEls.section) choicesEls.section.classList.remove('hidden');
+        } else if (isOffTheDome) {
+            // OFF THE DOME mode - show text input directly
             playerEls.buzzStatus.classList.remove('hidden');
             playerEls.buzzStatus.textContent = "TYPE YOUR ANSWER!";
             playerEls.buzzStatus.style.color = "var(--accent)";
-            playerEls.btnBuzz.disabled = true;
-            playerEls.btnBuzz.style.display = 'none';
+            if (answerEls.section) {
+                answerEls.section.classList.remove('hidden');
+                answerEls.input.focus();
+            }
+        } else if (hasBuzzed) {
+            // Buzzed but haven't answered - show answer input (fallback)
+            playerEls.buzzStatus.classList.remove('hidden');
+            playerEls.buzzStatus.textContent = "TYPE YOUR ANSWER!";
+            playerEls.buzzStatus.style.color = "var(--accent)";
             if (answerEls.section) {
                 answerEls.section.classList.remove('hidden');
                 answerEls.input.focus();
             }
         } else {
-            // Can still buzz
+            // Show LOCK IN button (fallback for questions without choices)
             playerEls.buzzStatus.classList.add('hidden');
             playerEls.btnBuzz.disabled = false;
             playerEls.btnBuzz.style.display = 'block';
-            if (answerEls.section) answerEls.section.classList.add('hidden');
         }
     } else if (phase === 'result') {
         // Results phase
@@ -811,17 +887,74 @@ function renderPlayerView() {
         playerEls.buzzStatus.textContent = "ROUND COMPLETE";
         playerEls.buzzStatus.style.color = "var(--accent)";
         playerEls.btnBuzz.disabled = true;
-        playerEls.btnBuzz.style.display = 'block';
-        if (answerEls.section) answerEls.section.classList.add('hidden');
+        selectedChoice = null;
     } else {
         // Other phases
         playerEls.buzzStatus.classList.remove('hidden');
         playerEls.buzzStatus.textContent = "PLEASE WAIT";
         playerEls.buzzStatus.style.color = "#aaa";
         playerEls.btnBuzz.disabled = true;
-        playerEls.btnBuzz.style.display = 'block';
-        if (answerEls.section) answerEls.section.classList.add('hidden');
+        selectedChoice = null;
     }
+}
+
+function renderMultipleChoiceButtons(choices) {
+    if (!choicesEls.grid || !choices) return;
+
+    // Shuffle choices for each render (but keep consistent within same question)
+    const shuffledChoices = [...choices].sort(() => Math.random() - 0.5);
+
+    choicesEls.grid.innerHTML = shuffledChoices.map((choice, i) => `
+        <button class="choice-btn ${selectedChoice === choice ? 'selected' : ''}"
+                data-choice="${choice}"
+                ${hasAnswered ? 'disabled' : ''}>
+            ${choice}
+        </button>
+    `).join('');
+
+    // Add click handlers
+    choicesEls.grid.querySelectorAll('.choice-btn').forEach(btn => {
+        btn.addEventListener('click', () => handleChoiceClick(btn.dataset.choice));
+    });
+}
+
+function handleChoiceClick(choice) {
+    if (hasAnswered) return;
+
+    selectedChoice = choice;
+
+    // Update button styles
+    choicesEls.grid.querySelectorAll('.choice-btn').forEach(btn => {
+        btn.classList.remove('selected');
+        if (btn.dataset.choice === choice) {
+            btn.classList.add('selected');
+        }
+    });
+
+    // Submit the answer
+    socket.emit('player:submitAnswer', { roomCode: roomCode, answer: choice });
+}
+
+function showOffTheDomeOverlay() {
+    // Remove any existing overlay
+    const existing = document.getElementById('off-the-dome-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'off-the-dome-overlay';
+    overlay.className = 'off-the-dome-overlay';
+    overlay.innerHTML = `
+        <div class="off-the-dome-text">OFF THE DOME</div>
+        <div class="off-the-dome-subtitle">Type your answers for the final 3 questions!</div>
+    `;
+    document.body.appendChild(overlay);
+
+    // Fade out after 3 seconds
+    setTimeout(() => {
+        overlay.style.transition = 'opacity 0.5s ease-out';
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.remove(), 500);
+    }, 3000);
 }
 
 function renderEndScreen() {
