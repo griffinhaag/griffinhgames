@@ -63,6 +63,10 @@ const choicesEls = {
 let offTheDomeShown = false;
 let selectedChoice = null;
 
+// Cache shuffled choices per question to prevent re-shuffling every timer tick
+let lastRenderedQuestionKey = null;
+let cachedShuffledChoices = null;
+
 const hostEls = {
     view: document.getElementById('view-host'),
     qIndex: document.getElementById('host-q-index'),
@@ -839,12 +843,14 @@ function renderPlayerView() {
 
     // Buzzer State & Answer Section
     if (phase === 'waiting') {
-        // Waiting for question
+        // Waiting for question - reset choice cache for incoming question
+        lastRenderedQuestionKey = null;
+        cachedShuffledChoices = null;
+        selectedChoice = null;
         playerEls.buzzStatus.classList.remove('hidden');
         playerEls.buzzStatus.textContent = "WAITING FOR QUESTION";
         playerEls.buzzStatus.style.color = "#aaa";
         playerEls.btnBuzz.disabled = true;
-        selectedChoice = null;
     } else if (phase === 'question') {
         if (hasAnswered) {
             // Already submitted answer
@@ -901,8 +907,13 @@ function renderPlayerView() {
 function renderMultipleChoiceButtons(choices) {
     if (!choicesEls.grid || !choices) return;
 
-    // Shuffle choices for each render (but keep consistent within same question)
-    const shuffledChoices = [...choices].sort(() => Math.random() - 0.5);
+    // Only shuffle once per question; re-use the same order on every timer tick
+    const questionKey = gameState?.currentQuestion?.question;
+    if (questionKey !== lastRenderedQuestionKey) {
+        lastRenderedQuestionKey = questionKey;
+        cachedShuffledChoices = [...choices].sort(() => Math.random() - 0.5);
+    }
+    const shuffledChoices = cachedShuffledChoices || choices;
 
     choicesEls.grid.innerHTML = shuffledChoices.map((choice, i) => `
         <button class="choice-btn ${selectedChoice === choice ? 'selected' : ''}"

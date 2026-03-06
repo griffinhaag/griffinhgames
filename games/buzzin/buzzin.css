@@ -500,12 +500,14 @@ body {
     grid-template-columns: 1fr;
     grid-template-rows: auto auto;
     gap: clamp(10px, 2vh, 20px);
+    align-items: start;
 }
 
 @media (min-width: 900px) {
     #screen-game.host-playing {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr 300px;
         grid-template-rows: 1fr;
+        align-items: start;
     }
 }
 
@@ -523,6 +525,69 @@ body {
 
 #view-player {
     max-height: none;
+}
+
+/* Host panel card - wraps all host controls into a cohesive sidebar */
+.host-panel-card {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: clamp(15px, 3vw, 22px);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    backdrop-filter: blur(8px);
+}
+
+/* In host-playing mode, compact the host card (question text is visible in player view too) */
+#screen-game.host-playing .host-card {
+    padding: 14px 16px;
+    margin: 0;
+    border-radius: 14px;
+}
+
+#screen-game.host-playing .host-card h2 {
+    font-size: clamp(0.85rem, 1.8vw, 1rem);
+    margin-bottom: 10px;
+}
+
+#screen-game.host-playing .host-answer-box {
+    font-size: clamp(0.8rem, 1.6vw, 0.95rem);
+    padding: 10px 12px;
+    margin-top: 10px;
+}
+
+/* Hide redundant timer from host panel — player view already shows it */
+#screen-game.host-playing #host-buzz-area {
+    min-height: unset;
+    margin: 0;
+}
+
+#screen-game.host-playing .host-header {
+    margin-bottom: 0;
+    padding: clamp(8px, 1.5vw, 12px) clamp(12px, 2vw, 16px);
+}
+
+#screen-game.host-playing .host-actions {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+#screen-game.host-playing .phase-controls {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+#screen-game.host-playing .phase-controls .btn-primary {
+    width: 100%;
+    text-align: center;
+}
+
+#screen-game.host-playing .mini-leaderboard {
+    margin-top: 8px;
 }
 
 .host-card {
@@ -1160,6 +1225,22 @@ body {
     z-index: 1000;
 }
 
+.admin-menu-btn-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+}
+
+.admin-label {
+    font-size: 0.55rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: rgba(255, 255, 255, 0.45);
+    text-transform: uppercase;
+    user-select: none;
+}
+
 .admin-menu-toggle {
     width: 48px;
     height: 48px;
@@ -1315,6 +1396,10 @@ body {
         height: 40px;
     }
 
+    .admin-label {
+        font-size: 0.5rem;
+    }
+
     .admin-menu-dropdown {
         min-width: 180px;
     }
@@ -1336,6 +1421,16 @@ body {
 
     .player-header {
         padding: clamp(8px, 2vw, 12px);
+    }
+
+    /* On mobile, stack host panel below player view with tighter spacing */
+    #screen-game.host-playing {
+        gap: 12px;
+    }
+
+    .host-panel-card {
+        padding: 14px;
+        gap: 10px;
     }
 }
 
