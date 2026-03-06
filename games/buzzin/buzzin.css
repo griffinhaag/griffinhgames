@@ -82,6 +82,8 @@ body {
     text-transform: uppercase;
     color: white;
     box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .btn-primary { background: linear-gradient(45deg, #ff0055, #ff4444); }
@@ -159,19 +161,23 @@ body {
     background: rgba(255, 50, 50, 0.25);
     border: none;
     border-radius: 50%;
-    width: 22px;
-    height: 22px;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     color: rgba(255, 150, 150, 0.9);
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     font-weight: 900;
     line-height: 1;
     transition: background 0.15s, color 0.15s;
     flex-shrink: 0;
     font-family: var(--font-main);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    /* Larger invisible tap area for mobile */
+    position: relative;
 }
 
 .kick-btn:hover {
@@ -186,7 +192,7 @@ body {
     background: rgba(0, 0, 0, 0.25);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 14px;
-    padding: 14px 18px;
+    padding: 14px 18px 16px;
 }
 
 .summary-label {
@@ -195,23 +201,25 @@ body {
     text-transform: uppercase;
     letter-spacing: 2px;
     color: rgba(255, 255, 255, 0.45);
-    margin: 0 0 10px 0;
+    margin: 0 0 12px 0;
 }
 
 .selected-cat-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 7px;
+    gap: 8px;
+    justify-content: flex-start;
 }
 
 .selected-cat-tag {
     background: rgba(0, 212, 255, 0.15);
     border: 1px solid rgba(0, 212, 255, 0.3);
     color: rgba(255, 255, 255, 0.9);
-    padding: 4px 12px;
+    padding: 5px 14px;
     border-radius: 20px;
     font-size: 0.8rem;
     font-weight: 600;
+    white-space: nowrap;
 }
 
 @keyframes popIn {
@@ -322,6 +330,8 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
 }
 
 @media (hover: hover) {
@@ -943,6 +953,8 @@ body {
     min-height: clamp(100px, 18vw, 140px);
     border-radius: 20px;
     border: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
     background: linear-gradient(145deg, #ff0055, #cc0044);
     box-shadow:
         0 8px 0 #990033,
@@ -1534,6 +1546,59 @@ input[type="range"]::-webkit-slider-thumb {
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
+}
+
+/* --- Kicked Overlay --- */
+.kicked-card {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 1px solid rgba(255, 50, 50, 0.3);
+    border-radius: 20px;
+    padding: clamp(30px, 6vw, 50px) clamp(25px, 5vw, 45px);
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+    font-family: var(--font-main);
+    color: white;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+
+.kicked-icon {
+    font-size: 3.5rem;
+    margin-bottom: 16px;
+}
+
+.kicked-card h2 {
+    font-size: clamp(1.4rem, 4vw, 1.8rem);
+    font-weight: 800;
+    margin: 0 0 10px;
+    color: var(--danger);
+}
+
+.kicked-card p {
+    color: rgba(255,255,255,0.65);
+    margin: 0 0 8px;
+    font-size: clamp(0.9rem, 2.5vw, 1rem);
+}
+
+.kicked-note {
+    font-size: 0.85rem !important;
+    color: rgba(255,255,255,0.4) !important;
+    margin-bottom: 24px !important;
+}
+
+.kicked-btn {
+    background: linear-gradient(45deg, #ff0055, #ff4444);
+    border: none;
+    border-radius: 50px;
+    color: white;
+    font-weight: 800;
+    font-size: clamp(1rem, 3vw, 1.1rem);
+    padding: 14px 35px;
+    cursor: pointer;
+    font-family: var(--font-main);
+    touch-action: manipulation;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 /* --- End Screen --- */

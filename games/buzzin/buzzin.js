@@ -326,10 +326,17 @@ function setupSocketListeners() {
         errorDiv.textContent = message;
         document.body.appendChild(errorDiv);
         
-        // If room not found, redirect back to lobby after delay
+        // If kicked, show kicked overlay
+        if (message.toLowerCase().includes('kick')) {
+            errorDiv.remove();
+            showKickedOverlay();
+            return;
+        }
+
+        // If room not found, redirect back to main menu after delay
         if (message.includes('not found') || message.includes('Invalid') || message.includes('Unable')) {
             setTimeout(() => {
-                window.location.href = '../multiplayer/lobby.html';
+                window.location.href = '../../index.html';
             }, 3000);
         } else {
             setTimeout(() => errorDiv.remove(), 5000);
@@ -356,15 +363,23 @@ function setupSocketListeners() {
         // Otherwise, show lobby
         updateLobbyUI(rs);
         
-        // Sync host status
+        // Sync host status — only upgrade to host, never downgrade (URL param is authoritative)
         const me = rs.players.find(p => p.socketId === socket.id);
-        if (me) {
-            isHost = me.isHost;
-            console.log('I am host:', isHost);
+        if (me && me.isHost) {
+            isHost = true;
         }
+        console.log('I am host:', isHost);
         
         updateHostControlsVisibility();
     });
+
+    // Player kicked event
+    socket.on('player:kicked', () => {
+        showKickedOverlay();
+    });
+
+    // Some servers send kick as a room error
+    // (handled in room:error — "kicked" keyword triggers redirect below)
 
     // Game started event - this happens when host clicks Start Game
     socket.on('game:started', (data) => {
@@ -1128,6 +1143,31 @@ function handleChoiceClick(choice) {
 
     // Submit the answer
     socket.emit('player:submitAnswer', { roomCode: roomCode, answer: choice });
+}
+
+function showKickedOverlay() {
+    // Disconnect socket so no further events come in
+    if (socket) socket.disconnect();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'kicked-overlay';
+    overlay.innerHTML = `
+        <div class="kicked-card">
+            <div class="kicked-icon">🚫</div>
+            <h2>You have been kicked</h2>
+            <p>The host has removed you from this game.</p>
+            <p class="kicked-note">You can rejoin using the room code.</p>
+            <button class="kicked-btn" onclick="window.location.href='join.html'">Join Another Game</button>
+        </div>
+    `;
+    overlay.style.cssText = [
+        'position:fixed;top:0;left:0;width:100%;height:100%',
+        'background:rgba(0,0,0,0.96)',
+        'display:flex;align-items:center;justify-content:center',
+        'z-index:9999;font-family:var(--font-main)',
+        'padding:30px;box-sizing:border-box'
+    ].join(';');
+    document.body.appendChild(overlay);
 }
 
 function showOffTheDomeOverlay() {
