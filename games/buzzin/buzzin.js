@@ -82,7 +82,7 @@ function onYouTubeIframeAPIReady() {
             autoplay: 1,
             loop: 1,
             playlist: '8YGlzSl6cxU',
-            controls: 1,
+            controls: 0,
             modestbranding: 1,
             rel: 0
         },

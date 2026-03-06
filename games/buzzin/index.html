@@ -28,11 +28,6 @@
                 <div id="lobby-player-list" class="player-grid"></div>
             </div>
 
-            <!-- Lobby Atmosphere Video -->
-            <div class="lobby-video-wrap">
-                <div id="lobby-video-player"></div>
-            </div>
-
             <!-- Host Controls -->
             <div id="lobby-host-controls" class="host-controls hidden">
                 <div class="settings-group">
@@ -184,8 +179,9 @@
         </div>
     </div>
 
-    <!-- Hidden question music player -->
-    <div id="question-music-wrap" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
+    <!-- Hidden audio players (off-screen, no visible UI) -->
+    <div style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
+        <div id="lobby-video-player"></div>
         <div id="question-music-player"></div>
     </div>
 
