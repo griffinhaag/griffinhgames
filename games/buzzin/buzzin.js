@@ -1327,10 +1327,13 @@ function showResultsOverlay(event) {
     const resultsMap = {};
     (event.results || []).forEach(r => { resultsMap[r.name] = r; });
 
-    // Merge: ensure everyone is represented
-    const allResults = event.results && event.results.length > 0
-        ? event.results
-        : allPlayers.map(p => ({ name: p.name, answer: null, isCorrect: false }));
+    // Merge: start with server results, then add any players who didn't answer at all
+    const allResults = [
+        ...(event.results || []),
+        ...allPlayers
+            .filter(p => !resultsMap[p.name])
+            .map(p => ({ name: p.name, answer: null, isCorrect: false }))
+    ];
 
     const resultsHTML = allResults.map(r => {
         let itemClass = r.isCorrect ? 'correct' : 'wrong';

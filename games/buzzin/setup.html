@@ -330,7 +330,7 @@
         function calculateAvailableQuestions() {
             // This is a client-side estimate. Server will do actual validation.
             // For now, we'll use a conservative estimate based on typical question distribution
-            const questionsPerCategory = 3; // Average based on current question bank
+            const questionsPerCategory = 12; // Estimate per category in question bank
             return selectedCategories.length * questionsPerCategory;
         }
         
