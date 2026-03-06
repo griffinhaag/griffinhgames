@@ -389,7 +389,7 @@
                     errorEl.style.display = 'block';
                 } else {
                     // In development, silently fail if backend isn't running
-                    console.warn('Backend not available. Games will not be loaded dynamically.');
+                    console.warn('Backend got annihalated. Games will not be loaded dynamically.');
                 }
             }
         }
@@ -406,8 +406,8 @@
 
             // Custom description for BuzzIn
             const description = isBuzzin
-                ? 'Race against the clock! Everyone answers, first correct wins big. Up to 16 players!'
-                : (game.description || 'Join friends for an exciting multiplayer experience!');
+                ? 'You OUGHT to be the first to answer right! Abstract take on a modern day trivia game'
+                : (game.description || 'Join peeps for a multiplayer experience');
 
             // Badge text
             const badgeText = isBuzzin ? 'Multiplayer' : (game.badge || 'Multiplayer');
