@@ -23,12 +23,15 @@ body {
     font-family: var(--font-main);
     background: var(--bg-gradient);
     color: var(--text);
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100vh;
+    min-height: 100dvh; /* Dynamic viewport height for mobile */
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 #app {
-    height: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
     width: 100%;
     position: relative;
 }
@@ -38,13 +41,17 @@ body {
     top: 0;
     left: 0;
     width: 100%;
-    height: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
     display: none;
     flex-direction: column;
     align-items: center;
-    padding: 20px;
+    padding: clamp(15px, 4vw, 30px);
+    padding-top: clamp(15px, 3vh, 30px);
     opacity: 0;
     transition: opacity 0.3s ease;
+    overflow-y: auto;
+    box-sizing: border-box;
 }
 
 .screen.active {
@@ -54,22 +61,22 @@ body {
 
 /* --- Shared UI --- */
 .logo {
-    font-size: 3rem;
+    font-size: clamp(2rem, 6vw, 3rem);
     font-weight: 800;
     text-transform: uppercase;
     background: linear-gradient(to right, #ff0055, #ffcc00);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    margin-bottom: 10px;
+    margin-bottom: clamp(8px, 2vw, 15px);
     text-shadow: 0 0 20px rgba(255, 0, 85, 0.5);
 }
 
 .btn-primary, .btn-secondary, .btn-success, .btn-danger {
     border: none;
     border-radius: 50px;
-    padding: 12px 30px;
+    padding: clamp(10px, 2.5vw, 14px) clamp(20px, 5vw, 35px);
     font-weight: 800;
-    font-size: 1.2rem;
+    font-size: clamp(1rem, 3vw, 1.2rem);
     cursor: pointer;
     transition: transform 0.1s, filter 0.2s;
     text-transform: uppercase;
@@ -89,13 +96,30 @@ body {
 .hidden { display: none !important; }
 
 /* --- Lobby --- */
+#screen-lobby {
+    justify-content: flex-start;
+    padding-top: clamp(20px, 4vh, 40px);
+    gap: clamp(15px, 3vh, 25px);
+}
+
 .room-code-display {
-    font-size: 1.5rem;
+    font-size: clamp(1.1rem, 3.5vw, 1.5rem);
     background: rgba(255,255,255,0.1);
-    padding: 10px 20px;
+    padding: clamp(8px, 2vw, 12px) clamp(15px, 4vw, 25px);
     border-radius: 15px;
-    margin-bottom: 30px;
+    margin-bottom: clamp(15px, 3vh, 30px);
     border: 1px solid rgba(255,255,255,0.2);
+}
+
+.player-list-container {
+    width: 100%;
+    max-width: 600px;
+}
+
+.player-list-container h2 {
+    font-size: clamp(1.1rem, 3vw, 1.4rem);
+    margin-bottom: clamp(10px, 2vh, 15px);
+    text-align: center;
 }
 
 .player-grid {
@@ -122,17 +146,18 @@ body {
 
 .category-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 10px;
-    margin: 15px 0;
+    grid-template-columns: repeat(auto-fit, minmax(clamp(120px, 30vw, 150px), 1fr));
+    gap: clamp(8px, 2vw, 12px);
+    margin: clamp(10px, 2vh, 15px) 0;
     max-width: 600px;
+    width: 100%;
 }
 
 .category-checkbox {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px;
+    gap: clamp(6px, 1.5vw, 10px);
+    padding: clamp(8px, 2vw, 12px);
     background: rgba(255,255,255,0.1);
     border-radius: 10px;
     cursor: pointer;
@@ -144,34 +169,67 @@ body {
 }
 
 .category-checkbox input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
+    width: clamp(18px, 4vw, 22px);
+    height: clamp(18px, 4vw, 22px);
     cursor: pointer;
+    flex-shrink: 0;
 }
 
 .category-checkbox span {
     color: white;
     font-weight: 500;
+    font-size: clamp(0.85rem, 2.5vw, 1rem);
+}
+
+.settings-group {
+    width: 100%;
+    max-width: 600px;
 }
 
 .settings-group h3 {
     color: white;
-    margin-bottom: 10px;
-    font-size: 1.1rem;
+    margin-bottom: clamp(8px, 2vw, 12px);
+    font-size: clamp(0.95rem, 2.8vw, 1.1rem);
+}
+
+.host-controls {
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(15px, 3vh, 25px);
+}
+
+.player-msg {
+    background: rgba(0, 212, 255, 0.15);
+    border: 2px solid rgba(0, 212, 255, 0.3);
+    color: rgba(255, 255, 255, 0.9);
+    padding: clamp(15px, 3vw, 25px) clamp(20px, 4vw, 35px);
+    border-radius: 15px;
+    font-size: clamp(1rem, 3vw, 1.3rem);
+    font-weight: 600;
+    text-align: center;
+    animation: pulseGlow 2s ease-in-out infinite;
+}
+
+@keyframes pulseGlowMsg {
+    0%, 100% { box-shadow: 0 0 10px rgba(0, 212, 255, 0.2); }
+    50% { box-shadow: 0 0 20px rgba(0, 212, 255, 0.4); }
 }
 
 .question-count-control {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: clamp(8px, 2vw, 12px);
     align-items: center;
-    margin: 15px 0;
+    margin: clamp(10px, 2vh, 15px) 0;
+    width: 100%;
 }
 
 .question-count-control input[type="range"] {
     width: 100%;
     max-width: 400px;
-    height: 8px;
+    height: clamp(6px, 1.5vw, 10px);
     border-radius: 5px;
     background: rgba(255,255,255,0.2);
     outline: none;
@@ -181,16 +239,16 @@ body {
 .question-count-control input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 20px;
-    height: 20px;
+    width: clamp(22px, 5vw, 28px);
+    height: clamp(22px, 5vw, 28px);
     border-radius: 50%;
     background: var(--primary);
     cursor: pointer;
 }
 
 .question-count-control input[type="range"]::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
+    width: clamp(22px, 5vw, 28px);
+    height: clamp(22px, 5vw, 28px);
     border-radius: 50%;
     background: var(--primary);
     cursor: pointer;
@@ -198,7 +256,7 @@ body {
 }
 
 .question-count-display {
-    font-size: 1.2rem;
+    font-size: clamp(1rem, 3vw, 1.2rem);
     font-weight: 600;
     color: white;
 }
@@ -257,8 +315,8 @@ body {
 }
 
 .btn-primary.large {
-    font-size: 1.5rem;
-    padding: 15px 40px;
+    font-size: clamp(1.1rem, 3.5vw, 1.5rem);
+    padding: clamp(12px, 3vw, 18px) clamp(25px, 6vw, 45px);
 }
 
 .info-text {
@@ -302,8 +360,8 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0;
-    padding: 15px;
-    padding-top: 70px; /* Space for admin menu */
+    padding: clamp(10px, 2vw, 20px);
+    padding-top: clamp(60px, 10vh, 80px); /* Space for admin menu */
     overflow-y: auto;
 }
 
@@ -311,8 +369,8 @@ body {
 #screen-game.host-playing {
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-    gap: 15px;
+    grid-template-rows: auto auto;
+    gap: clamp(10px, 2vh, 20px);
 }
 
 @media (min-width: 900px) {
@@ -471,32 +529,32 @@ body {
     justify-content: center;
     width: 100%;
     position: relative;
-    min-height: 200px;
+    min-height: clamp(150px, 25vh, 250px);
 }
 
 /* Compact buzzer for host playing mode */
 .host-playing .buzzer-container {
-    min-height: 150px;
+    min-height: clamp(120px, 18vh, 180px);
 }
 
 .host-playing .buzzer-btn {
-    width: 180px;
-    height: 180px;
-    font-size: 1.8rem;
+    width: clamp(130px, 25vw, 180px);
+    height: clamp(130px, 25vw, 180px);
+    font-size: clamp(1.4rem, 3vw, 1.8rem);
 }
 
 .buzzer-btn {
-    width: 250px;
-    height: 250px;
+    width: clamp(180px, 35vw, 250px);
+    height: clamp(180px, 35vw, 250px);
     border-radius: 50%;
     border: none;
     background: radial-gradient(circle at 30% 30%, #ff5555, #cc0000);
-    box-shadow: 
-        0 10px 0 #990000,
-        0 20px 20px rgba(0,0,0,0.4),
-        inset 0 10px 20px rgba(255,255,255,0.4);
+    box-shadow:
+        0 clamp(6px, 1.5vw, 10px) 0 #990000,
+        0 clamp(12px, 3vw, 20px) clamp(12px, 3vw, 20px) rgba(0,0,0,0.4),
+        inset 0 clamp(6px, 1.5vw, 10px) clamp(12px, 3vw, 20px) rgba(255,255,255,0.4);
     color: white;
-    font-size: 2.5rem;
+    font-size: clamp(1.8rem, 5vw, 2.5rem);
     font-weight: 900;
     cursor: pointer;
     transition: transform 0.1s;
@@ -588,15 +646,16 @@ body {
 .timer-duration-control {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: clamp(8px, 2vw, 12px);
     align-items: center;
-    margin: 15px 0;
+    margin: clamp(10px, 2vh, 15px) 0;
+    width: 100%;
 }
 
 .timer-duration-control input[type="range"] {
     width: 100%;
     max-width: 400px;
-    height: 8px;
+    height: clamp(6px, 1.5vw, 10px);
     border-radius: 5px;
     background: rgba(255,255,255,0.2);
     outline: none;
@@ -606,16 +665,16 @@ body {
 .timer-duration-control input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 20px;
-    height: 20px;
+    width: clamp(22px, 5vw, 28px);
+    height: clamp(22px, 5vw, 28px);
     border-radius: 50%;
     background: var(--accent);
     cursor: pointer;
 }
 
 .timer-duration-control input[type="range"]::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
+    width: clamp(22px, 5vw, 28px);
+    height: clamp(22px, 5vw, 28px);
     border-radius: 50%;
     background: var(--accent);
     cursor: pointer;
@@ -623,7 +682,7 @@ body {
 }
 
 .timer-duration-display {
-    font-size: 1.2rem;
+    font-size: clamp(1rem, 3vw, 1.2rem);
     font-weight: 600;
     color: white;
 }
@@ -1043,13 +1102,11 @@ body {
 
 /* --- Mobile Optimizations --- */
 @media (max-width: 600px) {
-    .logo { font-size: 2rem; }
-    .buzzer-btn { width: 200px; height: 200px; font-size: 2rem; }
-    .timer-number { font-size: 2rem; }
-    .results-card { padding: 20px; }
-    .results-card h2 { font-size: 1.4rem; }
-    .result-item { padding: 10px; font-size: 0.9rem; }
-    .points-animation { font-size: 3rem; }
+    .timer-number { font-size: clamp(1.5rem, 6vw, 2rem); }
+    .results-card { padding: clamp(15px, 4vw, 20px); }
+    .results-card h2 { font-size: clamp(1.2rem, 4vw, 1.4rem); }
+    .result-item { padding: clamp(8px, 2vw, 12px); font-size: clamp(0.8rem, 2.5vw, 0.9rem); }
+    .points-animation { font-size: clamp(2.5rem, 10vw, 3rem); }
 
     .admin-menu {
         top: 10px;
@@ -1068,6 +1125,35 @@ body {
     .admin-menu-item {
         padding: 10px 12px;
         font-size: 0.9rem;
+    }
+
+    .host-card {
+        padding: clamp(15px, 4vw, 25px);
+        margin: clamp(10px, 2vh, 15px) 0;
+    }
+
+    .host-header {
+        padding: clamp(10px, 2.5vw, 15px);
+        margin-bottom: clamp(10px, 2vh, 15px);
+    }
+
+    .player-header {
+        padding: clamp(8px, 2vw, 12px);
+    }
+}
+
+/* Large screens */
+@media (min-width: 1200px) {
+    #screen-lobby {
+        padding-top: 5vh;
+    }
+
+    .host-controls {
+        max-width: 700px;
+    }
+
+    .category-grid {
+        max-width: 700px;
     }
 }
 

@@ -1,15 +1,41 @@
+/* GriffinGames - Shared Styles */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+
+:root {
+    --primary: #ff0055;
+    --primary-dark: #cc0044;
+    --secondary: #1a1a2e;
+    --accent: #00d4ff;
+    --success: #00ff88;
+    --danger: #ff3333;
+    --text: #ffffff;
+    --card-bg: rgba(255, 255, 255, 0.95);
+    --bg-gradient: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f1e 100%);
+    --font-main: 'Poppins', sans-serif;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
 body {
     margin: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 100vh;
-    background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: linear-gradient(-45deg, #1a1a2e, #ff0055, #00d4ff, #16213e);
     background-size: 400% 400%;
     animation: gradient 15s ease infinite;
-    overflow: hidden;
-    font-family: 'Arial', sans-serif;
+    overflow-x: hidden;
+    overflow-y: auto;
+    font-family: var(--font-main);
+    color: var(--text);
+    padding: clamp(15px, 4vw, 30px);
 }
 
 @keyframes gradient {
@@ -26,49 +52,142 @@ body {
 
 #main-menu-container {
     text-align: center;
+    width: 100%;
+    max-width: 600px;
 }
 
 #main-menu-text {
     display: inline-block;
-    background-color: rgba(255, 255, 255, 0.9);
-    padding: 15px 30px;
-    border: 2px solid transparent;
-    border-radius: 8px;
-    font-size: 28px;
-    font-weight: bold;
-    margin-bottom: 20px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    color: #333;
-    transition: background-color 0.3s ease;
+    background-color: rgba(255, 255, 255, 0.95);
+    padding: clamp(12px, 3vw, 20px) clamp(20px, 5vw, 40px);
+    border: none;
+    border-radius: 15px;
+    font-size: clamp(1.3rem, 4vw, 1.8rem);
+    font-weight: 700;
+    margin-bottom: clamp(15px, 4vh, 25px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+    color: #222;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 #main-menu-text:hover {
-    background-color: rgba(255, 255, 255, 1);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
 }
 
 #gamemode-options {
     display: flex;
     flex-direction: column;
+    gap: clamp(10px, 2vh, 15px);
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
 }
 
 .gamemode-option {
-    margin: 10px;
-    padding: 15px 32px;
+    padding: clamp(14px, 3vw, 18px) clamp(25px, 5vw, 40px);
     border: none;
-    background-color: #0e1b64;
+    background: linear-gradient(45deg, var(--secondary), #2a2a4e);
     color: white;
     text-decoration: none;
-    font-size: 20px;
-    border-radius: 8px;
+    font-size: clamp(1rem, 3vw, 1.2rem);
+    font-weight: 600;
+    border-radius: 50px;
     cursor: pointer;
-    transition: background-color 0.3s ease, transform 0.3s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    text-align: center;
 }
 
 .gamemode-option:hover {
-    background-color: #092051;
-    transform: scale(1.1);
+    background: linear-gradient(45deg, var(--primary), var(--primary-dark));
+    transform: scale(1.03) translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255, 0, 85, 0.3);
 }
 
 .gamemode-option:active {
-    transform: scale(0.9);
+    transform: scale(0.98);
+}
+
+/* Shared button styles */
+.btn-primary {
+    display: inline-block;
+    padding: clamp(12px, 3vw, 16px) clamp(25px, 5vw, 35px);
+    background: linear-gradient(45deg, var(--primary), var(--primary-dark));
+    color: white;
+    text-decoration: none;
+    border: none;
+    border-radius: 50px;
+    font-size: clamp(1rem, 3vw, 1.2rem);
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 15px rgba(255, 0, 85, 0.3);
+}
+
+.btn-primary:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(255, 0, 85, 0.4);
+}
+
+.btn-secondary {
+    display: inline-block;
+    padding: clamp(12px, 3vw, 16px) clamp(25px, 5vw, 35px);
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    text-decoration: none;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50px;
+    font-size: clamp(1rem, 3vw, 1.2rem);
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.btn-secondary:hover {
+    transform: scale(1.05);
+    background: rgba(255, 255, 255, 0.25);
+}
+
+/* Card styles */
+.card {
+    background: var(--card-bg);
+    border-radius: clamp(15px, 3vw, 25px);
+    padding: clamp(20px, 4vw, 35px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* Typography */
+h1, h2, h3 {
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+h1 {
+    font-size: clamp(1.8rem, 6vw, 3rem);
+}
+
+h2 {
+    font-size: clamp(1.4rem, 4vw, 2rem);
+}
+
+h3 {
+    font-size: clamp(1.1rem, 3vw, 1.4rem);
+}
+
+/* Mobile optimizations */
+@media (max-width: 600px) {
+    body {
+        padding: 15px;
+    }
+
+    #gamemode-options {
+        padding: 0 10px;
+    }
 }

@@ -129,6 +129,42 @@ function init() {
 
     setupSocketListeners();
     setupUIListeners();
+
+    // Restore settings from sessionStorage (for host coming from setup page)
+    restoreSettingsFromStorage();
+}
+
+// --- Restore Settings from SessionStorage ---
+function restoreSettingsFromStorage() {
+    const settingsStr = sessionStorage.getItem('buzzin_settings');
+    if (!settingsStr || !isHost) return;
+
+    try {
+        const settings = JSON.parse(settingsStr);
+        console.log('Restoring settings:', settings);
+
+        // Restore question count
+        if (settings.questionCount && lobbyEls.qCountSlider && lobbyEls.qCountDisplay) {
+            lobbyEls.qCountSlider.value = settings.questionCount;
+            lobbyEls.qCountDisplay.textContent = settings.questionCount;
+        }
+
+        // Restore timer duration
+        if (settings.timerDuration && lobbyEls.timerSlider && lobbyEls.timerDisplay) {
+            lobbyEls.timerSlider.value = settings.timerDuration;
+            lobbyEls.timerDisplay.textContent = settings.timerDuration;
+        }
+
+        // Restore selected categories
+        if (settings.categories && settings.categories.length > 0) {
+            const checkboxes = document.querySelectorAll('#category-checkboxes input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                cb.checked = settings.categories.includes(cb.value);
+            });
+        }
+    } catch (e) {
+        console.error('Failed to restore settings:', e);
+    }
 }
 
 // --- Socket Listeners ---

@@ -3,9 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Main Menu</title>
+    <title>GriffinGames - Party Games Hub</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+
+        :root {
+            --primary: #ff0055;
+            --primary-dark: #cc0044;
+            --secondary: #1a1a2e;
+            --accent: #00d4ff;
+            --success: #00ff88;
+            --text: #ffffff;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --bg-gradient: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f1e 100%);
+        }
 
         * {
             margin: 0;
@@ -16,49 +27,86 @@
 
         body {
             min-height: 100vh;
-            background: linear-gradient(45deg, #1a1a1a, #a0035c);
+            min-height: 100dvh;
+            background: var(--bg-gradient);
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            padding: 20px;
+            padding: clamp(15px, 4vw, 30px);
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(255, 0, 85, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0, 212, 255, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
         }
 
         .container {
             max-width: 1200px;
             width: 100%;
-            padding: 40px;
+            padding: clamp(15px, 4vw, 40px);
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: clamp(30px, 6vh, 60px);
         }
 
         h1 {
-            color: white;
-            font-size: 3.5rem;
-            text-align: center;
-            margin-bottom: 2rem;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+            font-size: clamp(2rem, 8vw, 4rem);
+            font-weight: 800;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #ff0055 0%, #ffcc00 50%, #00d4ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: clamp(8px, 2vh, 15px);
+            letter-spacing: 2px;
+            text-shadow: 0 0 40px rgba(255, 0, 85, 0.3);
+        }
+
+        .tagline {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: clamp(0.9rem, 2.5vw, 1.2rem);
+            font-weight: 400;
+            letter-spacing: 1px;
         }
 
         .games-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
-            margin-top: 40px;
+            grid-template-columns: repeat(auto-fit, minmax(clamp(280px, 35vw, 350px), 1fr));
+            gap: clamp(20px, 4vw, 35px);
+            margin-top: clamp(20px, 4vh, 40px);
         }
 
         .game-card {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            padding: 30px;
+            background: var(--card-bg);
+            border-radius: clamp(15px, 3vw, 25px);
+            padding: clamp(20px, 4vw, 35px);
             text-align: center;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             cursor: pointer;
             position: relative;
             overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
         }
 
         .game-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
         }
 
         .game-card::before {
@@ -68,9 +116,9 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
             transform: translateX(-100%);
-            transition: 0.5s;
+            transition: 0.6s;
         }
 
         .game-card:hover::before {
@@ -78,89 +126,99 @@
         }
 
         .game-card h2 {
-            color: #333;
-            font-size: 1.8rem;
-            margin-bottom: 15px;
+            color: #222;
+            font-size: clamp(1.3rem, 4vw, 1.8rem);
+            margin-bottom: clamp(10px, 2vh, 15px);
+            font-weight: 700;
         }
 
         .game-card p {
-            color: #666;
-            font-size: 1rem;
-            margin-bottom: 25px;
-            line-height: 1.5;
+            color: #555;
+            font-size: clamp(0.85rem, 2.5vw, 1rem);
+            margin-bottom: clamp(18px, 4vh, 28px);
+            line-height: 1.6;
         }
 
         .play-button {
             display: inline-block;
-            padding: 12px 30px;
+            padding: clamp(10px, 2.5vw, 14px) clamp(22px, 5vw, 35px);
             background: linear-gradient(45deg, #0066cc, #0088ff);
             color: white;
             text-decoration: none;
-            border-radius: 25px;
-            font-weight: 600;
-            transition: transform 0.2s ease;
-            margin: 0 5px;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: clamp(0.85rem, 2.5vw, 1rem);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            margin: clamp(4px, 1vw, 6px);
+            box-shadow: 0 4px 15px rgba(0, 102, 204, 0.3);
         }
 
         .play-button:hover {
             transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(0, 102, 204, 0.4);
         }
 
         .button-container {
             display: flex;
             justify-content: center;
-            gap: 10px;
+            flex-wrap: wrap;
+            gap: clamp(8px, 2vw, 12px);
         }
 
         .loading {
             color: white;
             text-align: center;
-            padding: 20px;
-            font-size: 1.2rem;
+            padding: clamp(15px, 4vw, 25px);
+            font-size: clamp(1rem, 3vw, 1.2rem);
+            opacity: 0.8;
         }
 
         .error-message {
             color: #ff6b6b;
             text-align: center;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
+            padding: clamp(15px, 3vw, 20px);
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            border-radius: 12px;
             margin: 20px 0;
+            font-size: clamp(0.9rem, 2.5vw, 1rem);
         }
 
         .game-icon {
-            font-size: 3rem;
-            margin-bottom: 10px;
+            font-size: clamp(2.5rem, 8vw, 3.5rem);
+            margin-bottom: clamp(8px, 2vh, 15px);
         }
 
         .game-badge {
             display: inline-block;
             background: linear-gradient(45deg, #00d4ff, #0099cc);
             color: white;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            margin-bottom: 10px;
+            padding: clamp(4px, 1vw, 6px) clamp(10px, 2.5vw, 15px);
+            border-radius: 20px;
+            font-size: clamp(0.65rem, 2vw, 0.8rem);
+            font-weight: 700;
+            margin-bottom: clamp(8px, 2vh, 12px);
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         /* BuzzIn! Special Card Styling */
         .game-card.buzzin-card {
             background: linear-gradient(135deg, #fff 0%, #fff5f8 100%);
-            border: 3px solid #ff0055;
+            border: 3px solid var(--primary);
             position: relative;
         }
 
         .game-card.buzzin-card::after {
             content: '';
             position: absolute;
-            top: -2px;
-            left: -2px;
-            right: -2px;
-            bottom: -2px;
+            top: -3px;
+            left: -3px;
+            right: -3px;
+            bottom: -3px;
             background: linear-gradient(45deg, #ff0055, #ffcc00, #ff0055);
             z-index: -1;
-            border-radius: 22px;
+            border-radius: inherit;
             opacity: 0;
             transition: opacity 0.3s;
         }
@@ -171,7 +229,7 @@
 
         .game-card.buzzin-card:hover {
             border-color: transparent;
-            box-shadow: 0 12px 40px rgba(255, 0, 85, 0.3);
+            box-shadow: 0 20px 50px rgba(255, 0, 85, 0.35);
         }
 
         .game-card.buzzin-card .game-icon {
@@ -191,10 +249,20 @@
 
         .game-card.buzzin-card .play-button {
             background: linear-gradient(45deg, #ff0055, #ff4444);
+            box-shadow: 0 4px 15px rgba(255, 0, 85, 0.3);
         }
 
         .game-card.buzzin-card .play-button:hover {
-            box-shadow: 0 5px 20px rgba(255, 0, 85, 0.4);
+            box-shadow: 0 6px 25px rgba(255, 0, 85, 0.5);
+        }
+
+        .game-card.buzzin-card .play-button.player-btn {
+            background: linear-gradient(45deg, #00d4ff, #0099cc);
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+        }
+
+        .game-card.buzzin-card .play-button.player-btn:hover {
+            box-shadow: 0 6px 25px rgba(0, 212, 255, 0.5);
         }
 
         @keyframes pulse {
@@ -202,67 +270,90 @@
             50% { transform: scale(1.1); }
         }
 
-        @media (max-width: 768px) {
-            h1 {
-                font-size: 2.5rem;
-            }
+        /* Footer */
+        .footer {
+            margin-top: auto;
+            padding-top: clamp(30px, 6vh, 50px);
+            text-align: center;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: clamp(0.75rem, 2vw, 0.9rem);
+        }
 
-            .container {
-                padding: 20px;
-            }
-
-            .game-card {
-                padding: 20px;
-            }
-
-            .game-card h2 {
-                font-size: 1.5rem;
+        /* Mobile optimizations */
+        @media (max-width: 600px) {
+            .games-grid {
+                grid-template-columns: 1fr;
             }
 
             .button-container {
                 flex-direction: column;
                 align-items: center;
-                gap: 10px;
             }
 
             .play-button {
-                width: 80%;
+                width: 100%;
+                max-width: 250px;
                 text-align: center;
+            }
+
+            .game-card {
+                padding: clamp(18px, 5vw, 25px);
+            }
+        }
+
+        /* Large screens */
+        @media (min-width: 1400px) {
+            .container {
+                max-width: 1400px;
+            }
+
+            .games-grid {
+                grid-template-columns: repeat(3, 1fr);
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Main Menu</h1>
+        <div class="header">
+            <h1>GriffinGames</h1>
+            <p class="tagline">Your Ultimate Party Games Hub</p>
+        </div>
+
         <div id="loading" class="loading">Loading games...</div>
         <div id="error" class="error-message" style="display: none;"></div>
+
         <div class="games-grid" id="games-grid">
             <!-- Static games (always shown) -->
             <div class="game-card">
+                <div class="game-icon">🎯</div>
+                <span class="game-badge">Party Classic</span>
                 <h2>Truth or Griddy</h2>
-                <p>An absolute hood classic, can't frickin answer, you griddy on that jon!!</p>
+                <p>An absolute hood classic! Can't answer? Time to hit that griddy!</p>
                 <div class="button-container">
                     <a href="games/truthOrgriddy/truthOrGriddyindex.html" class="play-button">Play Now</a>
                 </div>
             </div>
 
             <div class="game-card">
+                <div class="game-icon">🎲</div>
+                <span class="game-badge">Drinking Game</span>
                 <h2>Kings Dice</h2>
-                <p>A cheeky twist on a OD classic card game! Can't frickin answer? GET FUCKED and blow up the balloon!</p>
+                <p>A cheeky twist on a classic! Can't answer? Blow up the balloon!</p>
                 <div class="button-container">
                     <a href="games/Kings Dice/kingsdiceindex.html" class="play-button">Classic</a>
                     <a href="games/Kings Dice/custom/custom-kingsdice.html" class="play-button">Custom</a>
                 </div>
             </div>
         </div>
+
+        <div class="footer">
+            Made with fun in mind
+        </div>
     </div>
 
     <script src="config.js"></script>
     <script>
-        // Use values from config.js (already set on window)
-        // Access directly from window to avoid redeclaration errors
-
         // Fetch games from backend
         async function loadBackendGames() {
             const loadingEl = document.getElementById('loading');
@@ -270,9 +361,8 @@
             const gamesGrid = document.getElementById('games-grid');
 
             try {
-                // Use window.BACKEND_URL directly (set by config.js)
                 const response = await fetch(`${window.BACKEND_URL}/games`);
-                
+
                 if (!response.ok) {
                     throw new Error(`Failed to fetch games: ${response.status}`);
                 }
@@ -292,7 +382,7 @@
             } catch (error) {
                 console.error('Error loading backend games:', error);
                 loadingEl.style.display = 'none';
-                
+
                 // Only show error if we're in production (backend should be available)
                 if (window.isProduction) {
                     errorEl.textContent = `Unable to connect to game server. ${error.message}`;
@@ -319,12 +409,15 @@
                 ? 'Race against the clock! Everyone answers, first correct wins big. Up to 16 players!'
                 : (game.description || 'Join friends for an exciting multiplayer experience!');
 
+            // Badge text
+            const badgeText = isBuzzin ? 'Multiplayer' : (game.badge || 'Multiplayer');
+
             // BuzzIn! has Host/Player options, others use lobby.html
             let buttonsHTML;
             if (isBuzzin) {
                 buttonsHTML = `
                     <a href="games/buzzin/setup.html" class="play-button">Host</a>
-                    <a href="games/buzzin/join.html" class="play-button" style="background: linear-gradient(45deg, #00d4ff, #0099cc);">Player</a>
+                    <a href="games/buzzin/join.html" class="play-button player-btn">Player</a>
                 `;
             } else {
                 const gameUrl = `games/multiplayer/lobby.html?game=${game.id}`;
@@ -333,7 +426,7 @@
 
             card.innerHTML = `
                 <div class="game-icon">${game.icon || '🎮'}</div>
-                <span class="game-badge">Multiplayer</span>
+                <span class="game-badge">${badgeText}</span>
                 <h2>${game.name}</h2>
                 <p>${description}</p>
                 <div class="button-container">
