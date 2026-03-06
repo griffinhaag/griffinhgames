@@ -45,6 +45,15 @@
                         </div>
                     </div>
                 </div>
+                <div class="settings-group">
+                    <h3>Answer Timer:</h3>
+                    <div class="timer-duration-control">
+                        <input type="range" id="timer-duration-slider" min="5" max="120" value="30" step="5">
+                        <div class="timer-duration-display">
+                            <span id="timer-duration-display">30</span> seconds per question
+                        </div>
+                    </div>
+                </div>
                 <button id="btn-start-game" class="btn-primary large">START GAME</button>
             </div>
 
@@ -79,28 +88,12 @@
                         <button id="btn-show-question" class="btn-primary large">SHOW QUESTION</button>
                     </div>
 
-                    <!-- Phase: Question -->
+                    <!-- Phase: Question (Timer running, players answering) -->
                     <div id="host-phase-question" class="phase-controls hidden">
-                        <div class="info-text">Players are buzzing in...</div>
+                        <div class="info-text">Players are answering...</div>
                     </div>
 
-                    <!-- Phase: Buzzed (Judge) -->
-                    <div id="host-phase-buzzed" class="phase-controls hidden">
-                        <div class="buzzed-alert">
-                            <span id="buzzed-player-name">Player</span> buzzed!
-                        </div>
-                        <div class="judge-buttons">
-                            <button id="btn-correct" class="btn-success">CORRECT (+100)</button>
-                            <button id="btn-wrong" class="btn-danger">WRONG (-50)</button>
-                        </div>
-                    </div>
-                    
-                    <!-- Phase: Answering -->
-                    <div id="host-phase-answering" class="phase-controls hidden">
-                        <div class="info-text">Waiting for <span id="answering-player-name">Player</span> to submit answer...</div>
-                    </div>
-
-                    <!-- Phase: Result -->
+                    <!-- Phase: Result (Round complete) -->
                     <div id="host-phase-result" class="phase-controls hidden">
                         <button id="btn-next-question" class="btn-primary">Next Question</button>
                     </div>

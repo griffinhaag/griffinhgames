@@ -198,7 +198,17 @@
                     </div>
                 </div>
             </div>
-            
+
+            <div class="setup-section">
+                <h3>Answer Timer:</h3>
+                <div class="question-count-control">
+                    <input type="range" id="timer-slider" min="5" max="120" value="30" step="5">
+                    <div class="question-count-display">
+                        <span id="timer-display">30</span> seconds per question
+                    </div>
+                </div>
+            </div>
+
             <button id="btn-create-room" class="btn-create-room">Create Room</button>
         </div>
     </div>
@@ -230,6 +240,7 @@
         let hostName = '';
         let selectedCategories = [];
         let questionCount = 10;
+        let timerDuration = 30;
         let availableQuestions = 0; // Will be calculated based on categories
         
         // Initialize category checkboxes
@@ -283,6 +294,14 @@
             qCountDisplay.textContent = questionCount;
             updateQuestionCountLimits();
         });
+
+        // Timer duration slider
+        const timerSlider = document.getElementById('timer-slider');
+        const timerDisplay = document.getElementById('timer-display');
+        timerSlider.addEventListener('input', (e) => {
+            timerDuration = parseInt(e.target.value);
+            timerDisplay.textContent = timerDuration;
+        });
         
         // Update selected categories
         categoryContainer.addEventListener('change', (e) => {
@@ -327,6 +346,7 @@
             sessionStorage.setItem('buzzin_settings', JSON.stringify({
                 categories: selectedCategories,
                 questionCount: questionCount,
+                timerDuration: timerDuration,
                 hostName: hostName
             }));
             

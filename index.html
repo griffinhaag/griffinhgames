@@ -144,6 +144,64 @@
             margin-bottom: 10px;
         }
 
+        /* BuzzIn! Special Card Styling */
+        .game-card.buzzin-card {
+            background: linear-gradient(135deg, #fff 0%, #fff5f8 100%);
+            border: 3px solid #ff0055;
+            position: relative;
+        }
+
+        .game-card.buzzin-card::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #ff0055, #ffcc00, #ff0055);
+            z-index: -1;
+            border-radius: 22px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .game-card.buzzin-card:hover::after {
+            opacity: 1;
+        }
+
+        .game-card.buzzin-card:hover {
+            border-color: transparent;
+            box-shadow: 0 12px 40px rgba(255, 0, 85, 0.3);
+        }
+
+        .game-card.buzzin-card .game-icon {
+            animation: pulse 2s infinite;
+        }
+
+        .game-card.buzzin-card .game-badge {
+            background: linear-gradient(45deg, #ff0055, #ff4444);
+        }
+
+        .game-card.buzzin-card h2 {
+            background: linear-gradient(to right, #ff0055, #ff4444);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .game-card.buzzin-card .play-button {
+            background: linear-gradient(45deg, #ff0055, #ff4444);
+        }
+
+        .game-card.buzzin-card .play-button:hover {
+            box-shadow: 0 5px 20px rgba(255, 0, 85, 0.4);
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
         @media (max-width: 768px) {
             h1 {
                 font-size: 2.5rem;
@@ -249,17 +307,28 @@
         function createGameCard(game) {
             const card = document.createElement('div');
             card.className = 'game-card';
-            
+
+            // Special styling for BuzzIn
+            const isBuzzin = game.id === 'buzzin';
+            if (isBuzzin) {
+                card.classList.add('buzzin-card');
+            }
+
             // BuzzIn! uses setup.html, others use lobby.html
-            const gameUrl = game.id === 'buzzin' 
+            const gameUrl = isBuzzin
                 ? `games/buzzin/setup.html`
                 : `games/multiplayer/lobby.html?game=${game.id}`;
-            
+
+            // Custom description for BuzzIn
+            const description = isBuzzin
+                ? 'Race against the clock! Everyone answers, first correct wins big. Up to 16 players!'
+                : (game.description || 'Join friends for an exciting multiplayer experience!');
+
             card.innerHTML = `
                 <div class="game-icon">${game.icon || '🎮'}</div>
                 <span class="game-badge">Multiplayer</span>
                 <h2>${game.name}</h2>
-                <p>${game.description || 'Join friends for an exciting multiplayer experience!'}</p>
+                <p>${description}</p>
                 <div class="button-container">
                     <a href="${gameUrl}" class="play-button">Play Now</a>
                 </div>

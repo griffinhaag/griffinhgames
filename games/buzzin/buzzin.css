@@ -473,9 +473,334 @@ body {
     text-transform: uppercase;
 }
 
+/* --- Timer Display --- */
+.timer-display-host {
+    text-align: center;
+    margin: 15px 0;
+}
+
+.timer-number {
+    font-size: 3rem;
+    font-weight: 900;
+}
+
+.timer-bar-container {
+    width: 100%;
+    max-width: 400px;
+    height: 10px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 10px auto;
+}
+
+.timer-bar {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 1s linear, background 0.3s;
+}
+
+.answered-status {
+    font-size: 1.2rem;
+    color: rgba(255,255,255,0.8);
+    margin: 10px 0;
+}
+
+/* --- Timer Duration Control (Lobby) --- */
+.timer-duration-control {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    margin: 15px 0;
+}
+
+.timer-duration-control input[type="range"] {
+    width: 100%;
+    max-width: 400px;
+    height: 8px;
+    border-radius: 5px;
+    background: rgba(255,255,255,0.2);
+    outline: none;
+    -webkit-appearance: none;
+}
+
+.timer-duration-control input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+}
+
+.timer-duration-control input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: none;
+}
+
+.timer-duration-display {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: white;
+}
+
+/* --- Buzzed Players List --- */
+.buzzed-players-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin: 10px 0;
+}
+
+.buzzed-tag {
+    display: inline-block;
+    padding: 6px 14px;
+    margin: 3px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.buzzed-tag.waiting {
+    background: var(--accent);
+    color: #1a1a2e;
+}
+
+.buzzed-tag.answered {
+    background: var(--success);
+    color: #1a1a2e;
+}
+
+/* --- Player Timer --- */
+.player-timer {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 10px 20px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+
+.player-timer .timer-bar-container {
+    flex-grow: 1;
+    margin: 0;
+}
+
+.player-timer .timer-text {
+    font-size: 1.5rem;
+    font-weight: 800;
+    min-width: 60px;
+    text-align: right;
+}
+
+/* --- Results Overlay --- */
+.results-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s;
+    cursor: pointer;
+}
+
+.results-card {
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    max-width: 500px;
+    width: 90%;
+    color: #333;
+    text-align: center;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.results-card h2 {
+    margin: 0 0 20px 0;
+    color: var(--primary);
+    font-size: 1.8rem;
+}
+
+.correct-answer {
+    background: #f5f5f5;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    font-size: 1.1rem;
+}
+
+.correct-answer strong {
+    color: var(--success);
+}
+
+.results-list {
+    text-align: left;
+}
+
+.result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    margin: 8px 0;
+    border-radius: 10px;
+    gap: 10px;
+}
+
+.result-item.correct {
+    background: rgba(0,255,136,0.15);
+    border-left: 4px solid var(--success);
+}
+
+.result-item.wrong {
+    background: rgba(255,51,51,0.1);
+    border-left: 4px solid var(--danger);
+}
+
+.result-item.first {
+    background: linear-gradient(90deg, rgba(255,204,0,0.2), rgba(0,255,136,0.2));
+    border: 2px solid gold;
+}
+
+.result-name {
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.result-answer {
+    flex-grow: 1;
+    text-align: center;
+    font-style: italic;
+    color: #666;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.first-badge {
+    background: linear-gradient(45deg, gold, #ffcc00);
+    color: #333;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.correct-badge {
+    background: var(--success);
+    color: #1a1a2e;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+/* --- Points Animation --- */
+.points-animation {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 4rem;
+    font-weight: 900;
+    color: var(--success);
+    text-shadow: 0 0 30px rgba(0,255,136,0.8);
+    animation: pointsPop 2s ease-out forwards;
+    z-index: 1001;
+    pointer-events: none;
+}
+
+@keyframes pointsPop {
+    0% {
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0;
+    }
+    20% {
+        transform: translate(-50%, -50%) scale(1.3);
+        opacity: 1;
+    }
+    80% {
+        transform: translate(-50%, -100%) scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -150%) scale(0.8);
+        opacity: 0;
+    }
+}
+
+/* --- Buzz Toast --- */
+.buzz-toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: #1a1a2e;
+    padding: 12px 25px;
+    border-radius: 25px;
+    font-weight: 700;
+    font-size: 1rem;
+    z-index: 999;
+    animation: toastSlide 0.3s ease-out;
+    box-shadow: 0 5px 20px rgba(0,212,255,0.4);
+}
+
+@keyframes toastSlide {
+    from {
+        transform: translateX(-50%) translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* --- Mini Leaderboard --- */
+.mini-leaderboard {
+    background: rgba(0,0,0,0.3);
+    padding: 15px 20px;
+    border-radius: 10px;
+    margin-top: 15px;
+    min-width: 200px;
+    text-align: left;
+}
+
+.mini-leaderboard div {
+    padding: 5px 0;
+    font-size: 0.95rem;
+}
+
 /* --- Mobile Optimizations --- */
 @media (max-width: 600px) {
     .logo { font-size: 2rem; }
     .buzzer-btn { width: 200px; height: 200px; font-size: 2rem; }
+    .timer-number { font-size: 2rem; }
+    .results-card { padding: 20px; }
+    .results-card h2 { font-size: 1.4rem; }
+    .result-item { padding: 10px; font-size: 0.9rem; }
+    .points-animation { font-size: 3rem; }
 }
 
