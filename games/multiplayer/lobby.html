@@ -331,16 +331,21 @@
             console.log('Connected to server');
             // Clear any error messages
             statusEl.style.display = 'none';
-            
+
             // If we have room code from URL, rejoin
             if (roomCodeFromUrl && nameFromUrl) {
                 playerName = nameFromUrl;
                 isHost = isHostFromUrl;
                 currentRoomCode = roomCodeFromUrl;
-                
+
                 socket.emit('player:setName', nameFromUrl);
-                socket.emit('player:joinRoom', { roomCode: roomCodeFromUrl, name: nameFromUrl });
-                
+                // Pass isHost flag so server knows this should be the host
+                socket.emit('player:joinRoom', {
+                    roomCode: roomCodeFromUrl,
+                    name: nameFromUrl,
+                    isHost: isHostFromUrl
+                });
+
                 // Show lobby immediately
                 hostSection.style.display = 'none';
                 joinSection.style.display = 'none';
@@ -357,10 +362,18 @@
             console.log('Reconnected to server');
             if (currentRoomCode && playerName) {
                 socket.emit('player:setName', playerName);
-                socket.emit('player:joinRoom', { roomCode: currentRoomCode, name: playerName });
+                socket.emit('player:joinRoom', {
+                    roomCode: currentRoomCode,
+                    name: playerName,
+                    isHost: isHost
+                });
             } else if (roomCodeFromUrl && nameFromUrl) {
                 socket.emit('player:setName', nameFromUrl);
-                socket.emit('player:joinRoom', { roomCode: roomCodeFromUrl, name: nameFromUrl });
+                socket.emit('player:joinRoom', {
+                    roomCode: roomCodeFromUrl,
+                    name: nameFromUrl,
+                    isHost: isHostFromUrl
+                });
             }
         });
 
@@ -377,12 +390,20 @@
 
         socket.on('room:state', (roomState) => {
             currentRoomCode = roomState.code;
-            // Update host status
+
+            // Switch to lobby view
+            hostSection.style.display = 'none';
+            joinSection.style.display = 'none';
+            lobbySection.style.display = 'block';
+
+            // Update host status from server
             const me = roomState.players.find(p => p.socketId === socket.id);
             if (me) {
                 isHost = me.isHost;
                 if (isHost) {
                     hostControls.style.display = 'block';
+                } else {
+                    hostControls.style.display = 'none';
                 }
             }
             updateLobby(roomState);

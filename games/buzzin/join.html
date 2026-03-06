@@ -148,8 +148,15 @@
 
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
+            20% { transform: translateX(-8px); }
+            40% { transform: translateX(8px); }
+            60% { transform: translateX(-8px); }
+            80% { transform: translateX(8px); }
+        }
+
+        .input-group input.shake {
+            animation: shake 0.5s ease-in-out;
+            border-color: var(--danger, #ff3333) !important;
         }
 
         .back-link {
@@ -163,6 +170,59 @@
 
         .back-link:hover {
             color: white;
+        }
+
+        .rejoin-section {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .rejoin-divider {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+        }
+
+        .rejoin-divider::before,
+        .rejoin-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(255,255,255,0.2);
+        }
+
+        .rejoin-divider span {
+            padding: 0 15px;
+            color: rgba(255,255,255,0.5);
+            font-size: 0.9rem;
+        }
+
+        .btn-rejoin {
+            width: 100%;
+            padding: clamp(12px, 3vw, 15px);
+            font-size: clamp(1rem, 3vw, 1.1rem);
+            font-weight: 700;
+            border: 2px solid var(--accent, #00d4ff);
+            border-radius: 50px;
+            background: transparent;
+            color: var(--accent, #00d4ff);
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .btn-rejoin:hover {
+            background: var(--accent, #00d4ff);
+            color: #1a1a2e;
+        }
+
+        .rejoin-info {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.6);
+        }
+
+        .hidden {
+            display: none !important;
         }
 
         .connecting-overlay {
@@ -221,6 +281,14 @@
             </div>
 
             <button id="btn-join" class="btn-join">Join Game</button>
+
+            <div id="rejoin-section" class="rejoin-section hidden">
+                <div class="rejoin-divider">
+                    <span>or</span>
+                </div>
+                <button id="btn-rejoin" class="btn-rejoin">Rejoin Previous Game</button>
+                <p id="rejoin-info" class="rejoin-info"></p>
+            </div>
 
             <a href="../../index.html" class="back-link">Back to Main Menu</a>
         </div>
@@ -284,14 +352,26 @@
             const playerName = nameInput.value.trim();
             const roomCode = codeInput.value.trim().toUpperCase();
 
+            // Validate name
             if (!playerName) {
                 showError('Please enter your name');
+                shakeInput(nameInput);
                 nameInput.focus();
                 return;
             }
 
-            if (!roomCode || roomCode.length !== 4) {
-                showError('Please enter a valid 4-character room code');
+            // Validate room code - empty
+            if (!roomCode) {
+                showError('Please enter a room code');
+                shakeInput(codeInput);
+                codeInput.focus();
+                return;
+            }
+
+            // Validate room code - wrong length
+            if (roomCode.length !== 4) {
+                showError('Room code must be 4 characters');
+                shakeInput(codeInput);
                 codeInput.focus();
                 return;
             }
@@ -304,9 +384,48 @@
             socket.emit('player:joinRoom', { roomCode: roomCode, name: playerName });
         });
 
+        function shakeInput(inputEl) {
+            inputEl.classList.add('shake');
+            setTimeout(() => inputEl.classList.remove('shake'), 500);
+        }
+
         socket.on('connect', () => {
             console.log('Connected to server');
         });
+
+        // Check URL for pre-filled room code (for easy rejoin via shared link)
+        const urlParams = new URLSearchParams(window.location.search);
+        const prefilledRoom = urlParams.get('room');
+        const prefilledName = urlParams.get('name');
+
+        if (prefilledRoom) {
+            codeInput.value = prefilledRoom.toUpperCase();
+        }
+        if (prefilledName) {
+            nameInput.value = prefilledName;
+
+            // If both are provided, show quick rejoin option
+            if (prefilledRoom) {
+                const rejoinSection = document.getElementById('rejoin-section');
+                const rejoinInfo = document.getElementById('rejoin-info');
+                const btnRejoin = document.getElementById('btn-rejoin');
+
+                rejoinSection.classList.remove('hidden');
+                rejoinInfo.textContent = `Rejoin as: ${prefilledName}`;
+
+                btnRejoin.addEventListener('click', () => {
+                    btnRejoin.disabled = true;
+                    showConnecting(true);
+
+                    socket.emit('player:setName', prefilledName);
+                    socket.emit('player:joinRoom', {
+                        roomCode: prefilledRoom.toUpperCase(),
+                        name: prefilledName,
+                        isHost: false
+                    });
+                });
+            }
+        }
 
         socket.on('connect_error', (error) => {
             showConnecting(false);
@@ -319,14 +438,14 @@
             const playerName = nameInput.value.trim();
             const roomCode = codeInput.value.trim().toUpperCase();
 
-            // Store redirect info
+            // Store redirect info in sessionStorage (will be read by game page)
             sessionStorage.setItem('buzzin_redirect', JSON.stringify({
                 room: roomCode,
                 name: playerName,
                 host: false
             }));
 
-            // Redirect to game page (lobby within game)
+            // Redirect to game page with params in URL (for reconnection via URL)
             const target = `index.html?room=${roomCode}&name=${encodeURIComponent(playerName)}&host=false`;
             window.location.replace(target);
         });
@@ -334,7 +453,21 @@
         socket.on('room:error', (message) => {
             showConnecting(false);
             btnJoin.disabled = false;
-            showError(message);
+
+            // Re-enable rejoin button if it exists
+            const btnRejoin = document.getElementById('btn-rejoin');
+            if (btnRejoin) btnRejoin.disabled = false;
+
+            // Show appropriate error message
+            if (message.includes('not found') || message.includes('Invalid')) {
+                showError('Room not found. The game may have ended.');
+                shakeInput(codeInput);
+                // Hide rejoin section since room is gone
+                const rejoinSection = document.getElementById('rejoin-section');
+                if (rejoinSection) rejoinSection.classList.add('hidden');
+            } else {
+                showError(message);
+            }
         });
 
         socket.on('game:started', (data) => {

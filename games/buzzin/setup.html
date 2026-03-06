@@ -403,15 +403,24 @@
         });
         
         socket.on('room:created', (roomState) => {
-            // Store room info before redirect
-            sessionStorage.setItem('buzzin_room', JSON.stringify({
-                code: roomState.code,
+            // Store game settings for when game starts
+            sessionStorage.setItem('buzzin_settings', JSON.stringify({
+                categories: selectedCategories,
+                questionCount: questionCount,
+                timerDuration: timerDuration,
                 hostName: hostName
             }));
-            
-            // Redirect to lobby with room code - use replace to prevent back button issues
-            const lobbyUrl = `../multiplayer/lobby.html?room=${roomState.code}&name=${encodeURIComponent(hostName)}&host=true&game=buzzin`;
-            window.location.replace(lobbyUrl);
+
+            // Store redirect info for the game page
+            sessionStorage.setItem('buzzin_redirect', JSON.stringify({
+                room: roomState.code,
+                name: hostName,
+                host: true
+            }));
+
+            // Redirect to game page with params in URL (for reconnection via URL)
+            const gameUrl = `index.html?room=${roomState.code}&name=${encodeURIComponent(hostName)}&host=true`;
+            window.location.replace(gameUrl);
         });
         
         socket.on('room:error', (message) => {

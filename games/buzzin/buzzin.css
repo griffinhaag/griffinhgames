@@ -985,6 +985,26 @@ body {
     }
 }
 
+.admin-room-code {
+    padding: 12px 15px;
+    text-align: center;
+    font-size: 0.9rem;
+    color: rgba(255,255,255,0.7);
+}
+
+.admin-room-code span {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--accent);
+    letter-spacing: 3px;
+}
+
+.admin-menu-divider {
+    height: 1px;
+    background: rgba(255,255,255,0.15);
+    margin: 8px 0;
+}
+
 .admin-menu-item {
     width: 100%;
     padding: 12px 15px;

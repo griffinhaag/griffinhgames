@@ -98,9 +98,23 @@ function init() {
     playerName = urlParams.get('name');
     isHost = urlParams.get('host') === 'true';
 
+    // Check sessionStorage for redirect info (from lobby/join page)
+    const redirectInfo = sessionStorage.getItem('buzzin_redirect');
+    if (redirectInfo) {
+        try {
+            const info = JSON.parse(redirectInfo);
+            roomCode = roomCode || info.room;
+            playerName = playerName || info.name;
+            isHost = isHost || info.host === true;
+            sessionStorage.removeItem('buzzin_redirect');
+        } catch (e) {
+            console.error('Failed to parse redirect info:', e);
+        }
+    }
+
     if (!roomCode || !playerName) {
-        alert("Invalid game session. Redirecting to lobby...");
-        window.location.href = 'games/multiplayer/lobby.html';
+        alert("Invalid game session. Redirecting to join page...");
+        window.location.href = 'join.html';
         return;
     }
 
@@ -124,30 +138,17 @@ function setupSocketListeners() {
     socket.on('connect', () => {
         console.log('Connected to BuzzIn! server');
         clearTimeout(connectionTimeout);
-        
-        // Check if we have redirect info from lobby
-        const redirectInfo = sessionStorage.getItem('buzzin_redirect');
-        if (redirectInfo) {
-            try {
-                const info = JSON.parse(redirectInfo);
-                roomCode = info.room || roomCode;
-                playerName = info.name || playerName;
-                isHost = info.host === true || isHost;
-                sessionStorage.removeItem('buzzin_redirect');
-            } catch (e) {
-                console.error('Failed to parse redirect info:', e);
-            }
-        }
-        
+
         // Join room immediately after connection
+        // Server handles reconnection by player name automatically
         if (roomCode && playerName) {
             console.log('Joining room:', roomCode, 'as', playerName, 'host:', isHost);
-            socket.emit('player:joinRoom', { roomCode, name: playerName });
+            socket.emit('player:joinRoom', { roomCode, name: playerName, isHost: isHost });
         } else {
             console.error('Missing roomCode or playerName:', { roomCode, playerName });
-            // Redirect back to lobby if missing info
+            // Redirect back to join page if missing info
             setTimeout(() => {
-                window.location.href = '../multiplayer/lobby.html';
+                window.location.href = 'join.html';
             }, 2000);
         }
     });
@@ -171,7 +172,7 @@ function setupSocketListeners() {
     socket.on('reconnect', () => {
         console.log('Reconnected to server');
         if (roomCode && playerName) {
-            socket.emit('player:joinRoom', { roomCode, name: playerName });
+            socket.emit('player:joinRoom', { roomCode, name: playerName, isHost: isHost });
         }
     });
     
@@ -259,6 +260,11 @@ function setupSocketListeners() {
         
         // Handle game ended
         if (event.type === 'game_ended') {
+            // Clear session storage
+            sessionStorage.removeItem('buzzin_redirect');
+            sessionStorage.removeItem('buzzin_room');
+            sessionStorage.removeItem('buzzin_settings');
+
             if (event.reason === 'ended_by_host') {
                 alert('Host ended the game. Returning to main menu...');
                 setTimeout(() => {
@@ -274,6 +280,7 @@ const adminMenuEls = {
     menu: document.getElementById('admin-menu'),
     toggle: document.getElementById('admin-menu-toggle'),
     dropdown: document.getElementById('admin-menu-dropdown'),
+    roomCodeValue: document.getElementById('admin-room-code-value'),
     skipQuestion: document.getElementById('admin-skip-question'),
     shuffleQuestions: document.getElementById('admin-shuffle-questions'),
     newGame: document.getElementById('admin-new-game'),
@@ -457,6 +464,11 @@ function updateAdminMenuVisibility() {
             gameState.phase === 'end'
         )) {
             adminMenuEls.menu.classList.remove('hidden');
+
+            // Update room code display
+            if (adminMenuEls.roomCodeValue) {
+                adminMenuEls.roomCodeValue.textContent = roomCode || '----';
+            }
 
             // Update button states based on phase
             if (adminMenuEls.skipQuestion) {
@@ -828,6 +840,10 @@ function handleGameEvent(event) {
         showFeedback('ROUND SKIPPED', 'warning');
     } else if (event.type === 'questions_shuffled') {
         showFeedback('QUESTIONS SHUFFLED', 'info');
+    } else if (event.type === 'player_reconnected') {
+        showGlobalToast(`${event.playerName} reconnected!`, 'success');
+    } else if (event.type === 'player_disconnected') {
+        showGlobalToast(`${event.playerName} disconnected`, 'warning');
     }
 }
 
