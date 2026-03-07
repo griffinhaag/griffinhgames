@@ -326,10 +326,17 @@ function setupSocketListeners() {
         errorDiv.textContent = message;
         document.body.appendChild(errorDiv);
         
-        // If room not found, redirect back to lobby after delay
+        // If kicked, show kicked overlay
+        if (message.toLowerCase().includes('kick')) {
+            errorDiv.remove();
+            showKickedOverlay();
+            return;
+        }
+
+        // If room not found, redirect back to main menu after delay
         if (message.includes('not found') || message.includes('Invalid') || message.includes('Unable')) {
             setTimeout(() => {
-                window.location.href = '../multiplayer/lobby.html';
+                window.location.href = '../../index.html';
             }, 3000);
         } else {
             setTimeout(() => errorDiv.remove(), 5000);
@@ -355,16 +362,24 @@ function setupSocketListeners() {
         
         // Otherwise, show lobby
         updateLobbyUI(rs);
-        
-        // Sync host status
+
+        // Sync host status — URL param is authoritative, server confirmation is a bonus
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('host') === 'true') isHost = true;
         const me = rs.players.find(p => p.socketId === socket.id);
-        if (me) {
-            isHost = me.isHost;
-            console.log('I am host:', isHost);
-        }
-        
+        if (me && me.isHost) isHost = true;
+        console.log('I am host:', isHost);
+
         updateHostControlsVisibility();
     });
+
+    // Player kicked event
+    socket.on('player:kicked', () => {
+        showKickedOverlay();
+    });
+
+    // Some servers send kick as a room error
+    // (handled in room:error — "kicked" keyword triggers redirect below)
 
     // Game started event - this happens when host clicks Start Game
     socket.on('game:started', (data) => {
@@ -450,31 +465,52 @@ function setupUIListeners() {
         });
     }
 
-    // Start game button — read settings from sessionStorage (configured in setup.html)
-    lobbyEls.btnStart.addEventListener('click', () => {
-        let categories = [], questionCount = 10, timerDurationValue = 30, bonusFirstCorrect = true;
-        try {
-            const settings = JSON.parse(sessionStorage.getItem('buzzin_settings') || '{}');
-            categories = settings.categories || [];
-            questionCount = settings.questionCount || 10;
-            timerDurationValue = settings.timerDuration || 30;
-            bonusFirstCorrect = settings.bonusFirstCorrect !== false;
-        } catch (e) {}
+    // START GAME — direct listener on the button (simple and reliable, matching original approach)
+    if (lobbyEls.btnStart) {
+        lobbyEls.btnStart.addEventListener('click', () => {
+            const btn = lobbyEls.btnStart;
+            if (btn.disabled) return;
 
-        if (categories.length === 0) {
-            alert('No categories found. Please return to setup and create the room again.');
-            return;
-        }
+            // Load settings from sessionStorage (set by setup.html), fall back gracefully
+            let categories = CATEGORIES.slice(); // default: all categories
+            let questionCount = 10;
+            let timerDurationValue = 30;
+            let bonusFirstCorrect = true;
+            try {
+                const settings = JSON.parse(sessionStorage.getItem('buzzin_settings') || '{}');
+                if (settings.categories && settings.categories.length > 0) categories = settings.categories;
+                if (settings.questionCount) questionCount = settings.questionCount;
+                if (settings.timerDuration) timerDurationValue = settings.timerDuration;
+                bonusFirstCorrect = settings.bonusFirstCorrect !== false;
+            } catch (e) {}
 
-        socket.emit('host:startGame', {
-            roomCode: roomCode,
-            gameType: 'buzzin',
-            categories,
-            questionCount,
-            timerDuration: timerDurationValue,
-            bonusFirstCorrect,
-            seenQuestions: getSeenQuestions()
+            btn.disabled = true;
+            btn.textContent = 'Starting...';
+
+            socket.emit('host:startGame', {
+                roomCode,
+                gameType: 'buzzin',
+                categories,
+                questionCount,
+                timerDuration: timerDurationValue,
+                bonusFirstCorrect,
+                seenQuestions: getSeenQuestions()
+            });
+
+            // Re-enable if server doesn't respond within 5s
+            setTimeout(() => {
+                if (btn.disabled) { btn.disabled = false; btn.textContent = 'START GAME'; }
+            }, 5000);
         });
+    }
+
+    // KICK buttons — event delegation since they're dynamically rendered in the player list
+    document.getElementById('screen-lobby').addEventListener('click', (e) => {
+        const kickBtn = e.target.closest('.kick-btn');
+        if (kickBtn && isHost) {
+            const sid = kickBtn.dataset.socketId;
+            if (sid) socket.emit('host:kickPlayer', { roomCode, socketId: sid });
+        }
     });
 
     // Host Actions
@@ -624,6 +660,13 @@ function showScreen(screenName) {
     Object.values(screens).forEach(el => el.classList.remove('active'));
     screens[screenName].classList.add('active');
 
+    // Clean up any overlays that could block clicks
+    ['results-overlay', 'pre-q-countdown', 'off-the-dome-overlay',
+     'play-again-modal', 'kicked-overlay'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+    });
+
     if (screenName === 'lobby') {
         playLobbyVideo();
     } else {
@@ -673,13 +716,7 @@ function updateLobbyUI(rs) {
             return `<div class="player-tag">${name}${p.isHost ? ' 👑' : ''}</div>`;
         }).join('');
 
-        // Kick button listeners
-        lobbyEls.list.querySelectorAll('.kick-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                socket.emit('host:kickPlayer', { roomCode, socketId: btn.dataset.socketId });
-            });
-        });
+        // Kick button clicks are handled by event delegation on #screen-lobby
     } else {
         lobbyEls.list.innerHTML = '<div class="player-tag" style="opacity: 0.5;">No players yet...</div>';
     }
@@ -1130,6 +1167,31 @@ function handleChoiceClick(choice) {
     socket.emit('player:submitAnswer', { roomCode: roomCode, answer: choice });
 }
 
+function showKickedOverlay() {
+    // Disconnect socket so no further events come in
+    if (socket) socket.disconnect();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'kicked-overlay';
+    overlay.innerHTML = `
+        <div class="kicked-card">
+            <div class="kicked-icon">🚫</div>
+            <h2>You have been kicked</h2>
+            <p>The host has removed you from this game.</p>
+            <p class="kicked-note">You can rejoin using the room code.</p>
+            <button class="kicked-btn" onclick="window.location.href='join.html'">Join Another Game</button>
+        </div>
+    `;
+    overlay.style.cssText = [
+        'position:fixed;top:0;left:0;width:100%;height:100%',
+        'background:rgba(0,0,0,0.96)',
+        'display:flex;align-items:center;justify-content:center',
+        'z-index:9999;font-family:var(--font-main)',
+        'padding:30px;box-sizing:border-box'
+    ].join(';');
+    document.body.appendChild(overlay);
+}
+
 function showOffTheDomeOverlay() {
     // Remove any existing overlay
     const existing = document.getElementById('off-the-dome-overlay');
@@ -1327,10 +1389,13 @@ function showResultsOverlay(event) {
     const resultsMap = {};
     (event.results || []).forEach(r => { resultsMap[r.name] = r; });
 
-    // Merge: ensure everyone is represented
-    const allResults = event.results && event.results.length > 0
-        ? event.results
-        : allPlayers.map(p => ({ name: p.name, answer: null, isCorrect: false }));
+    // Merge: start with server results, then add any players who didn't answer at all
+    const allResults = [
+        ...(event.results || []),
+        ...allPlayers
+            .filter(p => !resultsMap[p.name])
+            .map(p => ({ name: p.name, answer: null, isCorrect: false }))
+    ];
 
     const resultsHTML = allResults.map(r => {
         let itemClass = r.isCorrect ? 'correct' : 'wrong';
