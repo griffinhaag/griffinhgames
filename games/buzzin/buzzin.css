@@ -579,7 +579,6 @@ body {
 
 /* --- Game Screen Layout --- */
 #screen-game {
-    display: flex;
     flex-direction: column;
     gap: 0;
     padding: clamp(10px, 2vw, 20px);
