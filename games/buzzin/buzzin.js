@@ -362,14 +362,14 @@ function setupSocketListeners() {
         
         // Otherwise, show lobby
         updateLobbyUI(rs);
-        
-        // Sync host status — only upgrade to host, never downgrade (URL param is authoritative)
+
+        // Sync host status — URL param is authoritative, server confirmation is a bonus
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('host') === 'true') isHost = true;
         const me = rs.players.find(p => p.socketId === socket.id);
-        if (me && me.isHost) {
-            isHost = true;
-        }
+        if (me && me.isHost) isHost = true;
         console.log('I am host:', isHost);
-        
+
         updateHostControlsVisibility();
     });
 
@@ -465,72 +465,53 @@ function setupUIListeners() {
         });
     }
 
-    // Use event delegation on the lobby screen for reliability
-    // (direct element listeners can miss on mobile if the element reference is stale)
+    // START GAME — direct listener on the button (simple and reliable, matching original approach)
+    if (lobbyEls.btnStart) {
+        lobbyEls.btnStart.addEventListener('click', () => {
+            const btn = lobbyEls.btnStart;
+            if (btn.disabled) return;
+
+            // Load settings from sessionStorage (set by setup.html), fall back gracefully
+            let categories = CATEGORIES.slice(); // default: all categories
+            let questionCount = 10;
+            let timerDurationValue = 30;
+            let bonusFirstCorrect = true;
+            try {
+                const settings = JSON.parse(sessionStorage.getItem('buzzin_settings') || '{}');
+                if (settings.categories && settings.categories.length > 0) categories = settings.categories;
+                if (settings.questionCount) questionCount = settings.questionCount;
+                if (settings.timerDuration) timerDurationValue = settings.timerDuration;
+                bonusFirstCorrect = settings.bonusFirstCorrect !== false;
+            } catch (e) {}
+
+            btn.disabled = true;
+            btn.textContent = 'Starting...';
+
+            socket.emit('host:startGame', {
+                roomCode,
+                gameType: 'buzzin',
+                categories,
+                questionCount,
+                timerDuration: timerDurationValue,
+                bonusFirstCorrect,
+                seenQuestions: getSeenQuestions()
+            });
+
+            // Re-enable if server doesn't respond within 5s
+            setTimeout(() => {
+                if (btn.disabled) { btn.disabled = false; btn.textContent = 'START GAME'; }
+            }, 5000);
+        });
+    }
+
+    // KICK buttons — event delegation since they're dynamically rendered in the player list
     document.getElementById('screen-lobby').addEventListener('click', (e) => {
-        // START GAME
-        if (e.target.closest('#btn-start-game')) {
-            handleStartGame();
-            return;
-        }
-        // KICK buttons (delegated since they're dynamically rendered)
         const kickBtn = e.target.closest('.kick-btn');
         if (kickBtn && isHost) {
             const sid = kickBtn.dataset.socketId;
             if (sid) socket.emit('host:kickPlayer', { roomCode, socketId: sid });
-            return;
         }
     });
-
-    function handleStartGame() {
-        if (!isHost) return;
-        const btn = document.getElementById('btn-start-game');
-        if (btn && btn.disabled) return;
-
-        let categories = [], questionCount = 10, timerDurationValue = 30, bonusFirstCorrect = true;
-        try {
-            const settings = JSON.parse(sessionStorage.getItem('buzzin_settings') || '{}');
-            categories = settings.categories || [];
-            questionCount = settings.questionCount || 10;
-            timerDurationValue = settings.timerDuration || 30;
-            bonusFirstCorrect = settings.bonusFirstCorrect !== false;
-        } catch (e) {}
-
-        if (categories.length === 0) {
-            showLobbyError('No categories found. Please go back to setup and create the room again.');
-            return;
-        }
-
-        if (btn) { btn.disabled = true; btn.textContent = 'Starting...'; }
-
-        socket.emit('host:startGame', {
-            roomCode: roomCode,
-            gameType: 'buzzin',
-            categories,
-            questionCount,
-            timerDuration: timerDurationValue,
-            bonusFirstCorrect,
-            seenQuestions: getSeenQuestions()
-        });
-
-        // Re-enable if nothing happens after 5s
-        setTimeout(() => {
-            if (btn && btn.disabled) { btn.disabled = false; btn.textContent = 'START GAME'; }
-        }, 5000);
-    }
-
-    function showLobbyError(msg) {
-        let el = document.getElementById('lobby-error');
-        if (!el) {
-            el = document.createElement('div');
-            el.id = 'lobby-error';
-            el.style.cssText = 'background:rgba(255,0,85,0.15);border:1px solid rgba(255,0,85,0.4);color:#ffaaaa;padding:12px 18px;border-radius:10px;text-align:center;font-size:0.9rem;margin-top:8px;';
-            document.getElementById('lobby-host-controls')?.appendChild(el);
-        }
-        el.textContent = msg;
-        el.style.display = 'block';
-        setTimeout(() => { if (el) el.style.display = 'none'; }, 5000);
-    }
 
     // Host Actions
     if (hostEls.btnShowQuestion) {
