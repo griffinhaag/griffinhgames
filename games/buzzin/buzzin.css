@@ -1330,6 +1330,15 @@ body {
 .lb-result-score { font-weight: 700; color: #333; white-space: nowrap; }
 .lb-result-delta { color: #00aa55; font-weight: 800; font-size: 0.82rem; min-width: 36px; text-align: right; white-space: nowrap; }
 
+/* Rank change indicators */
+.lb-rank-change { font-size: 0.72rem; font-weight: 800; min-width: 26px; text-align: center; flex-shrink: 0; }
+.lb-rank-change.up { color: #00aa55; }
+.lb-rank-change.down { color: #dd2222; }
+.lb-rank-change.same { color: #ccc; }
+
+/* Highlight rows where points were gained */
+.lb-result-row.gained { background: rgba(0, 170, 85, 0.07); border-radius: 6px; }
+
 .wrong-badge {
     color: var(--danger);
     font-weight: 900;

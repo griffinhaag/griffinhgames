@@ -256,7 +256,7 @@
             <div class="setup-section">
                 <h3>Number of Questions:</h3>
                 <div class="question-count-control">
-                    <input type="range" id="q-count-slider" min="5" max="100" value="10" step="1">
+                    <input type="range" id="q-count-slider" min="5" max="250" value="10" step="1">
                     <div class="question-count-display">
                         <span id="q-count-display">10</span> questions
                     </div>
@@ -326,38 +326,32 @@
             </label>
         `).join('');
         
-        // Calculate available questions (this is an estimate - actual count will be validated server-side)
+        // Each category has exactly 25 questions
+        const QUESTIONS_PER_CATEGORY = 25;
+
         function calculateAvailableQuestions() {
-            // This is a client-side estimate. Server will do actual validation.
-            // For now, we'll use a conservative estimate based on typical question distribution
-            const questionsPerCategory = 12; // Estimate per category in question bank
-            return selectedCategories.length * questionsPerCategory;
+            return selectedCategories.length * QUESTIONS_PER_CATEGORY;
         }
-        
+
         function updateQuestionCountLimits() {
             availableQuestions = calculateAvailableQuestions();
-            const maxQuestions = Math.min(100, availableQuestions); // Cap at 100
             const slider = document.getElementById('q-count-slider');
             const currentValue = parseInt(slider.value);
-            
-            // Update slider max
-            slider.max = maxQuestions;
-            
-            // If current value exceeds max, adjust it
-            if (currentValue > maxQuestions) {
-                slider.value = maxQuestions;
-                questionCount = maxQuestions;
-                document.getElementById('q-count-display').textContent = maxQuestions;
+
+            // Update slider max to actual available count
+            slider.max = availableQuestions;
+
+            // If current value exceeds max, clamp it
+            if (currentValue > availableQuestions) {
+                slider.value = availableQuestions;
+                questionCount = availableQuestions;
+                document.getElementById('q-count-display').textContent = availableQuestions;
             }
-            
-            // Update display with available count
+
+            // Update display
             const display = document.getElementById('q-count-display');
             display.textContent = questionCount;
-            if (availableQuestions < questionCount) {
-                display.parentElement.style.color = '#ffcccc';
-            } else {
-                display.parentElement.style.color = 'white';
-            }
+            display.parentElement.style.color = 'white';
         }
         
         // Question count slider

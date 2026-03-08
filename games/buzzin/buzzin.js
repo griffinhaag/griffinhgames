@@ -70,6 +70,7 @@ let lastChoiceRenderKey = null; // prevent full DOM rebuild on every timer tick
 
 // --- Leaderboard tracking ---
 let previousScores = null;
+let pendingRoundResults = null; // Stored until game:state delivers updated scores
 
 // --- Session question history (resets on browser close via sessionStorage) ---
 function getSeenQuestions() {
@@ -398,7 +399,14 @@ function setupSocketListeners() {
             if (me && me.isHost) isHost = true;
         }
         renderGameState();
-        
+
+        // Show round results overlay NOW — game:state has the updated scores,
+        // so leaderboard deltas and ranks will be correct
+        if (pendingRoundResults && state.phase === 'result') {
+            showResultsOverlay(pendingRoundResults);
+            pendingRoundResults = null;
+        }
+
         // Update countdown display if in countdown phase
         if (state.phase === 'countdown') {
             renderCountdown();
@@ -407,8 +415,14 @@ function setupSocketListeners() {
 
     // Game events (sound effects, toasts, specific triggers)
     socket.on('game:event', (event) => {
-        handleGameEvent(event);
-        
+        // round_results must wait for game:state to arrive with updated scores
+        // before being shown, otherwise the leaderboard deltas will all be 0
+        if (event.type === 'round_results') {
+            pendingRoundResults = event;
+        } else {
+            handleGameEvent(event);
+        }
+
         // Handle error events
         if (event.type === 'error') {
             alert(event.message || 'An error occurred');
@@ -660,8 +674,8 @@ function showScreen(screenName) {
     Object.values(screens).forEach(el => el.classList.remove('active'));
     screens[screenName].classList.add('active');
 
-    // Clean up any overlays that could block clicks
-    ['results-overlay', 'pre-q-countdown', 'off-the-dome-overlay',
+    // Clean up transition overlays (results-overlay manages its own lifecycle)
+    ['pre-q-countdown', 'off-the-dome-overlay',
      'play-again-modal', 'kicked-overlay'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.remove();
@@ -752,8 +766,14 @@ function renderGameState() {
 
     const currentPhase = gameState.phase;
 
-    // After results, show 3-second animated countdown on ALL clients, then host auto-advances
+    // After results, dismiss results overlay then show 3-second countdown on ALL clients
     if (currentPhase === 'waiting' && previousPhase === 'result') {
+        const ro = document.getElementById('results-overlay');
+        if (ro) {
+            ro.style.transition = 'opacity 0.25s ease-out';
+            ro.style.opacity = '0';
+            setTimeout(() => { if (ro.parentNode) ro.remove(); }, 250);
+        }
         startPreQuestionCountdown(3, () => {
             if (isHost) socket.emit('host:showQuestion', { roomCode });
         });
@@ -1423,22 +1443,35 @@ function showResultsOverlay(event) {
         `;
     }).join('');
 
-    // Animated leaderboard — show score deltas from before this question
+    // Animated leaderboard — show score deltas and rank changes from before this question
     const currentScores = [...(gameState?.scores || [])].sort((a, b) => b.score - a.score);
     const prevScoreMap = {};
     (previousScores || []).forEach(p => { prevScoreMap[p.name] = p.score; });
+    // Compute old ranks from previousScores
+    const prevRankMap = {};
+    [...(previousScores || [])].sort((a, b) => b.score - a.score)
+        .forEach((p, i) => { prevRankMap[p.name] = i + 1; });
     const medals = ['🥇', '🥈', '🥉'];
 
     const leaderboardHTML = currentScores.slice(0, 8).map((p, i) => {
-        const prev = prevScoreMap[p.name] ?? p.score;
-        const delta = p.score - prev;
-        const rank = medals[i] || `${i + 1}.`;
-        const deltaEl = delta > 0
-            ? `<span class="lb-result-delta">+${delta}</span>`
-            : '';
+        const newRank = i + 1;
+        const oldRank = prevRankMap[p.name] ?? newRank;
+        const rankDiff = oldRank - newRank; // positive = moved up
+        const delta = p.score - (prevScoreMap[p.name] ?? p.score);
+        const rank = medals[i] || `${newRank}.`;
+        const deltaEl = delta > 0 ? `<span class="lb-result-delta">+${delta}</span>` : '';
+        let rankChangeEl;
+        if (rankDiff > 0) {
+            rankChangeEl = `<span class="lb-rank-change up">↑${rankDiff}</span>`;
+        } else if (rankDiff < 0) {
+            rankChangeEl = `<span class="lb-rank-change down">↓${Math.abs(rankDiff)}</span>`;
+        } else {
+            rankChangeEl = `<span class="lb-rank-change same">—</span>`;
+        }
         return `
-            <div class="lb-result-row" style="animation-delay:${i * 55}ms">
+            <div class="lb-result-row${delta > 0 ? ' gained' : ''}" style="animation-delay:${i * 60}ms">
                 <span class="lb-result-rank">${rank}</span>
+                ${rankChangeEl}
                 <span class="lb-result-name">${p.name}</span>
                 <span class="lb-result-score">${p.score}</span>
                 ${deltaEl}
