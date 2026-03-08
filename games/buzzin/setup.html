@@ -378,6 +378,9 @@
             const display = document.getElementById('q-count-display');
             display.textContent = questionCount;
             display.parentElement.style.color = 'white';
+
+            // Keep OTD slider max in sync with question count
+            updateOtdMax();
         }
         
         // OTD slider helpers
@@ -540,7 +543,8 @@
                 timerDuration: timerDuration,
                 hostName: hostName,
                 bonusFirstCorrect: document.getElementById('bonus-points-toggle')?.checked !== false,
-                hostAsPlayer: document.getElementById('host-plays-toggle')?.checked === true
+                hostAsPlayer: document.getElementById('host-plays-toggle')?.checked === true,
+                offTheDomeCount: offTheDomeCount
             }));
 
             // Store redirect info for the game page

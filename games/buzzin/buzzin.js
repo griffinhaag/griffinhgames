@@ -377,19 +377,25 @@ function setupSocketListeners() {
     socket.on('room:state', (rs) => {
         console.log('Room state received:', rs);
         roomState = rs; // Store for later use
-        
-        // If room is in-progress, we need game state, not room state
-        // But still update lobby info in case game state hasn't arrived yet
+
+        // If a game is actively running, don't let room:state interrupt it.
+        // game:state events handle all in-game rendering. room:state arriving during
+        // a disconnect event would otherwise call showScreen('lobby') and interrupt
+        // the host and players.
+        if (gameState && gameState.phase !== 'lobby' && gameState.phase !== 'end') {
+            return;
+        }
+
+        // If room is in-progress (reconnecting player starting fresh), show loading
         if (rs.phase === 'in-progress') {
             console.log('Room is in-progress, waiting for game state...');
-            // Show a "Game in progress" message while waiting
             showScreen('lobby');
             lobbyEls.code.textContent = rs.code || roomCode || '----';
             lobbyEls.list.innerHTML = '<div class="player-tag">Game in progress, loading...</div>';
             // Game state should arrive shortly via game:state event
             return;
         }
-        
+
         // Otherwise, show lobby
         updateLobbyUI(rs);
 
@@ -422,11 +428,6 @@ function setupSocketListeners() {
     socket.on('game:state', (state) => {
         console.log('Game state received:', state);
         gameState = state;
-        // Restore isHost from game state in case of reconnect (socket ID may have changed)
-        if (state.players) {
-            const me = state.players.find(p => p.name === playerName);
-            if (me && me.isHost) isHost = true;
-        }
         // Sync hostAsPlayer and offTheDomeCount from authoritative server state
         if (isHost && state.hostAsPlayer !== undefined) {
             hostAsPlayer = state.hostAsPlayer;
@@ -713,9 +714,9 @@ function updateAdminMenuVisibility() {
 
             // Update button states based on phase
             if (adminMenuEls.shuffleQuestions) {
-                // Allow shuffle during waiting/question/result phases as long as there's >1 question remaining (current counts)
-                const canShuffle = (gameState.phase === 'waiting' || gameState.phase === 'question' || gameState.phase === 'result')
-                    && gameState.currentQuestionIndex < gameState.totalQuestions - 1;
+                // Allow shuffle during waiting/question/result phases — always,
+                // including the last question (server will re-show same if no alternatives).
+                const canShuffle = gameState.phase === 'waiting' || gameState.phase === 'question' || gameState.phase === 'result';
                 adminMenuEls.shuffleQuestions.disabled = !canShuffle;
                 adminMenuEls.shuffleQuestions.style.opacity = canShuffle ? '1' : '0.4';
             }
@@ -1025,7 +1026,7 @@ function startPreQuestionCountdown(seconds, onComplete) {
 }
 
 function renderHostView() {
-    const { currentQuestion, currentQuestionIndex, totalQuestions, phase, playerBuzzStatus, answeredCount, totalPlayers, isOffTheDome } = gameState;
+    const { currentQuestion, currentQuestionIndex, totalQuestions, phase, playerBuzzStatus, answeredCount, totalPlayers, isOffTheDome, disconnectedPlayers } = gameState;
 
     timerRemaining = gameState.timerRemaining || 0;
     timerDuration = gameState.timerDuration || 30;
@@ -1059,10 +1060,16 @@ function renderHostView() {
     // Phase controls — hide all first
     Object.values(hostEls.phases).forEach(el => { if (el) el.classList.add('hidden'); });
 
+    // Build disconnected players indicator (shown in waiting and result phases)
+    const disconnectedList = disconnectedPlayers || [];
+    const disconnectedHTML = disconnectedList.length > 0
+        ? `<div class="host-disconnected-row"><span class="disconnect-label">Disconnected:</span>${disconnectedList.map(p => `<span class="disconnect-tag">⚡ ${p.name}</span>`).join('')}</div>`
+        : '';
+
     if (phase === 'waiting') {
         // Auto-advance is triggered in renderGameState; show minimal state while server responds
         if (hostEls.phases.waiting) hostEls.phases.waiting.classList.remove('hidden');
-        hostEls.buzzArea.innerHTML = '<div class="host-status-pill">Getting ready...</div>';
+        hostEls.buzzArea.innerHTML = `<div class="host-status-pill">Getting ready...</div>${disconnectedHTML}`;
     } else if (phase === 'question') {
         if (hostEls.phases.question) hostEls.phases.question.classList.remove('hidden');
 
@@ -1087,7 +1094,7 @@ function renderHostView() {
         `;
     } else if (phase === 'result') {
         if (hostEls.phases.result) hostEls.phases.result.classList.remove('hidden');
-        hostEls.buzzArea.innerHTML = '';
+        hostEls.buzzArea.innerHTML = disconnectedHTML;
     }
 
     // Leaderboard
