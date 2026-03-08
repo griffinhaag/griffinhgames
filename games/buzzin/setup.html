@@ -279,6 +279,10 @@
                     <input type="checkbox" id="bonus-points-toggle" checked>
                     <span>First correct answer gets +50 bonus points</span>
                 </label>
+                <label class="option-toggle">
+                    <input type="checkbox" id="host-plays-toggle" checked>
+                    <span>Host plays as a player (uncheck to spectate / admin only)</span>
+                </label>
             </div>
 
             <button id="btn-create-room" class="btn-create-room">Create Room</button>
@@ -395,12 +399,24 @@
         selectedCategories = CATEGORIES;
         fetchCategoryCounts();
         
+        // Toggle name field requirement based on host-plays-toggle
+        const hostPlaysToggle = document.getElementById('host-plays-toggle');
+        const hostNameInput = document.getElementById('host-name');
+        hostPlaysToggle.addEventListener('change', () => {
+            if (!hostPlaysToggle.checked) {
+                hostNameInput.placeholder = 'Admin (optional)';
+            } else {
+                hostNameInput.placeholder = 'Enter your name';
+            }
+        });
+
         // Create room button
         const btnCreateRoom = document.getElementById('btn-create-room');
         btnCreateRoom.addEventListener('click', () => {
             const nameInput = document.getElementById('host-name');
-            hostName = nameInput.value.trim();
-            
+            const hostPlays = document.getElementById('host-plays-toggle')?.checked === true;
+            hostName = nameInput.value.trim() || (hostPlays ? '' : 'Admin');
+
             if (!hostName) {
                 showError('Please enter your name');
                 return;
@@ -423,12 +439,14 @@
             
             // Store settings in sessionStorage
             const bonusFirstCorrect = document.getElementById('bonus-points-toggle')?.checked !== false;
+            const hostAsPlayer = document.getElementById('host-plays-toggle')?.checked === true;
             sessionStorage.setItem('buzzin_settings', JSON.stringify({
                 categories: selectedCategories,
                 questionCount: questionCount,
                 timerDuration: timerDuration,
                 hostName: hostName,
-                bonusFirstCorrect: bonusFirstCorrect
+                bonusFirstCorrect: bonusFirstCorrect,
+                hostAsPlayer: hostAsPlayer
             }));
             
             // Wait for socket to be connected before creating room
@@ -490,7 +508,8 @@
                 questionCount: questionCount,
                 timerDuration: timerDuration,
                 hostName: hostName,
-                bonusFirstCorrect: document.getElementById('bonus-points-toggle')?.checked !== false
+                bonusFirstCorrect: document.getElementById('bonus-points-toggle')?.checked !== false,
+                hostAsPlayer: document.getElementById('host-plays-toggle')?.checked === true
             }));
 
             // Store redirect info for the game page

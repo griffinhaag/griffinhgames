@@ -5,6 +5,7 @@ let socket;
 let roomCode = null;
 let playerName = null;
 let isHost = false;
+let hostAsPlayer = false; // If false, host is spectate/admin only (no score, no answers)
 let gameState = null;
 let roomState = null; // Store room state for lobby display
 
@@ -277,6 +278,11 @@ function restoreSettingsFromStorage() {
                 cb.checked = settings.categories.includes(cb.value);
             });
         }
+
+        // Restore hostAsPlayer setting
+        if (settings.hostAsPlayer !== undefined) {
+            hostAsPlayer = settings.hostAsPlayer;
+        }
     } catch (e) {
         console.error('Failed to restore settings:', e);
     }
@@ -415,6 +421,10 @@ function setupSocketListeners() {
             const me = state.players.find(p => p.name === playerName);
             if (me && me.isHost) isHost = true;
         }
+        // Sync hostAsPlayer from authoritative server state
+        if (isHost && state.hostAsPlayer !== undefined) {
+            hostAsPlayer = state.hostAsPlayer;
+        }
         renderGameState();
 
         // Show round results overlay NOW — game:state has the updated scores,
@@ -514,6 +524,7 @@ function setupUIListeners() {
                 if (settings.questionCount) questionCount = settings.questionCount;
                 if (settings.timerDuration) timerDurationValue = settings.timerDuration;
                 bonusFirstCorrect = settings.bonusFirstCorrect !== false;
+                hostAsPlayer = settings.hostAsPlayer === true;
             } catch (e) {}
 
             btn.disabled = true;
@@ -526,6 +537,7 @@ function setupUIListeners() {
                 questionCount,
                 timerDuration: timerDurationValue,
                 bonusFirstCorrect,
+                hostAsPlayer,
                 seenQuestions: getSeenQuestions()
             });
 
@@ -867,14 +879,21 @@ function renderGameState() {
         }
     } else {
         showScreen('game');
-        // Host can play too - show player view for host as well
         if (isHost) {
-            // Host sees both views - host controls + player buzzer
-            screens.game.classList.add('host-playing');
-            hostEls.view.classList.remove('hidden');
-            playerEls.view.classList.remove('hidden');
-            renderHostView();
-            renderPlayerView();
+            if (hostAsPlayer) {
+                // Host plays — show both host controls and player buzzer
+                screens.game.classList.add('host-playing');
+                hostEls.view.classList.remove('hidden');
+                playerEls.view.classList.remove('hidden');
+                renderHostView();
+                renderPlayerView();
+            } else {
+                // Host is spectating — show only host controls
+                screens.game.classList.remove('host-playing');
+                hostEls.view.classList.remove('hidden');
+                playerEls.view.classList.add('hidden');
+                renderHostView();
+            }
         } else {
             screens.game.classList.remove('host-playing');
             hostEls.view.classList.add('hidden');
