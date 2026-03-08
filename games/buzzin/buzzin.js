@@ -28,6 +28,23 @@ const CATEGORIES = [
   "Random"
 ];
 
+// Question counts per category — fetched from server so they stay in sync
+let CATEGORY_QUESTION_COUNTS = {};
+
+async function fetchCategoryCounts() {
+  const url = window.BACKEND_URL || 'http://localhost:3000';
+  try {
+    const res = await fetch(`${url}/buzzin/category-counts`);
+    if (res.ok) CATEGORY_QUESTION_COUNTS = await res.json();
+  } catch (e) {
+    CATEGORIES.forEach(c => { CATEGORY_QUESTION_COUNTS[c] = 25; });
+  }
+}
+
+function totalQuestionsForCategories(cats) {
+  return cats.reduce((sum, cat) => sum + (CATEGORY_QUESTION_COUNTS[cat] || 25), 0);
+}
+
 // --- DOM Elements ---
 const screens = {
     connecting: document.getElementById('screen-connecting'),
@@ -609,7 +626,7 @@ function setupAdminMenu() {
     // Shuffle Questions
     if (adminMenuEls.shuffleQuestions) {
         adminMenuEls.shuffleQuestions.addEventListener('click', () => {
-            if (confirm('Shuffle remaining questions? This will randomize the order of upcoming questions.')) {
+            if (confirm('Shuffle questions? The current question and all remaining questions will be reshuffled into a new order.')) {
                 socket.emit('host:shuffleQuestions', { roomCode: roomCode });
                 closeAdminMenu();
             }
@@ -673,7 +690,9 @@ function updateAdminMenuVisibility() {
 
             // Update button states based on phase
             if (adminMenuEls.shuffleQuestions) {
-                const canShuffle = gameState.phase !== 'end' && gameState.phase !== 'paused' && gameState.currentQuestionIndex < gameState.totalQuestions - 1;
+                // Allow shuffle during waiting/question/result phases as long as there's >1 question remaining (current counts)
+                const canShuffle = (gameState.phase === 'waiting' || gameState.phase === 'question' || gameState.phase === 'result')
+                    && gameState.currentQuestionIndex < gameState.totalQuestions - 1;
                 adminMenuEls.shuffleQuestions.disabled = !canShuffle;
                 adminMenuEls.shuffleQuestions.style.opacity = canShuffle ? '1' : '0.4';
             }
@@ -1289,7 +1308,8 @@ function renderEndScreen() {
     }).join('');
 }
 
-function showPlayAgainModal() {
+async function showPlayAgainModal() {
+    await fetchCategoryCounts();
     const existing = document.getElementById('play-again-modal');
     if (existing) existing.remove();
 
@@ -1305,6 +1325,9 @@ function showPlayAgainModal() {
         "General Knowledge","Science","Movies & TV","Music","Sports",
         "History","Geography","Pop Culture","Games","Random"
     ];
+
+    const initialMax = totalQuestionsForCategories(cats.length ? cats : CATEGORIES);
+    const clampedQCount = Math.min(qCount, initialMax);
 
     const modal = document.createElement('div');
     modal.id = 'play-again-modal';
@@ -1325,8 +1348,8 @@ function showPlayAgainModal() {
                 </div>
             </div>
             <div class="pa-section">
-                <label class="pa-label">Questions: <span id="pa-q-val">${qCount}</span></label>
-                <input type="range" id="pa-q-slider" min="5" max="100" value="${qCount}" step="1" style="width:100%">
+                <label class="pa-label">Questions: <span id="pa-q-val">${clampedQCount}</span></label>
+                <input type="range" id="pa-q-slider" min="5" max="${initialMax}" value="${clampedQCount}" step="1" style="width:100%">
             </div>
             <div class="pa-section">
                 <label class="pa-label">Timer: <span id="pa-t-val">${timer}</span>s per question</label>
@@ -1346,9 +1369,23 @@ function showPlayAgainModal() {
     `;
     document.body.appendChild(modal);
 
-    modal.querySelector('#pa-q-slider').addEventListener('input', (e) => {
-        modal.querySelector('#pa-q-val').textContent = e.target.value;
+    const paQSlider = modal.querySelector('#pa-q-slider');
+    const paQVal = modal.querySelector('#pa-q-val');
+
+    function updatePaSliderMax() {
+        const selectedCats = [...modal.querySelectorAll('.pa-cat-item input:checked')].map(cb => cb.value);
+        const max = selectedCats.length ? totalQuestionsForCategories(selectedCats) : 5;
+        paQSlider.max = max;
+        if (parseInt(paQSlider.value) > max) {
+            paQSlider.value = max;
+            paQVal.textContent = max;
+        }
+    }
+
+    paQSlider.addEventListener('input', (e) => {
+        paQVal.textContent = e.target.value;
     });
+    modal.querySelector('.pa-cat-grid').addEventListener('change', updatePaSliderMax);
     modal.querySelector('#pa-t-slider').addEventListener('input', (e) => {
         modal.querySelector('#pa-t-val').textContent = e.target.value;
     });
@@ -1395,10 +1432,32 @@ function showPauseOverlay() {
         <div class="pause-content">
             <div class="pause-icon">⏸️</div>
             <h2>GAME PAUSED</h2>
-            <p>${isHost ? 'Open the admin menu to resume' : 'Waiting for host to resume...'}</p>
+            ${isHost
+                ? `<p style="margin-bottom:24px;color:rgba(255,255,255,0.7)">Game is paused. Resume when ready.</p>
+                   <button id="pause-resume-btn" style="
+                       padding: 14px 40px;
+                       font-size: 1.1rem;
+                       font-weight: 800;
+                       letter-spacing: 2px;
+                       text-transform: uppercase;
+                       background: linear-gradient(45deg, #ff0055, #ff4444);
+                       color: white;
+                       border: none;
+                       border-radius: 50px;
+                       cursor: pointer;
+                       box-shadow: 0 4px 20px rgba(255,0,85,0.4);
+                   ">&#x25B6; RESUME GAME</button>`
+                : `<p>Waiting for host to resume...</p>`
+            }
         </div>
     `;
     document.body.appendChild(overlay);
+
+    if (isHost) {
+        document.getElementById('pause-resume-btn')?.addEventListener('click', () => {
+            socket.emit('host:resumeGame', { roomCode });
+        });
+    }
 }
 
 function handleGameEvent(event) {
@@ -1663,6 +1722,7 @@ function playSound(type) {
     // Implementation for audio
 }
 
-// Start
+// Start — prefetch category counts so they're ready before Play Again modal opens
+fetchCategoryCounts();
 init();
 
