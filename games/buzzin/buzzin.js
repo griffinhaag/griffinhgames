@@ -6,7 +6,7 @@ let roomCode = null;
 let playerName = null;
 let isHost = false;
 let hostAsPlayer = false; // If false, host is spectate/admin only (no score, no answers)
-let offTheDomeCount = 3; // Number of final free-text questions
+let offTheDomeCount = 3; // Number of free-text (OFF THE DOME) questions
 let gameState = null;
 let roomState = null; // Store room state for lobby display
 
@@ -32,12 +32,20 @@ const CATEGORIES = [
 
 // Question counts per category — fetched from server so they stay in sync
 let CATEGORY_QUESTION_COUNTS = {};
+let MAX_QUESTIONS_PER_GAME = 100; // Matches server-side cap; updated from API response
 
 async function fetchCategoryCounts() {
   const url = window.BACKEND_URL || 'http://localhost:3000';
   try {
     const res = await fetch(`${url}/buzzin/category-counts`);
-    if (res.ok) CATEGORY_QUESTION_COUNTS = await res.json();
+    if (res.ok) {
+      const data = await res.json();
+      if (typeof data._maxPerGame === 'number') {
+        MAX_QUESTIONS_PER_GAME = data._maxPerGame;
+        delete data._maxPerGame;
+      }
+      CATEGORY_QUESTION_COUNTS = data;
+    }
   } catch (e) {
     CATEGORIES.forEach(c => { CATEGORY_QUESTION_COUNTS[c] = 25; });
   }
@@ -45,6 +53,11 @@ async function fetchCategoryCounts() {
 
 function totalQuestionsForCategories(cats) {
   return cats.reduce((sum, cat) => sum + (CATEGORY_QUESTION_COUNTS[cat] || 25), 0);
+}
+
+// Cap a raw question count against both the available pool and the server's hard max.
+function cappedMax(rawTotal) {
+  return Math.min(rawTotal, MAX_QUESTIONS_PER_GAME);
 }
 
 // --- DOM Elements ---
@@ -113,6 +126,7 @@ let questionMusicPlayer = null;
 let lobbyPlayerReady = false;
 let questionMusicReady = false;
 let previousPhase = null;
+let previousQuestionText = null; // Track question changes regardless of phase
 
 // Called automatically by YouTube IFrame API once loaded
 function onYouTubeIframeAPIReady() {
@@ -377,19 +391,25 @@ function setupSocketListeners() {
     socket.on('room:state', (rs) => {
         console.log('Room state received:', rs);
         roomState = rs; // Store for later use
-        
-        // If room is in-progress, we need game state, not room state
-        // But still update lobby info in case game state hasn't arrived yet
+
+        // If a game is actively running, don't let room:state interrupt it.
+        // game:state events handle all in-game rendering. room:state arriving during
+        // a disconnect event would otherwise call showScreen('lobby') and interrupt
+        // the host and players.
+        if (gameState && gameState.phase !== 'lobby' && gameState.phase !== 'end') {
+            return;
+        }
+
+        // If room is in-progress (reconnecting player starting fresh), show loading
         if (rs.phase === 'in-progress') {
             console.log('Room is in-progress, waiting for game state...');
-            // Show a "Game in progress" message while waiting
             showScreen('lobby');
             lobbyEls.code.textContent = rs.code || roomCode || '----';
             lobbyEls.list.innerHTML = '<div class="player-tag">Game in progress, loading...</div>';
             // Game state should arrive shortly via game:state event
             return;
         }
-        
+
         // Otherwise, show lobby
         updateLobbyUI(rs);
 
@@ -422,11 +442,6 @@ function setupSocketListeners() {
     socket.on('game:state', (state) => {
         console.log('Game state received:', state);
         gameState = state;
-        // Restore isHost from game state in case of reconnect (socket ID may have changed)
-        if (state.players) {
-            const me = state.players.find(p => p.name === playerName);
-            if (me && me.isHost) isHost = true;
-        }
         // Sync hostAsPlayer and offTheDomeCount from authoritative server state
         if (isHost && state.hostAsPlayer !== undefined) {
             hostAsPlayer = state.hostAsPlayer;
@@ -713,9 +728,9 @@ function updateAdminMenuVisibility() {
 
             // Update button states based on phase
             if (adminMenuEls.shuffleQuestions) {
-                // Allow shuffle during waiting/question/result phases as long as there's >1 question remaining (current counts)
-                const canShuffle = (gameState.phase === 'waiting' || gameState.phase === 'question' || gameState.phase === 'result')
-                    && gameState.currentQuestionIndex < gameState.totalQuestions - 1;
+                // Allow shuffle during waiting/question/result phases — always,
+                // including the last question (server will re-show same if no alternatives).
+                const canShuffle = gameState.phase === 'waiting' || gameState.phase === 'question' || gameState.phase === 'result';
                 adminMenuEls.shuffleQuestions.disabled = !canShuffle;
                 adminMenuEls.shuffleQuestions.style.opacity = canShuffle ? '1' : '0.4';
             }
@@ -884,15 +899,25 @@ function renderGameState() {
         });
     }
 
+    // Track seen questions whenever the current question changes — this fires in 'waiting'
+    // phase (when the question is first assigned), covers mid-game shuffles that stay in
+    // 'waiting', and serves as a backup for the server-side seen tracking.
+    const currentQText = gameState.currentQuestion?.question;
+    if (currentQText && currentQText !== previousQuestionText) {
+        addSeenQuestion(currentQText);
+        previousQuestionText = currentQText;
+    }
+
+    // Reset seen-question tracking when a new game starts (countdown = fresh game)
+    if (currentPhase === 'countdown' && previousPhase !== 'countdown') {
+        previousQuestionText = null;
+    }
+
     // Question music: play from start when question begins, stop when it ends
     if (currentPhase === 'question' && previousPhase !== 'question') {
         startQuestionMusic();
         // Capture leaderboard snapshot before this question's scores arrive
         if (gameState.scores) previousScores = JSON.parse(JSON.stringify(gameState.scores));
-        // Track seen question
-        if (gameState.currentQuestion?.question) {
-            addSeenQuestion(gameState.currentQuestion.question);
-        }
     } else if (currentPhase !== 'question' && previousPhase === 'question') {
         stopQuestionMusic();
     }
@@ -1025,7 +1050,7 @@ function startPreQuestionCountdown(seconds, onComplete) {
 }
 
 function renderHostView() {
-    const { currentQuestion, currentQuestionIndex, totalQuestions, phase, playerBuzzStatus, answeredCount, totalPlayers, isOffTheDome } = gameState;
+    const { currentQuestion, currentQuestionIndex, totalQuestions, phase, playerBuzzStatus, answeredCount, totalPlayers, isOffTheDome, disconnectedPlayers } = gameState;
 
     timerRemaining = gameState.timerRemaining || 0;
     timerDuration = gameState.timerDuration || 30;
@@ -1059,10 +1084,16 @@ function renderHostView() {
     // Phase controls — hide all first
     Object.values(hostEls.phases).forEach(el => { if (el) el.classList.add('hidden'); });
 
+    // Build disconnected players indicator (shown in waiting and result phases)
+    const disconnectedList = disconnectedPlayers || [];
+    const disconnectedHTML = disconnectedList.length > 0
+        ? `<div class="host-disconnected-row"><span class="disconnect-label">Disconnected:</span>${disconnectedList.map(p => `<span class="disconnect-tag">⚡ ${p.name}</span>`).join('')}</div>`
+        : '';
+
     if (phase === 'waiting') {
         // Auto-advance is triggered in renderGameState; show minimal state while server responds
         if (hostEls.phases.waiting) hostEls.phases.waiting.classList.remove('hidden');
-        hostEls.buzzArea.innerHTML = '<div class="host-status-pill">Getting ready...</div>';
+        hostEls.buzzArea.innerHTML = `<div class="host-status-pill">Getting ready...</div>${disconnectedHTML}`;
     } else if (phase === 'question') {
         if (hostEls.phases.question) hostEls.phases.question.classList.remove('hidden');
 
@@ -1087,7 +1118,7 @@ function renderHostView() {
         `;
     } else if (phase === 'result') {
         if (hostEls.phases.result) hostEls.phases.result.classList.remove('hidden');
-        hostEls.buzzArea.innerHTML = '';
+        hostEls.buzzArea.innerHTML = disconnectedHTML;
     }
 
     // Leaderboard
@@ -1115,7 +1146,7 @@ function renderPlayerView() {
     hasBuzzed = myStatus?.hasBuzzed || false;
     hasAnswered = myStatus?.hasAnswered || false;
 
-    // Show OFF THE DOME announcement for first of last 3 questions
+    // Show OFF THE DOME announcement for the first OFF THE DOME question
     if (isFirstOffTheDome && phase === 'waiting' && !offTheDomeShown) {
         showOffTheDomeOverlay();
         offTheDomeShown = true;
@@ -1332,7 +1363,7 @@ function showOffTheDomeOverlay() {
     overlay.className = 'off-the-dome-overlay';
     overlay.innerHTML = `
         <div class="off-the-dome-text">OFF THE DOME</div>
-        <div class="off-the-dome-subtitle">Type your answers for the final ${offTheDomeCount} question${offTheDomeCount !== 1 ? 's' : ''}!</div>
+        <div class="off-the-dome-subtitle">${offTheDomeCount} question${offTheDomeCount !== 1 ? 's' : ''} — type your answers!</div>
     `;
     document.body.appendChild(overlay);
 
@@ -1383,7 +1414,7 @@ async function showPlayAgainModal() {
         "History","Geography","Pop Culture","Games","Random"
     ];
 
-    const initialMax = totalQuestionsForCategories(cats.length ? cats : CATEGORIES);
+    const initialMax = cappedMax(totalQuestionsForCategories(cats.length ? cats : CATEGORIES));
     const clampedQCount = Math.min(qCount, initialMax);
 
     const modal = document.createElement('div');
@@ -1409,7 +1440,7 @@ async function showPlayAgainModal() {
                 <input type="range" id="pa-q-slider" min="5" max="${initialMax}" value="${clampedQCount}" step="1" style="width:100%">
             </div>
             <div class="pa-section">
-                <label class="pa-label">OFF THE DOME: <span id="pa-otd-val">${Math.min(otdCount, clampedQCount)}</span> free-text questions</label>
+                <label class="pa-label">OFF THE DOME: <span id="pa-otd-val">${Math.min(otdCount, clampedQCount)}</span> free-text (type-in) questions</label>
                 <input type="range" id="pa-otd-slider" min="0" max="${clampedQCount}" value="${Math.min(otdCount, clampedQCount)}" step="1" style="width:100%">
             </div>
             <div class="pa-section">
@@ -1435,7 +1466,8 @@ async function showPlayAgainModal() {
 
     function updatePaSliderMax() {
         const selectedCats = [...modal.querySelectorAll('.pa-cat-item input:checked')].map(cb => cb.value);
-        const max = selectedCats.length ? totalQuestionsForCategories(selectedCats) : 5;
+        const rawTotal = selectedCats.length ? totalQuestionsForCategories(selectedCats) : 5;
+        const max = cappedMax(rawTotal);
         paQSlider.max = max;
         if (parseInt(paQSlider.value) > max) {
             paQSlider.value = max;
