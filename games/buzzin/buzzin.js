@@ -452,6 +452,7 @@ const adminMenuEls = {
     dropdown: document.getElementById('admin-menu-dropdown'),
     roomCodeValue: document.getElementById('admin-room-code-value'),
     shuffleQuestions: document.getElementById('admin-shuffle-questions'),
+    pauseGame: document.getElementById('admin-pause-game'),
     newGame: document.getElementById('admin-new-game'),
     endGame: document.getElementById('admin-end-game')
 };
@@ -615,6 +616,18 @@ function setupAdminMenu() {
         });
     }
 
+    // Pause / Resume Game
+    if (adminMenuEls.pauseGame) {
+        adminMenuEls.pauseGame.addEventListener('click', () => {
+            if (gameState?.phase === 'paused') {
+                socket.emit('host:resumeGame', { roomCode });
+            } else {
+                socket.emit('host:pauseGame', { roomCode });
+            }
+            closeAdminMenu();
+        });
+    }
+
     // Start New Game
     if (adminMenuEls.newGame) {
         adminMenuEls.newGame.addEventListener('click', () => {
@@ -648,6 +661,7 @@ function updateAdminMenuVisibility() {
             gameState.phase === 'waiting' ||
             gameState.phase === 'question' ||
             gameState.phase === 'result' ||
+            gameState.phase === 'paused' ||
             gameState.phase === 'end'
         )) {
             adminMenuEls.menu.classList.remove('hidden');
@@ -659,9 +673,18 @@ function updateAdminMenuVisibility() {
 
             // Update button states based on phase
             if (adminMenuEls.shuffleQuestions) {
-                const canShuffle = gameState.phase !== 'end' && gameState.currentQuestionIndex < gameState.totalQuestions - 1;
+                const canShuffle = gameState.phase !== 'end' && gameState.phase !== 'paused' && gameState.currentQuestionIndex < gameState.totalQuestions - 1;
                 adminMenuEls.shuffleQuestions.disabled = !canShuffle;
                 adminMenuEls.shuffleQuestions.style.opacity = canShuffle ? '1' : '0.4';
+            }
+            if (adminMenuEls.pauseGame) {
+                const isPaused = gameState.phase === 'paused';
+                const canPause = gameState.phase === 'question' || isPaused;
+                adminMenuEls.pauseGame.disabled = !canPause;
+                adminMenuEls.pauseGame.style.opacity = canPause ? '1' : '0.4';
+                adminMenuEls.pauseGame.innerHTML = isPaused
+                    ? '<span class="admin-icon">&#x25B6;</span> Resume Game'
+                    : '<span class="admin-icon">&#x23F8;</span> Pause Game';
             }
         } else {
             adminMenuEls.menu.classList.add('hidden');
@@ -765,6 +788,18 @@ function renderGameState() {
     if (!gameState) return;
 
     const currentPhase = gameState.phase;
+
+    // Pause overlay transitions
+    if (currentPhase === 'paused' && previousPhase !== 'paused') {
+        showPauseOverlay();
+    } else if (previousPhase === 'paused' && currentPhase !== 'paused') {
+        const po = document.getElementById('pause-overlay');
+        if (po) {
+            po.style.transition = 'opacity 0.3s ease-out';
+            po.style.opacity = '0';
+            setTimeout(() => { if (po.parentNode) po.remove(); }, 300);
+        }
+    }
 
     // After results, dismiss results overlay then show 3-second countdown on ALL clients
     if (currentPhase === 'waiting' && previousPhase === 'result') {
@@ -1352,6 +1387,20 @@ function showPlayAgainModal() {
     });
 }
 
+function showPauseOverlay() {
+    if (document.getElementById('pause-overlay')) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'pause-overlay';
+    overlay.innerHTML = `
+        <div class="pause-content">
+            <div class="pause-icon">⏸️</div>
+            <h2>GAME PAUSED</h2>
+            <p>${isHost ? 'Open the admin menu to resume' : 'Waiting for host to resume...'}</p>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
 function handleGameEvent(event) {
     if (event.type === 'round_results') {
         // Show results overlay with all answers
@@ -1396,7 +1445,6 @@ function handleGameEvent(event) {
 }
 
 function showResultsOverlay(event) {
-    // Remove any existing overlay
     const existingOverlay = document.getElementById('results-overlay');
     if (existingOverlay) existingOverlay.remove();
 
@@ -1409,7 +1457,6 @@ function showResultsOverlay(event) {
     const resultsMap = {};
     (event.results || []).forEach(r => { resultsMap[r.name] = r; });
 
-    // Merge: start with server results, then add any players who didn't answer at all
     const allResults = [
         ...(event.results || []),
         ...allPlayers
@@ -1420,20 +1467,15 @@ function showResultsOverlay(event) {
     const resultsHTML = allResults.map(r => {
         let itemClass = r.isCorrect ? 'correct' : 'wrong';
         if (r.isFirstCorrect) itemClass += ' first';
-
         const answerText = r.answer ? `"${r.answer}"` : '<em style="opacity:0.5">no answer</em>';
-
         let badge = '';
         if (r.isFirstCorrect) {
-            const pts = r.points || 150;
-            badge = `<span class="first-badge">1ST +${pts}</span>`;
+            badge = `<span class="first-badge">1ST +${r.points || 150}</span>`;
         } else if (r.isCorrect) {
-            const pts = r.points || 100;
-            badge = `<span class="correct-badge">+${pts}</span>`;
+            badge = `<span class="correct-badge">+${r.points || 100}</span>`;
         } else {
             badge = `<span class="wrong-badge">✗</span>`;
         }
-
         return `
             <div class="result-item ${itemClass}">
                 <span class="result-name">${r.name}</span>
@@ -1443,11 +1485,10 @@ function showResultsOverlay(event) {
         `;
     }).join('');
 
-    // Animated leaderboard — show score deltas and rank changes from before this question
+    // Leaderboard with rank-change animation
     const currentScores = [...(gameState?.scores || [])].sort((a, b) => b.score - a.score);
     const prevScoreMap = {};
     (previousScores || []).forEach(p => { prevScoreMap[p.name] = p.score; });
-    // Compute old ranks from previousScores
     const prevRankMap = {};
     [...(previousScores || [])].sort((a, b) => b.score - a.score)
         .forEach((p, i) => { prevRankMap[p.name] = i + 1; });
@@ -1468,8 +1509,12 @@ function showResultsOverlay(event) {
         } else {
             rankChangeEl = `<span class="lb-rank-change same">—</span>`;
         }
+        const rowClasses = ['lb-result-row'];
+        if (delta > 0) rowClasses.push('gained');
+        if (rankDiff !== 0) rowClasses.push('rank-changed');
         return `
-            <div class="lb-result-row${delta > 0 ? ' gained' : ''}" style="animation-delay:${i * 60}ms">
+            <div class="${rowClasses.join(' ')}"
+                 style="--rank-diff:${rankDiff}; animation-delay:${i * 65}ms">
                 <span class="lb-result-rank">${rank}</span>
                 ${rankChangeEl}
                 <span class="lb-result-name">${p.name}</span>
@@ -1478,6 +1523,10 @@ function showResultsOverlay(event) {
             </div>
         `;
     }).join('');
+
+    const continueHint = isHost
+        ? `<div class="results-continue-hint host">▶ Tap anywhere to continue</div>`
+        : `<div class="results-continue-hint">Waiting for host...</div>`;
 
     overlay.innerHTML = `
         <div class="results-card" id="results-card-inner">
@@ -1493,24 +1542,33 @@ function showResultsOverlay(event) {
                 <div class="results-lb-title">Standings</div>
                 ${leaderboardHTML}
             </div>` : ''}
+            ${continueHint}
         </div>
     `;
 
     document.body.appendChild(overlay);
 
-    // Click backdrop to dismiss, but not the card itself
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) overlay.remove();
-    });
+    // Temporarily allow overflow so rank-change animations render outside card bounds
+    const card = overlay.querySelector('#results-card-inner');
+    if (card) {
+        card.classList.add('animating-lb');
+        const animDuration = Math.min(currentScores.length, 8) * 65 + 900;
+        setTimeout(() => card.classList.remove('animating-lb'), animDuration);
+    }
 
-    // Auto-remove after 8 seconds
-    setTimeout(() => {
-        if (overlay.parentNode) {
-            overlay.style.transition = 'opacity 0.4s ease-out';
-            overlay.style.opacity = '0';
-            setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 400);
-        }
-    }, 8000);
+    // Host: tap anywhere to continue (sends nextQuestion, no auto-dismiss)
+    if (isHost) {
+        let continueClicked = false;
+        overlay.addEventListener('click', () => {
+            if (continueClicked || gameState?.phase !== 'result') return;
+            continueClicked = true;
+            socket.emit('host:nextQuestion', { roomCode });
+            overlay.style.transition = 'opacity 0.2s ease-out';
+            overlay.style.opacity = '0.5';
+            overlay.style.pointerEvents = 'none';
+        });
+    }
+    // Non-hosts: overlay is informational only — no interaction
 }
 
 function showPointsAnimation(points) {
