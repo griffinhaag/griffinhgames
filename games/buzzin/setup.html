@@ -256,7 +256,7 @@
             <div class="setup-section">
                 <h3>Number of Questions:</h3>
                 <div class="question-count-control">
-                    <input type="range" id="q-count-slider" min="5" max="250" value="10" step="1">
+                    <input type="range" id="q-count-slider" min="5" max="100" value="10" step="1">
                     <div class="question-count-display">
                         <span id="q-count-display">10</span> questions
                     </div>
@@ -343,11 +343,20 @@
         
         // Question counts per category — fetched from server so they stay in sync
         let CATEGORY_QUESTION_COUNTS = {};
+        let MAX_QUESTIONS_PER_GAME = 100; // Server-enforced cap; updated from API response
 
         async function fetchCategoryCounts() {
             try {
                 const res = await fetch(`${backendUrl}/buzzin/category-counts`);
-                if (res.ok) CATEGORY_QUESTION_COUNTS = await res.json();
+                if (res.ok) {
+                    const data = await res.json();
+                    // Pull the server's cap before storing counts
+                    if (typeof data._maxPerGame === 'number') {
+                        MAX_QUESTIONS_PER_GAME = data._maxPerGame;
+                        delete data._maxPerGame;
+                    }
+                    CATEGORY_QUESTION_COUNTS = data;
+                }
             } catch (e) {
                 // Fall back to defaults if fetch fails
                 CATEGORIES.forEach(c => { CATEGORY_QUESTION_COUNTS[c] = 25; });
@@ -364,14 +373,15 @@
             const slider = document.getElementById('q-count-slider');
             const currentValue = parseInt(slider.value);
 
-            // Update slider max to actual available count
-            slider.max = availableQuestions;
+            // Slider max = lesser of available questions and the server's hard cap (100)
+            const sliderMax = Math.min(availableQuestions, MAX_QUESTIONS_PER_GAME);
+            slider.max = sliderMax;
 
             // If current value exceeds max, clamp it
-            if (currentValue > availableQuestions) {
-                slider.value = availableQuestions;
-                questionCount = availableQuestions;
-                document.getElementById('q-count-display').textContent = availableQuestions;
+            if (currentValue > sliderMax) {
+                slider.value = sliderMax;
+                questionCount = sliderMax;
+                document.getElementById('q-count-display').textContent = sliderMax;
             }
 
             // Update display

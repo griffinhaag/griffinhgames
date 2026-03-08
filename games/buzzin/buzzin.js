@@ -32,12 +32,20 @@ const CATEGORIES = [
 
 // Question counts per category — fetched from server so they stay in sync
 let CATEGORY_QUESTION_COUNTS = {};
+let MAX_QUESTIONS_PER_GAME = 100; // Matches server-side cap; updated from API response
 
 async function fetchCategoryCounts() {
   const url = window.BACKEND_URL || 'http://localhost:3000';
   try {
     const res = await fetch(`${url}/buzzin/category-counts`);
-    if (res.ok) CATEGORY_QUESTION_COUNTS = await res.json();
+    if (res.ok) {
+      const data = await res.json();
+      if (typeof data._maxPerGame === 'number') {
+        MAX_QUESTIONS_PER_GAME = data._maxPerGame;
+        delete data._maxPerGame;
+      }
+      CATEGORY_QUESTION_COUNTS = data;
+    }
   } catch (e) {
     CATEGORIES.forEach(c => { CATEGORY_QUESTION_COUNTS[c] = 25; });
   }
@@ -45,6 +53,11 @@ async function fetchCategoryCounts() {
 
 function totalQuestionsForCategories(cats) {
   return cats.reduce((sum, cat) => sum + (CATEGORY_QUESTION_COUNTS[cat] || 25), 0);
+}
+
+// Cap a raw question count against both the available pool and the server's hard max.
+function cappedMax(rawTotal) {
+  return Math.min(rawTotal, MAX_QUESTIONS_PER_GAME);
 }
 
 // --- DOM Elements ---
@@ -113,6 +126,7 @@ let questionMusicPlayer = null;
 let lobbyPlayerReady = false;
 let questionMusicReady = false;
 let previousPhase = null;
+let previousQuestionText = null; // Track question changes regardless of phase
 
 // Called automatically by YouTube IFrame API once loaded
 function onYouTubeIframeAPIReady() {
@@ -885,15 +899,25 @@ function renderGameState() {
         });
     }
 
+    // Track seen questions whenever the current question changes — this fires in 'waiting'
+    // phase (when the question is first assigned), covers mid-game shuffles that stay in
+    // 'waiting', and serves as a backup for the server-side seen tracking.
+    const currentQText = gameState.currentQuestion?.question;
+    if (currentQText && currentQText !== previousQuestionText) {
+        addSeenQuestion(currentQText);
+        previousQuestionText = currentQText;
+    }
+
+    // Reset seen-question tracking when a new game starts (countdown = fresh game)
+    if (currentPhase === 'countdown' && previousPhase !== 'countdown') {
+        previousQuestionText = null;
+    }
+
     // Question music: play from start when question begins, stop when it ends
     if (currentPhase === 'question' && previousPhase !== 'question') {
         startQuestionMusic();
         // Capture leaderboard snapshot before this question's scores arrive
         if (gameState.scores) previousScores = JSON.parse(JSON.stringify(gameState.scores));
-        // Track seen question
-        if (gameState.currentQuestion?.question) {
-            addSeenQuestion(gameState.currentQuestion.question);
-        }
     } else if (currentPhase !== 'question' && previousPhase === 'question') {
         stopQuestionMusic();
     }
@@ -1390,7 +1414,7 @@ async function showPlayAgainModal() {
         "History","Geography","Pop Culture","Games","Random"
     ];
 
-    const initialMax = totalQuestionsForCategories(cats.length ? cats : CATEGORIES);
+    const initialMax = cappedMax(totalQuestionsForCategories(cats.length ? cats : CATEGORIES));
     const clampedQCount = Math.min(qCount, initialMax);
 
     const modal = document.createElement('div');
@@ -1442,7 +1466,8 @@ async function showPlayAgainModal() {
 
     function updatePaSliderMax() {
         const selectedCats = [...modal.querySelectorAll('.pa-cat-item input:checked')].map(cb => cb.value);
-        const max = selectedCats.length ? totalQuestionsForCategories(selectedCats) : 5;
+        const rawTotal = selectedCats.length ? totalQuestionsForCategories(selectedCats) : 5;
+        const max = cappedMax(rawTotal);
         paQSlider.max = max;
         if (parseInt(paQSlider.value) > max) {
             paQSlider.value = max;
