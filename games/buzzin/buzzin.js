@@ -6,7 +6,7 @@ let roomCode = null;
 let playerName = null;
 let isHost = false;
 let hostAsPlayer = false; // If false, host is spectate/admin only (no score, no answers)
-let offTheDomeCount = 3; // Number of final free-text questions
+let offTheDomeCount = 3; // Number of free-text (OFF THE DOME) questions
 let gameState = null;
 let roomState = null; // Store room state for lobby display
 
@@ -1122,7 +1122,7 @@ function renderPlayerView() {
     hasBuzzed = myStatus?.hasBuzzed || false;
     hasAnswered = myStatus?.hasAnswered || false;
 
-    // Show OFF THE DOME announcement for first of last 3 questions
+    // Show OFF THE DOME announcement for the first OFF THE DOME question
     if (isFirstOffTheDome && phase === 'waiting' && !offTheDomeShown) {
         showOffTheDomeOverlay();
         offTheDomeShown = true;
@@ -1339,7 +1339,7 @@ function showOffTheDomeOverlay() {
     overlay.className = 'off-the-dome-overlay';
     overlay.innerHTML = `
         <div class="off-the-dome-text">OFF THE DOME</div>
-        <div class="off-the-dome-subtitle">Type your answers for the final ${offTheDomeCount} question${offTheDomeCount !== 1 ? 's' : ''}!</div>
+        <div class="off-the-dome-subtitle">${offTheDomeCount} question${offTheDomeCount !== 1 ? 's' : ''} — type your answers!</div>
     `;
     document.body.appendChild(overlay);
 
@@ -1416,7 +1416,7 @@ async function showPlayAgainModal() {
                 <input type="range" id="pa-q-slider" min="5" max="${initialMax}" value="${clampedQCount}" step="1" style="width:100%">
             </div>
             <div class="pa-section">
-                <label class="pa-label">OFF THE DOME: <span id="pa-otd-val">${Math.min(otdCount, clampedQCount)}</span> free-text questions</label>
+                <label class="pa-label">OFF THE DOME: <span id="pa-otd-val">${Math.min(otdCount, clampedQCount)}</span> free-text (type-in) questions</label>
                 <input type="range" id="pa-otd-slider" min="0" max="${clampedQCount}" value="${Math.min(otdCount, clampedQCount)}" step="1" style="width:100%">
             </div>
             <div class="pa-section">
