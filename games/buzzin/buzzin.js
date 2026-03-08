@@ -6,6 +6,7 @@ let roomCode = null;
 let playerName = null;
 let isHost = false;
 let hostAsPlayer = false; // If false, host is spectate/admin only (no score, no answers)
+let offTheDomeCount = 3; // Number of final free-text questions
 let gameState = null;
 let roomState = null; // Store room state for lobby display
 
@@ -283,6 +284,11 @@ function restoreSettingsFromStorage() {
         if (settings.hostAsPlayer !== undefined) {
             hostAsPlayer = settings.hostAsPlayer;
         }
+
+        // Restore offTheDomeCount
+        if (settings.offTheDomeCount !== undefined) {
+            offTheDomeCount = settings.offTheDomeCount;
+        }
     } catch (e) {
         console.error('Failed to restore settings:', e);
     }
@@ -421,9 +427,12 @@ function setupSocketListeners() {
             const me = state.players.find(p => p.name === playerName);
             if (me && me.isHost) isHost = true;
         }
-        // Sync hostAsPlayer from authoritative server state
+        // Sync hostAsPlayer and offTheDomeCount from authoritative server state
         if (isHost && state.hostAsPlayer !== undefined) {
             hostAsPlayer = state.hostAsPlayer;
+        }
+        if (state.offTheDomeCount !== undefined) {
+            offTheDomeCount = state.offTheDomeCount;
         }
         renderGameState();
 
@@ -525,6 +534,7 @@ function setupUIListeners() {
                 if (settings.timerDuration) timerDurationValue = settings.timerDuration;
                 bonusFirstCorrect = settings.bonusFirstCorrect !== false;
                 hostAsPlayer = settings.hostAsPlayer === true;
+                offTheDomeCount = settings.offTheDomeCount ?? 3;
             } catch (e) {}
 
             btn.disabled = true;
@@ -538,6 +548,7 @@ function setupUIListeners() {
                 timerDuration: timerDurationValue,
                 bonusFirstCorrect,
                 hostAsPlayer,
+                offTheDomeCount,
                 seenQuestions: getSeenQuestions()
             });
 
@@ -771,22 +782,50 @@ function updateLobbyUI(rs) {
         lobbyEls.code.textContent = roomCode || '----';
     }
     
-    // Update player list — host gets tap-to-kick on other players
-    if (rs.players && rs.players.length > 0) {
-        lobbyEls.list.innerHTML = rs.players.map(p => {
-            const name = p.name || `Player-${p.socketId?.slice(0, 4) || '?'}`;
-            if (isHost && !p.isHost) {
-                return `<div class="player-tag kickable" data-socket-id="${p.socketId}">
-                    <span class="player-tag-name">${name}</span>
-                    <button class="kick-btn" data-socket-id="${p.socketId}" aria-label="Kick ${name}">✕</button>
-                </div>`;
-            }
-            return `<div class="player-tag">${name}${p.isHost ? ' 👑' : ''}</div>`;
-        }).join('');
+    // Diff-update player list — only add/remove changed entries to avoid re-animating existing players
+    {
+        const container = lobbyEls.list;
+        const currentSids = new Set(
+            [...container.querySelectorAll('[data-player-sid]')].map(el => el.dataset.playerSid)
+        );
+        const incomingSids = new Set((rs.players || []).map(p => p.socketId));
 
-        // Kick button clicks are handled by event delegation on #screen-lobby
-    } else {
-        lobbyEls.list.innerHTML = '<div class="player-tag" style="opacity: 0.5;">No players yet...</div>';
+        // Remove players who left
+        currentSids.forEach(sid => {
+            if (!incomingSids.has(sid)) {
+                container.querySelector(`[data-player-sid="${sid}"]`)?.remove();
+            }
+        });
+
+        // Add only new players (preserves animation for genuinely new joins)
+        (rs.players || []).forEach(p => {
+            if (currentSids.has(p.socketId)) return; // already rendered
+            const name = p.name || `Player-${p.socketId?.slice(0, 4) || '?'}`;
+            const div = document.createElement('div');
+            div.dataset.playerSid = p.socketId;
+            if (isHost && !p.isHost) {
+                div.className = 'player-tag kickable';
+                div.innerHTML = `<span class="player-tag-name">${name}</span><button class="kick-btn" data-socket-id="${p.socketId}" aria-label="Kick ${name}">✕</button>`;
+            } else {
+                div.className = 'player-tag';
+                div.textContent = name + (p.isHost ? ' 👑' : '');
+            }
+            container.appendChild(div);
+        });
+
+        // Empty state
+        const noPlayers = container.querySelector('.lobby-no-players');
+        if (!rs.players || rs.players.length === 0) {
+            if (!noPlayers) {
+                const empty = document.createElement('div');
+                empty.className = 'player-tag lobby-no-players';
+                empty.style.opacity = '0.5';
+                empty.textContent = 'No players yet...';
+                container.appendChild(empty);
+            }
+        } else {
+            noPlayers?.remove();
+        }
     }
 }
 
@@ -832,7 +871,7 @@ function renderGameState() {
         }
     }
 
-    // After results, dismiss results overlay then show 3-second countdown on ALL clients
+    // When host clicks NEXT QUESTION, phase moves to "waiting" — dismiss overlay for everyone
     if (currentPhase === 'waiting' && previousPhase === 'result') {
         const ro = document.getElementById('results-overlay');
         if (ro) {
@@ -1028,9 +1067,8 @@ function renderHostView() {
         if (hostEls.phases.question) hostEls.phases.question.classList.remove('hidden');
 
         const timerPct = timerDuration > 0 ? (timerRemaining / timerDuration) * 100 : 0;
-        let timerColor = 'var(--success)';
+        let timerColor = '#228B22'; // forest green
         if (timerPct <= 25) timerColor = 'var(--danger)';
-        else if (timerPct <= 50) timerColor = 'var(--accent)';
 
         const buzzedPlayers = (playerBuzzStatus || []).filter(p => p.hasBuzzed);
         const buzzedList = buzzedPlayers.map(p =>
@@ -1115,9 +1153,8 @@ function renderPlayerView() {
     let timerHTML = '';
     if (phase === 'question') {
         const timerPct = timerDuration > 0 ? (timerRemaining / timerDuration) * 100 : 0;
-        let timerColor = 'var(--success)';
+        let timerColor = '#228B22'; // forest green
         if (timerPct <= 25) timerColor = 'var(--danger)';
-        else if (timerPct <= 50) timerColor = 'var(--accent)';
 
         timerHTML = `
             <div class="player-timer">
@@ -1295,7 +1332,7 @@ function showOffTheDomeOverlay() {
     overlay.className = 'off-the-dome-overlay';
     overlay.innerHTML = `
         <div class="off-the-dome-text">OFF THE DOME</div>
-        <div class="off-the-dome-subtitle">Type your answers for the final 3 questions!</div>
+        <div class="off-the-dome-subtitle">Type your answers for the final ${offTheDomeCount} question${offTheDomeCount !== 1 ? 's' : ''}!</div>
     `;
     document.body.appendChild(overlay);
 
@@ -1339,6 +1376,7 @@ async function showPlayAgainModal() {
     const qCount = lastSettings.questionCount || 10;
     const timer = lastSettings.timerDuration || 30;
     const bonus = lastSettings.bonusFirstCorrect !== false;
+    const otdCount = lastSettings.offTheDomeCount ?? 3;
 
     const CATEGORIES = [
         "General Knowledge","Science","Movies & TV","Music","Sports",
@@ -1371,6 +1409,10 @@ async function showPlayAgainModal() {
                 <input type="range" id="pa-q-slider" min="5" max="${initialMax}" value="${clampedQCount}" step="1" style="width:100%">
             </div>
             <div class="pa-section">
+                <label class="pa-label">OFF THE DOME: <span id="pa-otd-val">${Math.min(otdCount, clampedQCount)}</span> free-text questions</label>
+                <input type="range" id="pa-otd-slider" min="0" max="${clampedQCount}" value="${Math.min(otdCount, clampedQCount)}" step="1" style="width:100%">
+            </div>
+            <div class="pa-section">
                 <label class="pa-label">Timer: <span id="pa-t-val">${timer}</span>s per question</label>
                 <input type="range" id="pa-t-slider" min="5" max="120" value="${timer}" step="5" style="width:100%">
             </div>
@@ -1399,10 +1441,34 @@ async function showPlayAgainModal() {
             paQSlider.value = max;
             paQVal.textContent = max;
         }
+        // Also clamp OTD slider max to current question count
+        const paOtdSlider = modal.querySelector('#pa-otd-slider');
+        const paOtdVal = modal.querySelector('#pa-otd-val');
+        if (paOtdSlider) {
+            const qVal = parseInt(paQSlider.value);
+            paOtdSlider.max = qVal;
+            if (parseInt(paOtdSlider.value) > qVal) {
+                paOtdSlider.value = qVal;
+                if (paOtdVal) paOtdVal.textContent = qVal;
+            }
+        }
     }
 
     paQSlider.addEventListener('input', (e) => {
         paQVal.textContent = e.target.value;
+        // Cap OTD slider to question count
+        const paOtdSlider = modal.querySelector('#pa-otd-slider');
+        const paOtdVal = modal.querySelector('#pa-otd-val');
+        if (paOtdSlider) {
+            paOtdSlider.max = e.target.value;
+            if (parseInt(paOtdSlider.value) > parseInt(e.target.value)) {
+                paOtdSlider.value = e.target.value;
+                if (paOtdVal) paOtdVal.textContent = e.target.value;
+            }
+        }
+    });
+    modal.querySelector('#pa-otd-slider').addEventListener('input', (e) => {
+        modal.querySelector('#pa-otd-val').textContent = e.target.value;
     });
     modal.querySelector('.pa-cat-grid').addEventListener('change', updatePaSliderMax);
     modal.querySelector('#pa-t-slider').addEventListener('input', (e) => {
@@ -1418,6 +1484,7 @@ async function showPlayAgainModal() {
             return;
         }
         const newQCount = parseInt(modal.querySelector('#pa-q-slider').value);
+        const newOtdCount = parseInt(modal.querySelector('#pa-otd-slider').value);
         const newTimer = parseInt(modal.querySelector('#pa-t-slider').value);
         const newBonus = modal.querySelector('#pa-bonus').checked;
 
@@ -1426,6 +1493,7 @@ async function showPlayAgainModal() {
             ...lastSettings,
             categories: selectedCats,
             questionCount: newQCount,
+            offTheDomeCount: newOtdCount,
             timerDuration: newTimer,
             bonusFirstCorrect: newBonus
         }));
@@ -1434,6 +1502,7 @@ async function showPlayAgainModal() {
             roomCode,
             categories: selectedCats,
             questionCount: newQCount,
+            offTheDomeCount: newOtdCount,
             timerDuration: newTimer,
             bonusFirstCorrect: newBonus,
             seenQuestions: getSeenQuestions()
@@ -1634,19 +1703,17 @@ function showResultsOverlay(event) {
         setTimeout(() => card.classList.remove('animating-lb'), animDuration);
     }
 
-    // Host: tap anywhere to continue (sends nextQuestion, no auto-dismiss)
+    // Host: tap overlay to dismiss — NEXT QUESTION button advances the round
     if (isHost) {
-        let continueClicked = false;
+        const hint = overlay.querySelector('.results-tap-hint');
+        if (hint) hint.textContent = 'Tap to dismiss — then click NEXT QUESTION';
         overlay.addEventListener('click', () => {
-            if (continueClicked || gameState?.phase !== 'result') return;
-            continueClicked = true;
-            socket.emit('host:nextQuestion', { roomCode });
             overlay.style.transition = 'opacity 0.2s ease-out';
-            overlay.style.opacity = '0.5';
-            overlay.style.pointerEvents = 'none';
+            overlay.style.opacity = '0';
+            setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 200);
         });
     }
-    // Non-hosts: overlay is informational only — no interaction
+    // Non-hosts: overlay auto-dismisses when phase changes away from "result"
 }
 
 function showPointsAnimation(points) {

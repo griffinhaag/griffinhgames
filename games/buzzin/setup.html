@@ -264,6 +264,16 @@
             </div>
 
             <div class="setup-section">
+                <h3>OFF THE DOME Questions:</h3>
+                <div class="question-count-control">
+                    <input type="range" id="otd-count-slider" min="0" max="10" value="3" step="1">
+                    <div class="question-count-display">
+                        <span id="otd-count-display">3</span> free-text questions at the end
+                    </div>
+                </div>
+            </div>
+
+            <div class="setup-section">
                 <h3>Answer Timer:</h3>
                 <div class="question-count-control">
                     <input type="range" id="timer-slider" min="5" max="120" value="30" step="5">
@@ -319,6 +329,7 @@
         let selectedCategories = [];
         let questionCount = 10;
         let timerDuration = 30;
+        let offTheDomeCount = 3;
         let availableQuestions = 0; // Will be calculated based on categories
         
         // Initialize category checkboxes
@@ -369,6 +380,24 @@
             display.parentElement.style.color = 'white';
         }
         
+        // OTD slider helpers
+        const otdSlider = document.getElementById('otd-count-slider');
+        const otdDisplay = document.getElementById('otd-count-display');
+
+        function updateOtdMax() {
+            otdSlider.max = questionCount;
+            if (offTheDomeCount > questionCount) {
+                offTheDomeCount = questionCount;
+                otdSlider.value = questionCount;
+                otdDisplay.textContent = questionCount;
+            }
+        }
+
+        otdSlider.addEventListener('input', (e) => {
+            offTheDomeCount = parseInt(e.target.value);
+            otdDisplay.textContent = offTheDomeCount;
+        });
+
         // Question count slider
         const qCountSlider = document.getElementById('q-count-slider');
         const qCountDisplay = document.getElementById('q-count-display');
@@ -376,6 +405,7 @@
             questionCount = parseInt(e.target.value);
             qCountDisplay.textContent = questionCount;
             updateQuestionCountLimits();
+            updateOtdMax();
         });
 
         // Timer duration slider
@@ -446,7 +476,8 @@
                 timerDuration: timerDuration,
                 hostName: hostName,
                 bonusFirstCorrect: bonusFirstCorrect,
-                hostAsPlayer: hostAsPlayer
+                hostAsPlayer: hostAsPlayer,
+                offTheDomeCount: offTheDomeCount
             }));
             
             // Wait for socket to be connected before creating room
