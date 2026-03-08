@@ -1964,6 +1964,14 @@ input[type="range"]::-webkit-slider-thumb {
     margin: 0;
 }
 
+#pause-resume-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 28px rgba(255, 0, 85, 0.6) !important;
+}
+#pause-resume-btn:active {
+    transform: scale(0.98);
+}
+
 /* Large screens */
 @media (min-width: 1200px) {
     #screen-lobby {
