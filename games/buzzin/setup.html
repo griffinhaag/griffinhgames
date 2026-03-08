@@ -326,11 +326,22 @@
             </label>
         `).join('');
         
-        // Each category has exactly 25 questions
-        const QUESTIONS_PER_CATEGORY = 25;
+        // Question counts per category — fetched from server so they stay in sync
+        let CATEGORY_QUESTION_COUNTS = {};
+
+        async function fetchCategoryCounts() {
+            try {
+                const res = await fetch(`${backendUrl}/buzzin/category-counts`);
+                if (res.ok) CATEGORY_QUESTION_COUNTS = await res.json();
+            } catch (e) {
+                // Fall back to defaults if fetch fails
+                CATEGORIES.forEach(c => { CATEGORY_QUESTION_COUNTS[c] = 25; });
+            }
+            updateQuestionCountLimits();
+        }
 
         function calculateAvailableQuestions() {
-            return selectedCategories.length * QUESTIONS_PER_CATEGORY;
+            return selectedCategories.reduce((sum, cat) => sum + (CATEGORY_QUESTION_COUNTS[cat] || 25), 0);
         }
 
         function updateQuestionCountLimits() {
@@ -380,9 +391,9 @@
             }
         });
         
-        // Initialize selected categories
+        // Initialize selected categories and fetch live counts from server
         selectedCategories = CATEGORIES;
-        updateQuestionCountLimits();
+        fetchCategoryCounts();
         
         // Create room button
         const btnCreateRoom = document.getElementById('btn-create-room');

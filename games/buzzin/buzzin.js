@@ -28,6 +28,23 @@ const CATEGORIES = [
   "Random"
 ];
 
+// Question counts per category — fetched from server so they stay in sync
+let CATEGORY_QUESTION_COUNTS = {};
+
+async function fetchCategoryCounts() {
+  const url = window.BACKEND_URL || 'http://localhost:3000';
+  try {
+    const res = await fetch(`${url}/buzzin/category-counts`);
+    if (res.ok) CATEGORY_QUESTION_COUNTS = await res.json();
+  } catch (e) {
+    CATEGORIES.forEach(c => { CATEGORY_QUESTION_COUNTS[c] = 25; });
+  }
+}
+
+function totalQuestionsForCategories(cats) {
+  return cats.reduce((sum, cat) => sum + (CATEGORY_QUESTION_COUNTS[cat] || 25), 0);
+}
+
 // --- DOM Elements ---
 const screens = {
     connecting: document.getElementById('screen-connecting'),
@@ -1291,7 +1308,8 @@ function renderEndScreen() {
     }).join('');
 }
 
-function showPlayAgainModal() {
+async function showPlayAgainModal() {
+    await fetchCategoryCounts();
     const existing = document.getElementById('play-again-modal');
     if (existing) existing.remove();
 
@@ -1307,6 +1325,9 @@ function showPlayAgainModal() {
         "General Knowledge","Science","Movies & TV","Music","Sports",
         "History","Geography","Pop Culture","Games","Random"
     ];
+
+    const initialMax = totalQuestionsForCategories(cats.length ? cats : CATEGORIES);
+    const clampedQCount = Math.min(qCount, initialMax);
 
     const modal = document.createElement('div');
     modal.id = 'play-again-modal';
@@ -1327,8 +1348,8 @@ function showPlayAgainModal() {
                 </div>
             </div>
             <div class="pa-section">
-                <label class="pa-label">Questions: <span id="pa-q-val">${qCount}</span></label>
-                <input type="range" id="pa-q-slider" min="5" max="100" value="${qCount}" step="1" style="width:100%">
+                <label class="pa-label">Questions: <span id="pa-q-val">${clampedQCount}</span></label>
+                <input type="range" id="pa-q-slider" min="5" max="${initialMax}" value="${clampedQCount}" step="1" style="width:100%">
             </div>
             <div class="pa-section">
                 <label class="pa-label">Timer: <span id="pa-t-val">${timer}</span>s per question</label>
@@ -1348,9 +1369,23 @@ function showPlayAgainModal() {
     `;
     document.body.appendChild(modal);
 
-    modal.querySelector('#pa-q-slider').addEventListener('input', (e) => {
-        modal.querySelector('#pa-q-val').textContent = e.target.value;
+    const paQSlider = modal.querySelector('#pa-q-slider');
+    const paQVal = modal.querySelector('#pa-q-val');
+
+    function updatePaSliderMax() {
+        const selectedCats = [...modal.querySelectorAll('.pa-cat-item input:checked')].map(cb => cb.value);
+        const max = selectedCats.length ? totalQuestionsForCategories(selectedCats) : 5;
+        paQSlider.max = max;
+        if (parseInt(paQSlider.value) > max) {
+            paQSlider.value = max;
+            paQVal.textContent = max;
+        }
+    }
+
+    paQSlider.addEventListener('input', (e) => {
+        paQVal.textContent = e.target.value;
     });
+    modal.querySelector('.pa-cat-grid').addEventListener('change', updatePaSliderMax);
     modal.querySelector('#pa-t-slider').addEventListener('input', (e) => {
         modal.querySelector('#pa-t-val').textContent = e.target.value;
     });
@@ -1687,6 +1722,7 @@ function playSound(type) {
     // Implementation for audio
 }
 
-// Start
+// Start — prefetch category counts so they're ready before Play Again modal opens
+fetchCategoryCounts();
 init();
 
