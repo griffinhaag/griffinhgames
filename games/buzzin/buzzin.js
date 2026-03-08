@@ -1467,7 +1467,7 @@ function showResultsOverlay(event) {
     const resultsHTML = allResults.map(r => {
         let itemClass = r.isCorrect ? 'correct' : 'wrong';
         if (r.isFirstCorrect) itemClass += ' first';
-        const answerText = r.answer ? `"${r.answer}"` : '<em style="opacity:0.5">no answer</em>';
+        const answerText = r.answer ? r.answer : '<em style="opacity:0.5">no answer</em>';
         let badge = '';
         if (r.isFirstCorrect) {
             badge = `<span class="first-badge">1ST +${r.points || 150}</span>`;
