@@ -298,6 +298,10 @@
                     <input type="checkbox" id="host-plays-toggle" checked>
                     <span>Host plays as a player (uncheck to spectate / admin only)</span>
                 </label>
+                <label class="option-toggle">
+                    <input type="checkbox" id="countdown-toggle" checked>
+                    <span>3-2-1 countdown between questions</span>
+                </label>
             </div>
 
             <button id="btn-create-room" class="btn-create-room">Create Room</button>
@@ -488,6 +492,7 @@
             // Store settings in sessionStorage
             const bonusFirstCorrect = document.getElementById('bonus-points-toggle')?.checked !== false;
             const hostAsPlayer = document.getElementById('host-plays-toggle')?.checked === true;
+            const countdownEnabled = document.getElementById('countdown-toggle')?.checked !== false;
             sessionStorage.setItem('buzzin_settings', JSON.stringify({
                 categories: selectedCategories,
                 questionCount: questionCount,
@@ -495,7 +500,8 @@
                 hostName: hostName,
                 bonusFirstCorrect: bonusFirstCorrect,
                 hostAsPlayer: hostAsPlayer,
-                offTheDomeCount: offTheDomeCount
+                offTheDomeCount: offTheDomeCount,
+                countdownEnabled: countdownEnabled
             }));
             
             // Wait for socket to be connected before creating room
@@ -559,7 +565,8 @@
                 hostName: hostName,
                 bonusFirstCorrect: document.getElementById('bonus-points-toggle')?.checked !== false,
                 hostAsPlayer: document.getElementById('host-plays-toggle')?.checked === true,
-                offTheDomeCount: offTheDomeCount
+                offTheDomeCount: offTheDomeCount,
+                countdownEnabled: document.getElementById('countdown-toggle')?.checked !== false
             }));
 
             // Store redirect info for the game page

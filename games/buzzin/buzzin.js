@@ -128,9 +128,11 @@ let questionMusicReady = false;
 let previousPhase = null;
 let previousQuestionText = null; // Track question changes regardless of phase
 
-// --- Music & Countdown preferences (persisted per device via localStorage) ---
-let musicEnabled = localStorage.getItem('buzzin_music') !== 'false'; // default on
-let countdownEnabled = localStorage.getItem('buzzin_countdown') !== 'false'; // default on
+// --- Music preference (per device, localStorage) ---
+let musicEnabled = localStorage.getItem('buzzin_music') === 'true'; // default off
+
+// --- Countdown preference (game setting, read from sessionStorage in restoreSettingsFromStorage) ---
+let countdownEnabled = true; // default on; overridden by sessionStorage buzzin_settings
 
 // Called automatically by YouTube IFrame API once loaded
 function onYouTubeIframeAPIReady() {
@@ -332,6 +334,11 @@ function restoreSettingsFromStorage() {
         // Restore offTheDomeCount
         if (settings.offTheDomeCount !== undefined) {
             offTheDomeCount = settings.offTheDomeCount;
+        }
+
+        // Restore countdownEnabled (set by setup.html or Play Again modal)
+        if (settings.countdownEnabled !== undefined) {
+            countdownEnabled = settings.countdownEnabled;
         }
     } catch (e) {
         console.error('Failed to restore settings:', e);
@@ -686,16 +693,6 @@ function setupUIListeners() {
         });
     }
 
-    // --- Countdown Toggle (host only — visibility set in updateHostControlsVisibility) ---
-    const countdownToggle = document.getElementById('countdown-toggle');
-    if (countdownToggle) {
-        countdownToggle.checked = countdownEnabled;
-        countdownToggle.addEventListener('change', () => {
-            countdownEnabled = countdownToggle.checked;
-            localStorage.setItem('buzzin_countdown', countdownEnabled ? 'true' : 'false');
-        });
-    }
-
     // --- Admin Menu Setup ---
     setupAdminMenu();
 }
@@ -916,9 +913,6 @@ function updateHostControlsVisibility() {
         lobbyEls.hostControls.classList.remove('hidden');
         lobbyEls.playerMsg.classList.add('hidden');
         renderSelectedCategories();
-        // Show countdown toggle for host
-        const ctRow = document.getElementById('countdown-toggle-row');
-        if (ctRow) ctRow.classList.remove('hidden');
     } else {
         lobbyEls.hostControls.classList.add('hidden');
         lobbyEls.playerMsg.classList.remove('hidden');
@@ -1542,6 +1536,12 @@ async function showPlayAgainModal() {
                     <span>First correct +50 bonus</span>
                 </label>
             </div>
+            <div class="pa-section">
+                <label class="pa-toggle">
+                    <input type="checkbox" id="pa-countdown" ${countdownEnabled ? 'checked' : ''}>
+                    <span>3-2-1 countdown between questions</span>
+                </label>
+            </div>
             <div class="pa-actions">
                 <button id="pa-cancel" class="btn-secondary">Cancel</button>
                 <button id="pa-start" class="btn-primary">Start Game!</button>
@@ -1608,6 +1608,10 @@ async function showPlayAgainModal() {
         const newOtdCount = parseInt(modal.querySelector('#pa-otd-slider').value);
         const newTimer = parseInt(modal.querySelector('#pa-t-slider').value);
         const newBonus = modal.querySelector('#pa-bonus').checked;
+        const newCountdown = modal.querySelector('#pa-countdown').checked;
+
+        // Update in-memory setting immediately
+        countdownEnabled = newCountdown;
 
         // Save updated settings
         sessionStorage.setItem('buzzin_settings', JSON.stringify({
@@ -1616,7 +1620,8 @@ async function showPlayAgainModal() {
             questionCount: newQCount,
             offTheDomeCount: newOtdCount,
             timerDuration: newTimer,
-            bonusFirstCorrect: newBonus
+            bonusFirstCorrect: newBonus,
+            countdownEnabled: newCountdown
         }));
 
         socket.emit('host:restartGame', {
