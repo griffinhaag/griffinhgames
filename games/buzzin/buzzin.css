@@ -301,6 +301,71 @@ body {
     50% { box-shadow: 0 0 20px rgba(0, 212, 255, 0.4); }
 }
 
+/* --- Music Toggle Button --- */
+.music-toggle-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 4px;
+}
+
+.music-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 30px;
+    padding: 9px 20px;
+    color: rgba(255, 255, 255, 0.85);
+    font-family: var(--font-main);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, opacity 0.2s;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.music-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.music-toggle-btn.music-on {
+    border-color: rgba(0, 212, 255, 0.5);
+    background: rgba(0, 212, 255, 0.1);
+    color: #fff;
+}
+
+.music-toggle-btn.music-off {
+    opacity: 0.55;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* --- Countdown Toggle (host lobby) --- */
+.countdown-toggle-row {
+    display: flex;
+    justify-content: center;
+    padding: 2px 0 4px;
+}
+
+.countdown-toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.65);
+    user-select: none;
+}
+
+.countdown-toggle-label input[type="checkbox"] {
+    width: 17px;
+    height: 17px;
+    cursor: pointer;
+    flex-shrink: 0;
+    accent-color: var(--accent);
+}
+
 /* --- Multiple Choice Buttons --- */
 .choices-section {
     width: 100%;

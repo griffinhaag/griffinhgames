@@ -39,11 +39,24 @@
                     <p class="summary-label">Selected Categories</p>
                     <div id="selected-categories-list" class="selected-cat-tags"></div>
                 </div>
+                <div id="countdown-toggle-row" class="countdown-toggle-row hidden">
+                    <label class="countdown-toggle-label">
+                        <input type="checkbox" id="countdown-toggle" checked>
+                        <span>3-2-1 countdown between questions</span>
+                    </label>
+                </div>
                 <button id="btn-start-game" class="btn-primary large">START GAME</button>
             </div>
 
             <div id="lobby-player-msg" class="player-msg hidden">
                 Waiting for host to start...
+            </div>
+
+            <!-- Music toggle — visible to all in lobby, hidden once game starts -->
+            <div class="music-toggle-row">
+                <button id="btn-music-toggle" class="music-toggle-btn" aria-label="Toggle music">
+                    🔊 Music On
+                </button>
             </div>
         </div>
 
