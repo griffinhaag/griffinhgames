@@ -433,7 +433,7 @@ body {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     text-align: center;
-    animation: offTheDomePulse 3s ease-in-out infinite;
+    animation: offTheDomePulse 4.5s ease-in-out infinite;
     margin-bottom: 20px;
 }
 
@@ -473,6 +473,20 @@ body {
     letter-spacing: 2px;
     margin-bottom: clamp(10px, 2vh, 15px);
     animation: offTheDomePulse 2s ease-in-out infinite;
+}
+
+.otd-category-label {
+    display: inline-block;
+    font-size: clamp(0.65rem, 1.6vw, 0.8rem);
+    font-weight: 600;
+    color: rgba(255,255,255,0.6);
+    margin-left: 10px;
+    padding: 4px 12px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 20px;
+    vertical-align: middle;
+    letter-spacing: 0.5px;
+    margin-bottom: clamp(10px, 2vh, 15px);
 }
 
 .question-count-control {
@@ -1429,7 +1443,7 @@ body {
     border-radius: 50%;
     width: 26px;
     height: 26px;
-    color: rgba(255, 140, 140, 0.95);
+    color: rgb(255, 70, 70);
     font-size: 0.7rem;
     font-weight: 900;
     flex-shrink: 0;

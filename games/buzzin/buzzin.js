@@ -8,6 +8,7 @@ let isHost = false;
 let hostAsPlayer = false; // If false, host is spectate/admin only (no score, no answers)
 let offTheDomeCount = 3; // Number of free-text (OFF THE DOME) questions
 let otdAtEnd = false;    // false = OTD randomly distributed (default), true = OTD at end of game
+let showOtdCategory = true; // Show category label alongside OFF THE DOME badge by default
 let gameState = null;
 let roomState = null; // Store room state for lobby display
 
@@ -348,6 +349,11 @@ function restoreSettingsFromStorage() {
         // Restore otdAtEnd (set by setup.html or Play Again modal)
         if (settings.otdAtEnd !== undefined) {
             otdAtEnd = settings.otdAtEnd;
+        }
+
+        // Restore showOtdCategory
+        if (settings.showOtdCategory !== undefined) {
+            showOtdCategory = settings.showOtdCategory;
         }
     } catch (e) {
         console.error('Failed to restore settings:', e);
@@ -1246,8 +1252,14 @@ function renderHostView() {
     hostEls.qIndex.textContent = (currentQuestionIndex + 1) || 0;
     hostEls.qTotal.textContent = totalQuestions || 0;
     if (isOffTheDome) {
-        hostEls.category.innerHTML = `<span class="off-the-dome-badge">OFF THE DOME</span>`;
+        const catLabel = showOtdCategory && currentQuestion?.category
+            ? `<span class="otd-category-label">${currentQuestion.category}</span>` : '';
+        hostEls.category.style.background = 'none';
+        hostEls.category.style.padding = '0';
+        hostEls.category.innerHTML = `<span class="off-the-dome-badge">OFF THE DOME</span>${catLabel}`;
     } else {
+        hostEls.category.style.background = '';
+        hostEls.category.style.padding = '';
         hostEls.category.textContent = currentQuestion ? currentQuestion.category : '-';
     }
 
@@ -1363,7 +1375,9 @@ function renderPlayerView() {
     } else if (currentQuestion) {
         // Show OFF THE DOME badge if applicable
         if (isOffTheDome) {
-            playerEls.category.innerHTML = `<span class="off-the-dome-badge">OFF THE DOME</span>`;
+            const catLabel = showOtdCategory && currentQuestion?.category
+                ? `<span class="otd-category-label">${currentQuestion.category}</span>` : '';
+            playerEls.category.innerHTML = `<span class="off-the-dome-badge">OFF THE DOME</span>${catLabel}`;
         } else {
             playerEls.category.textContent = currentQuestion.category || '';
         }
@@ -1602,6 +1616,7 @@ async function showPlayAgainModal() {
     const bonus = lastSettings.bonusFirstCorrect !== false;
     const otdCount = lastSettings.offTheDomeCount ?? 3;
     const otdAtEndSaved = lastSettings.otdAtEnd === true;
+    const showOtdCatSaved = lastSettings.showOtdCategory !== false;
 
     const CATEGORIES = [
         "General Knowledge","Science","Movies & TV","Music","Sports",
@@ -1657,6 +1672,12 @@ async function showPlayAgainModal() {
                 <label class="pa-toggle">
                     <input type="checkbox" id="pa-otd-at-end" ${!otdAtEndSaved ? 'checked' : ''}>
                     <span>OFF THE DOME questions randomized throughout (uncheck to put at end of game)</span>
+                </label>
+            </div>
+            <div class="pa-section">
+                <label class="pa-toggle">
+                    <input type="checkbox" id="pa-show-otd-cat" ${showOtdCatSaved ? 'checked' : ''}>
+                    <span>Show category alongside OFF THE DOME badge</span>
                 </label>
             </div>
             <div class="pa-actions">
@@ -1727,10 +1748,12 @@ async function showPlayAgainModal() {
         const newBonus = modal.querySelector('#pa-bonus').checked;
         const newCountdown = modal.querySelector('#pa-countdown').checked;
         const newOtdAtEnd = !modal.querySelector('#pa-otd-at-end').checked;
+        const newShowOtdCat = modal.querySelector('#pa-show-otd-cat').checked;
 
         // Update in-memory settings immediately
         countdownEnabled = newCountdown;
         otdAtEnd = newOtdAtEnd;
+        showOtdCategory = newShowOtdCat;
 
         // Save updated settings
         sessionStorage.setItem('buzzin_settings', JSON.stringify({
@@ -1741,7 +1764,8 @@ async function showPlayAgainModal() {
             timerDuration: newTimer,
             bonusFirstCorrect: newBonus,
             countdownEnabled: newCountdown,
-            otdAtEnd: newOtdAtEnd
+            otdAtEnd: newOtdAtEnd,
+            showOtdCategory: newShowOtdCat
         }));
 
         socket.emit('host:restartGame', {
