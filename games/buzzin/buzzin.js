@@ -128,12 +128,18 @@ let questionMusicReady = false;
 let previousPhase = null;
 let previousQuestionText = null; // Track question changes regardless of phase
 
+// --- Music preference (per device, localStorage) ---
+let musicEnabled = localStorage.getItem('buzzin_music') === 'true'; // default off
+
+// --- Countdown preference (game setting, read from sessionStorage in restoreSettingsFromStorage) ---
+let countdownEnabled = true; // default on; overridden by sessionStorage buzzin_settings
+
 // Called automatically by YouTube IFrame API once loaded
 function onYouTubeIframeAPIReady() {
     lobbyPlayer = new YT.Player('lobby-video-player', {
         videoId: '8YGlzSl6cxU',
         playerVars: {
-            autoplay: 1,
+            autoplay: 0,
             loop: 1,
             playlist: '8YGlzSl6cxU',
             controls: 0,
@@ -141,9 +147,10 @@ function onYouTubeIframeAPIReady() {
             rel: 0
         },
         events: {
-            onReady: (e) => {
+            onReady: () => {
                 lobbyPlayerReady = true;
-                e.target.playVideo();
+                // Attempt playback — succeeds if user has already interacted (clicked music button or any UI)
+                if (musicEnabled) playLobbyVideo();
             }
         }
     });
@@ -165,7 +172,17 @@ function onYouTubeIframeAPIReady() {
 }
 
 function playLobbyVideo() {
-    if (lobbyPlayerReady && lobbyPlayer?.playVideo) lobbyPlayer.playVideo();
+    if (!musicEnabled) return;
+    if (!lobbyPlayerReady || !lobbyPlayer?.playVideo) return;
+    // Sync playback position to room creation time so all clients hear the same part of the track
+    try {
+        const duration = lobbyPlayer.getDuration?.() || 0;
+        if (duration > 0 && roomState?.createdAt) {
+            const elapsed = (Date.now() - roomState.createdAt) / 1000;
+            lobbyPlayer.seekTo(elapsed % duration, true);
+        }
+    } catch (e) { /* getDuration may throw if player not fully ready */ }
+    lobbyPlayer.playVideo();
 }
 
 function stopLobbyVideo() {
@@ -173,6 +190,7 @@ function stopLobbyVideo() {
 }
 
 function startQuestionMusic() {
+    if (!musicEnabled) return;
     if (questionMusicReady && questionMusicPlayer?.seekTo) {
         questionMusicPlayer.seekTo(0);
         questionMusicPlayer.playVideo();
@@ -182,6 +200,20 @@ function startQuestionMusic() {
 function stopQuestionMusic() {
     if (questionMusicReady && questionMusicPlayer?.stopVideo) {
         questionMusicPlayer.stopVideo();
+    }
+}
+
+function updateMusicButton() {
+    const btn = document.getElementById('btn-music-toggle');
+    if (!btn) return;
+    if (musicEnabled) {
+        btn.textContent = '🔊 Music On';
+        btn.classList.add('music-on');
+        btn.classList.remove('music-off');
+    } else {
+        btn.textContent = '🔇 Music Off';
+        btn.classList.remove('music-on');
+        btn.classList.add('music-off');
     }
 }
 
@@ -302,6 +334,11 @@ function restoreSettingsFromStorage() {
         // Restore offTheDomeCount
         if (settings.offTheDomeCount !== undefined) {
             offTheDomeCount = settings.offTheDomeCount;
+        }
+
+        // Restore countdownEnabled (set by setup.html or Play Again modal)
+        if (settings.countdownEnabled !== undefined) {
+            countdownEnabled = settings.countdownEnabled;
         }
     } catch (e) {
         console.error('Failed to restore settings:', e);
@@ -639,6 +676,23 @@ function setupUIListeners() {
         });
     }
 
+    // --- Music Toggle Button ---
+    const btnMusic = document.getElementById('btn-music-toggle');
+    if (btnMusic) {
+        updateMusicButton(); // Set initial appearance
+        btnMusic.addEventListener('click', () => {
+            musicEnabled = !musicEnabled;
+            localStorage.setItem('buzzin_music', musicEnabled ? 'true' : 'false');
+            updateMusicButton();
+            if (musicEnabled) {
+                playLobbyVideo(); // User just interacted — autoplay now permitted
+            } else {
+                stopLobbyVideo();
+                stopQuestionMusic();
+            }
+        });
+    }
+
     // --- Admin Menu Setup ---
     setupAdminMenu();
 }
@@ -755,11 +809,21 @@ function showScreen(screenName) {
     screens[screenName].classList.add('active');
 
     // Clean up transition overlays (results-overlay manages its own lifecycle)
-    ['pre-q-countdown', 'off-the-dome-overlay',
-     'play-again-modal', 'kicked-overlay'].forEach(id => {
+    ['off-the-dome-overlay', 'play-again-modal', 'kicked-overlay'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.remove();
     });
+
+    // pre-q-countdown must survive repeated showScreen('game') calls while phase='waiting'.
+    // Only clean it up when actually leaving the game screen.
+    if (screenName !== 'game') {
+        const pqc = document.getElementById('pre-q-countdown');
+        if (pqc) pqc.remove();
+        if (preQuestionCountdownTimer) {
+            clearInterval(preQuestionCountdownTimer);
+            preQuestionCountdownTimer = null;
+        }
+    }
 
     if (screenName === 'lobby') {
         playLobbyVideo();
@@ -894,9 +958,28 @@ function renderGameState() {
             ro.style.opacity = '0';
             setTimeout(() => { if (ro.parentNode) ro.remove(); }, 250);
         }
-        startPreQuestionCountdown(3, () => {
-            if (isHost) socket.emit('host:showQuestion', { roomCode });
-        });
+        if (countdownEnabled) {
+            startPreQuestionCountdown(3, () => {
+                if (isHost) socket.emit('host:showQuestion', { roomCode });
+            });
+        } else if (isHost) {
+            socket.emit('host:showQuestion', { roomCode });
+        }
+    }
+
+    // Clean up pre-question countdown overlay if the phase has moved past 'waiting'
+    // (e.g. host disabled countdown and question phase arrived before 3s elapsed)
+    if (currentPhase !== 'waiting') {
+        const pqc = document.getElementById('pre-q-countdown');
+        if (pqc) {
+            pqc.style.transition = 'opacity 0.2s ease-out';
+            pqc.style.opacity = '0';
+            setTimeout(() => { if (pqc.parentNode) pqc.remove(); }, 200);
+            if (preQuestionCountdownTimer) {
+                clearInterval(preQuestionCountdownTimer);
+                preQuestionCountdownTimer = null;
+            }
+        }
     }
 
     // Track seen questions whenever the current question changes — this fires in 'waiting'
@@ -1453,6 +1536,12 @@ async function showPlayAgainModal() {
                     <span>First correct +50 bonus</span>
                 </label>
             </div>
+            <div class="pa-section">
+                <label class="pa-toggle">
+                    <input type="checkbox" id="pa-countdown" ${countdownEnabled ? 'checked' : ''}>
+                    <span>3-2-1 countdown between questions</span>
+                </label>
+            </div>
             <div class="pa-actions">
                 <button id="pa-cancel" class="btn-secondary">Cancel</button>
                 <button id="pa-start" class="btn-primary">Start Game!</button>
@@ -1519,6 +1608,10 @@ async function showPlayAgainModal() {
         const newOtdCount = parseInt(modal.querySelector('#pa-otd-slider').value);
         const newTimer = parseInt(modal.querySelector('#pa-t-slider').value);
         const newBonus = modal.querySelector('#pa-bonus').checked;
+        const newCountdown = modal.querySelector('#pa-countdown').checked;
+
+        // Update in-memory setting immediately
+        countdownEnabled = newCountdown;
 
         // Save updated settings
         sessionStorage.setItem('buzzin_settings', JSON.stringify({
@@ -1527,7 +1620,8 @@ async function showPlayAgainModal() {
             questionCount: newQCount,
             offTheDomeCount: newOtdCount,
             timerDuration: newTimer,
-            bonusFirstCorrect: newBonus
+            bonusFirstCorrect: newBonus,
+            countdownEnabled: newCountdown
         }));
 
         socket.emit('host:restartGame', {
