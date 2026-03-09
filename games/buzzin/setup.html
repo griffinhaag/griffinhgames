@@ -303,6 +303,10 @@
                         <input type="checkbox" id="countdown-toggle" checked>
                         <span>3-2-1 countdown between questions</span>
                     </label>
+                    <label class="option-toggle">
+                        <input type="checkbox" id="otd-at-end-toggle">
+                        <span>OFF THE DOME questions at end of game (default: randomly throughout)</span>
+                    </label>
                 </div>
             </div>
 
@@ -495,6 +499,7 @@
             const bonusFirstCorrect = document.getElementById('bonus-points-toggle')?.checked !== false;
             const hostAsPlayer = document.getElementById('host-plays-toggle')?.checked === true;
             const countdownEnabled = document.getElementById('countdown-toggle')?.checked !== false;
+            const otdAtEnd = document.getElementById('otd-at-end-toggle')?.checked === true;
             sessionStorage.setItem('buzzin_settings', JSON.stringify({
                 categories: selectedCategories,
                 questionCount: questionCount,
@@ -503,7 +508,8 @@
                 bonusFirstCorrect: bonusFirstCorrect,
                 hostAsPlayer: hostAsPlayer,
                 offTheDomeCount: offTheDomeCount,
-                countdownEnabled: countdownEnabled
+                countdownEnabled: countdownEnabled,
+                otdAtEnd: otdAtEnd
             }));
             
             // Wait for socket to be connected before creating room
@@ -568,7 +574,8 @@
                 bonusFirstCorrect: document.getElementById('bonus-points-toggle')?.checked !== false,
                 hostAsPlayer: document.getElementById('host-plays-toggle')?.checked === true,
                 offTheDomeCount: offTheDomeCount,
-                countdownEnabled: document.getElementById('countdown-toggle')?.checked !== false
+                countdownEnabled: document.getElementById('countdown-toggle')?.checked !== false,
+                otdAtEnd: document.getElementById('otd-at-end-toggle')?.checked === true
             }));
 
             // Store redirect info for the game page

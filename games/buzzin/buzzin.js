@@ -7,6 +7,7 @@ let playerName = null;
 let isHost = false;
 let hostAsPlayer = false; // If false, host is spectate/admin only (no score, no answers)
 let offTheDomeCount = 3; // Number of free-text (OFF THE DOME) questions
+let otdAtEnd = false;    // false = OTD randomly distributed (default), true = OTD at end of game
 let gameState = null;
 let roomState = null; // Store room state for lobby display
 
@@ -340,6 +341,11 @@ function restoreSettingsFromStorage() {
         if (settings.countdownEnabled !== undefined) {
             countdownEnabled = settings.countdownEnabled;
         }
+
+        // Restore otdAtEnd (set by setup.html or Play Again modal)
+        if (settings.otdAtEnd !== undefined) {
+            otdAtEnd = settings.otdAtEnd;
+        }
     } catch (e) {
         console.error('Failed to restore settings:', e);
     }
@@ -587,6 +593,7 @@ function setupUIListeners() {
                 bonusFirstCorrect = settings.bonusFirstCorrect !== false;
                 hostAsPlayer = settings.hostAsPlayer === true;
                 offTheDomeCount = settings.offTheDomeCount ?? 3;
+                otdAtEnd = settings.otdAtEnd === true;
             } catch (e) {}
 
             btn.disabled = true;
@@ -601,6 +608,7 @@ function setupUIListeners() {
                 bonusFirstCorrect,
                 hostAsPlayer,
                 offTheDomeCount,
+                otdAtEnd,
                 seenQuestions: getSeenQuestions()
             });
 
@@ -1491,6 +1499,7 @@ async function showPlayAgainModal() {
     const timer = lastSettings.timerDuration || 30;
     const bonus = lastSettings.bonusFirstCorrect !== false;
     const otdCount = lastSettings.offTheDomeCount ?? 3;
+    const otdAtEndSaved = lastSettings.otdAtEnd === true;
 
     const CATEGORIES = [
         "General Knowledge","Science","Movies & TV","Music","Sports",
@@ -1540,6 +1549,12 @@ async function showPlayAgainModal() {
                 <label class="pa-toggle">
                     <input type="checkbox" id="pa-countdown" ${countdownEnabled ? 'checked' : ''}>
                     <span>3-2-1 countdown between questions</span>
+                </label>
+            </div>
+            <div class="pa-section">
+                <label class="pa-toggle">
+                    <input type="checkbox" id="pa-otd-at-end" ${otdAtEndSaved ? 'checked' : ''}>
+                    <span>OFF THE DOME questions at end of game</span>
                 </label>
             </div>
             <div class="pa-actions">
@@ -1609,9 +1624,11 @@ async function showPlayAgainModal() {
         const newTimer = parseInt(modal.querySelector('#pa-t-slider').value);
         const newBonus = modal.querySelector('#pa-bonus').checked;
         const newCountdown = modal.querySelector('#pa-countdown').checked;
+        const newOtdAtEnd = modal.querySelector('#pa-otd-at-end').checked;
 
-        // Update in-memory setting immediately
+        // Update in-memory settings immediately
         countdownEnabled = newCountdown;
+        otdAtEnd = newOtdAtEnd;
 
         // Save updated settings
         sessionStorage.setItem('buzzin_settings', JSON.stringify({
@@ -1621,7 +1638,8 @@ async function showPlayAgainModal() {
             offTheDomeCount: newOtdCount,
             timerDuration: newTimer,
             bonusFirstCorrect: newBonus,
-            countdownEnabled: newCountdown
+            countdownEnabled: newCountdown,
+            otdAtEnd: newOtdAtEnd
         }));
 
         socket.emit('host:restartGame', {
@@ -1631,6 +1649,7 @@ async function showPlayAgainModal() {
             offTheDomeCount: newOtdCount,
             timerDuration: newTimer,
             bonusFirstCorrect: newBonus,
+            otdAtEnd: newOtdAtEnd,
             seenQuestions: getSeenQuestions()
         });
 
