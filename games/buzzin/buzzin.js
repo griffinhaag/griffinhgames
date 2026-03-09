@@ -92,8 +92,8 @@ const choicesEls = {
     grid: document.getElementById('choices-grid')
 };
 
-// Track OFF THE DOME state
-let offTheDomeShown = false;
+// Track OFF THE DOME state — use question index so consecutive OTD questions each get their own overlay
+let offTheDomeShownForIndex = -1;
 let selectedChoice = null;
 
 // Cache shuffled choices per question to prevent re-shuffling every timer tick
@@ -1002,6 +1002,7 @@ function renderGameState() {
     // Reset seen-question tracking when a new game starts (countdown = fresh game)
     if (currentPhase === 'countdown' && previousPhase !== 'countdown') {
         previousQuestionText = null;
+        offTheDomeShownForIndex = -1;
     }
 
     // Question music: play from start when question begins, stop when it ends
@@ -1237,15 +1238,10 @@ function renderPlayerView() {
     hasBuzzed = myStatus?.hasBuzzed || false;
     hasAnswered = myStatus?.hasAnswered || false;
 
-    // Show OFF THE DOME announcement for the first OFF THE DOME question
-    if (isFirstOffTheDome && phase === 'waiting' && !offTheDomeShown) {
+    // Show OFF THE DOME overlay once per OTD question (keyed by question index)
+    if (isFirstOffTheDome && phase === 'waiting' && offTheDomeShownForIndex !== gameState.currentQuestionIndex) {
         showOffTheDomeOverlay();
-        offTheDomeShown = true;
-    }
-
-    // Reset OFF THE DOME shown flag when moving to a new question
-    if (!isFirstOffTheDome) {
-        offTheDomeShown = false;
+        offTheDomeShownForIndex = gameState.currentQuestionIndex;
     }
 
     // Score & Rank
