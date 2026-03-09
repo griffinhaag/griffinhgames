@@ -1655,8 +1655,8 @@ async function showPlayAgainModal() {
             </div>
             <div class="pa-section">
                 <label class="pa-toggle">
-                    <input type="checkbox" id="pa-otd-at-end" ${otdAtEndSaved ? 'checked' : ''}>
-                    <span>OFF THE DOME questions at end of game</span>
+                    <input type="checkbox" id="pa-otd-at-end" ${!otdAtEndSaved ? 'checked' : ''}>
+                    <span>OFF THE DOME questions randomized throughout (uncheck to put at end of game)</span>
                 </label>
             </div>
             <div class="pa-actions">
@@ -1726,7 +1726,7 @@ async function showPlayAgainModal() {
         const newTimer = parseInt(modal.querySelector('#pa-t-slider').value);
         const newBonus = modal.querySelector('#pa-bonus').checked;
         const newCountdown = modal.querySelector('#pa-countdown').checked;
-        const newOtdAtEnd = modal.querySelector('#pa-otd-at-end').checked;
+        const newOtdAtEnd = !modal.querySelector('#pa-otd-at-end').checked;
 
         // Update in-memory settings immediately
         countdownEnabled = newCountdown;

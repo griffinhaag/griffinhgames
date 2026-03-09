@@ -304,8 +304,8 @@
                         <span>3-2-1 countdown between questions</span>
                     </label>
                     <label class="option-toggle">
-                        <input type="checkbox" id="otd-at-end-toggle">
-                        <span>OFF THE DOME questions at end of game (default: randomly throughout)</span>
+                        <input type="checkbox" id="otd-at-end-toggle" checked>
+                        <span>OFF THE DOME questions randomized throughout (uncheck to put at end of game)</span>
                     </label>
                 </div>
             </div>
@@ -499,7 +499,7 @@
             const bonusFirstCorrect = document.getElementById('bonus-points-toggle')?.checked !== false;
             const hostAsPlayer = document.getElementById('host-plays-toggle')?.checked === true;
             const countdownEnabled = document.getElementById('countdown-toggle')?.checked !== false;
-            const otdAtEnd = document.getElementById('otd-at-end-toggle')?.checked === true;
+            const otdAtEnd = document.getElementById('otd-at-end-toggle')?.checked === false;
             sessionStorage.setItem('buzzin_settings', JSON.stringify({
                 categories: selectedCategories,
                 questionCount: questionCount,
@@ -575,7 +575,7 @@
                 hostAsPlayer: document.getElementById('host-plays-toggle')?.checked === true,
                 offTheDomeCount: offTheDomeCount,
                 countdownEnabled: document.getElementById('countdown-toggle')?.checked !== false,
-                otdAtEnd: document.getElementById('otd-at-end-toggle')?.checked === true
+                otdAtEnd: document.getElementById('otd-at-end-toggle')?.checked === false
             }));
 
             // Store redirect info for the game page
