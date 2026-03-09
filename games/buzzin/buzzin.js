@@ -94,6 +94,8 @@ const choicesEls = {
 
 // Track OFF THE DOME state — use question index so consecutive OTD questions each get their own overlay
 let offTheDomeShownForIndex = -1;
+// Track reconnect retries for "room not found" while in-game
+let reconnectAttempts = 0;
 let selectedChoice = null;
 
 // Cache shuffled choices per question to prevent re-shuffling every timer tick
@@ -246,6 +248,7 @@ const playerEls = {
     view: document.getElementById('view-player'),
     score: document.getElementById('player-score'),
     rank: document.getElementById('player-rank'),
+    qCounter: document.getElementById('player-q-counter'),
     category: document.getElementById('player-category'),
     question: document.getElementById('player-question-text'),
     btnBuzz: document.getElementById('btn-buzz'),
@@ -371,6 +374,14 @@ function setupSocketListeners() {
                 window.location.href = 'join.html';
             }, 2000);
         }
+
+        // Periodic keepalive: prevents room from being destroyed during idle periods
+        if (window._keepaliveInterval) clearInterval(window._keepaliveInterval);
+        window._keepaliveInterval = setInterval(() => {
+            if (roomCode && socket.connected) {
+                socket.emit('heartbeat', { roomCode });
+            }
+        }, 45000);
     });
     
     // Set timeout for connection
@@ -391,6 +402,9 @@ function setupSocketListeners() {
     
     socket.on('reconnect', () => {
         console.log('Reconnected to server');
+        reconnectAttempts = 0;
+        const ro = document.getElementById('reconnecting-overlay');
+        if (ro) ro.remove();
         // Re-establish isHost from URL params in case it was lost
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('host') === 'true') isHost = true;
@@ -406,26 +420,58 @@ function setupSocketListeners() {
     
     socket.on('room:error', (message) => {
         console.error('Room error:', message);
-        
-        // Show error on screen instead of alert
-        const errorDiv = document.createElement('div');
-        errorDiv.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(255,0,0,0.9); color: white; padding: 15px 30px; border-radius: 10px; z-index: 1000;';
-        errorDiv.textContent = message;
-        document.body.appendChild(errorDiv);
-        
+
         // If kicked, show kicked overlay
         if (message.toLowerCase().includes('kick')) {
-            errorDiv.remove();
             showKickedOverlay();
             return;
         }
 
-        // If room not found, redirect back to main menu after delay
         if (message.includes('not found') || message.includes('Invalid') || message.includes('Unable')) {
-            setTimeout(() => {
-                window.location.href = '../../index.html';
-            }, 3000);
+            // If we were actively in a game, retry before giving up
+            const wasInGame = gameState && gameState.phase && !['lobby', 'end'].includes(gameState.phase);
+            if (wasInGame && roomCode && playerName && reconnectAttempts < 4) {
+                reconnectAttempts++;
+                let overlay = document.getElementById('reconnecting-overlay');
+                if (!overlay) {
+                    overlay = document.createElement('div');
+                    overlay.id = 'reconnecting-overlay';
+                    overlay.style.cssText = [
+                        'position:fixed;top:0;left:0;width:100%;height:100%',
+                        'background:rgba(0,0,0,0.88)',
+                        'display:flex;align-items:center;justify-content:center',
+                        'z-index:9000;font-family:var(--font-main)',
+                        'animation:fadeIn 0.3s ease-out',
+                    ].join(';');
+                    document.body.appendChild(overlay);
+                }
+                overlay.innerHTML = `
+                    <div style="text-align:center;padding:40px;">
+                        <div style="font-size:2.5rem;margin-bottom:16px;">⚡</div>
+                        <div style="color:white;font-size:1.3rem;font-weight:700;margin-bottom:8px;">Connection Lost</div>
+                        <div style="color:rgba(255,255,255,0.6);font-size:0.95rem;margin-bottom:28px;">Reconnecting... (${reconnectAttempts}/4)</div>
+                        <button onclick="window.location.href='../../index.html'" style="padding:12px 28px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);border-radius:10px;color:rgba(255,255,255,0.7);font-size:0.9rem;cursor:pointer;font-family:var(--font-main);">Go to Main Menu</button>
+                    </div>
+                `;
+                setTimeout(() => {
+                    socket.emit('player:joinRoom', { roomCode, name: playerName, isHost });
+                }, 2500);
+                return;
+            }
+            // Exceeded retries or not in game — show error and redirect
+            const ro = document.getElementById('reconnecting-overlay');
+            if (ro) ro.remove();
+            reconnectAttempts = 0;
+            const errorDiv = document.createElement('div');
+            errorDiv.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(200,0,0,0.92);color:white;padding:15px 30px;border-radius:10px;z-index:9500;font-family:var(--font-main);';
+            errorDiv.textContent = message;
+            document.body.appendChild(errorDiv);
+            setTimeout(() => { window.location.href = '../../index.html'; }, 3000);
         } else {
+            const errorDiv = document.createElement('div');
+            errorDiv.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(200,0,0,0.92);color:white;padding:15px 30px;border-radius:10px;z-index:9500;font-family:var(--font-main);';
+            errorDiv.textContent = message;
+            document.body.appendChild(errorDiv);
             setTimeout(() => errorDiv.remove(), 5000);
         }
     });
@@ -484,6 +530,12 @@ function setupSocketListeners() {
     // Game specific state updates
     socket.on('game:state', (state) => {
         console.log('Game state received:', state);
+        // Clear reconnecting overlay on successful state reception
+        if (reconnectAttempts > 0) {
+            reconnectAttempts = 0;
+            const ro = document.getElementById('reconnecting-overlay');
+            if (ro) ro.remove();
+        }
         gameState = state;
         // Sync hostAsPlayer and offTheDomeCount from authoritative server state
         if (isHost && state.hostAsPlayer !== undefined) {
@@ -969,7 +1021,7 @@ function renderGameState() {
         if (countdownEnabled) {
             startPreQuestionCountdown(3, () => {
                 if (isHost) socket.emit('host:showQuestion', { roomCode });
-            });
+            }, gameState.isOffTheDome);
         } else if (isHost) {
             socket.emit('host:showQuestion', { roomCode });
         }
@@ -1003,6 +1055,15 @@ function renderGameState() {
     if (currentPhase === 'countdown' && previousPhase !== 'countdown') {
         previousQuestionText = null;
         offTheDomeShownForIndex = -1;
+        // Clean up any stale overlays from the previous game
+        ['results-overlay', 'pause-overlay', 'off-the-dome-overlay', 'pre-q-countdown'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        });
+        if (preQuestionCountdownTimer) {
+            clearInterval(preQuestionCountdownTimer);
+            preQuestionCountdownTimer = null;
+        }
     }
 
     // Question music: play from start when question begins, stop when it ends
@@ -1060,31 +1121,45 @@ function renderGameState() {
 }
 
 function renderCountdown() {
-    // Show countdown on both host and player views
-    let countdownDisplay = document.getElementById('countdown-display');
-    if (!countdownDisplay) {
-        // Create countdown element if it doesn't exist
-        countdownDisplay = document.createElement('div');
-        countdownDisplay.id = 'countdown-display';
-        countdownDisplay.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: clamp(4rem, 15vw, 8rem); font-weight: 900; color: var(--primary); z-index: 1000; text-shadow: 0 0 30px rgba(255,0,85,0.8); pointer-events: none; user-select: none;';
-        document.body.appendChild(countdownDisplay);
-    }
-    
     const seconds = gameState.countdownSeconds || 0;
+
+    let overlay = document.getElementById('countdown-display');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'countdown-display';
+        overlay.style.cssText = [
+            'position:fixed;top:0;left:0;width:100%;height:100%',
+            'background:rgba(0,0,0,0.93)',
+            'display:flex;flex-direction:column;align-items:center;justify-content:center',
+            'z-index:7000;pointer-events:none;font-family:var(--font-main)',
+            'animation:fadeIn 0.4s ease-out',
+        ].join(';');
+        overlay.innerHTML = `
+            <div style="color:rgba(255,255,255,0.4);font-size:clamp(0.75rem,2vw,0.95rem);font-weight:700;text-transform:uppercase;letter-spacing:4px;margin-bottom:14px;">Get Ready</div>
+            <div id="countdown-number" style="font-size:clamp(6rem,20vw,10rem);font-weight:900;color:var(--primary);text-shadow:0 0 60px rgba(255,0,85,0.85);line-height:1;"></div>
+        `;
+        document.body.appendChild(overlay);
+    }
+
+    const numEl = document.getElementById('countdown-number');
+    if (!numEl) return;
+
     if (seconds > 0) {
-        countdownDisplay.textContent = seconds;
-        countdownDisplay.style.display = 'block';
-        // Add pulse animation
-        countdownDisplay.style.animation = 'pulse 1s infinite';
+        overlay.style.display = 'flex';
+        numEl.style.animation = 'none';
+        numEl.offsetHeight; // reflow
+        numEl.style.animation = 'pqcBeat 0.4s ease-out';
+        numEl.textContent = seconds;
     } else {
-        countdownDisplay.style.display = 'none';
-        countdownDisplay.style.animation = 'none';
+        overlay.style.transition = 'opacity 0.3s ease-out';
+        overlay.style.opacity = '0';
+        setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 300);
     }
 }
 
 let preQuestionCountdownTimer = null;
 
-function startPreQuestionCountdown(seconds, onComplete) {
+function startPreQuestionCountdown(seconds, onComplete, compactMode = false) {
     // Clear any existing countdown
     if (preQuestionCountdownTimer) {
         clearInterval(preQuestionCountdownTimer);
@@ -1095,29 +1170,49 @@ function startPreQuestionCountdown(seconds, onComplete) {
 
     const overlay = document.createElement('div');
     overlay.id = 'pre-q-countdown';
-    overlay.style.cssText = [
-        'position:fixed;top:0;left:0;width:100%;height:100%',
-        'background:rgba(0,0,0,0.82)',
-        'display:flex;flex-direction:column;align-items:center;justify-content:center',
-        'z-index:6000;pointer-events:none;font-family:var(--font-main)',
-    ].join(';');
 
-    overlay.innerHTML = `
-        <div style="color:rgba(255,255,255,0.55);font-size:clamp(0.9rem,2.5vw,1.1rem);font-weight:700;text-transform:uppercase;letter-spacing:3px;margin-bottom:18px;">Next Question</div>
-        <div id="pqc-number" style="font-size:clamp(5rem,20vw,9rem);font-weight:900;color:var(--primary);text-shadow:0 0 40px rgba(255,0,85,0.7);line-height:1;">${seconds}</div>
-        <div style="width:180px;height:5px;background:rgba(255,255,255,0.15);border-radius:3px;overflow:hidden;margin-top:28px;">
-            <div id="pqc-bar" style="height:100%;background:var(--primary);border-radius:3px;width:100%;transition:width ${seconds}s linear;"></div>
-        </div>
-    `;
+    if (compactMode) {
+        // Compact pill at top — sits above OTD overlay without blocking it
+        overlay.style.cssText = [
+            'position:fixed;top:18px;left:50%;transform:translateX(-50%)',
+            'background:rgba(0,0,0,0.72);backdrop-filter:blur(10px)',
+            'border:2px solid rgba(255,0,85,0.55);border-radius:50px',
+            'padding:8px 26px',
+            'display:flex;align-items:center;gap:12px',
+            'z-index:8000;pointer-events:none;font-family:var(--font-main)',
+            'animation:fadeIn 0.25s ease-out',
+        ].join(';');
+        overlay.innerHTML = `
+            <div style="color:rgba(255,255,255,0.55);font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:3px;">Next</div>
+            <div id="pqc-number" style="font-size:2rem;font-weight:900;color:var(--primary);text-shadow:0 0 20px rgba(255,0,85,0.7);line-height:1;">${seconds}</div>
+        `;
+    } else {
+        // Full-screen overlay
+        overlay.style.cssText = [
+            'position:fixed;top:0;left:0;width:100%;height:100%',
+            'background:rgba(0,0,0,0.82)',
+            'display:flex;flex-direction:column;align-items:center;justify-content:center',
+            'z-index:6000;pointer-events:none;font-family:var(--font-main)',
+        ].join(';');
+        overlay.innerHTML = `
+            <div style="color:rgba(255,255,255,0.55);font-size:clamp(0.9rem,2.5vw,1.1rem);font-weight:700;text-transform:uppercase;letter-spacing:3px;margin-bottom:18px;">Next Question</div>
+            <div id="pqc-number" style="font-size:clamp(5rem,20vw,9rem);font-weight:900;color:var(--primary);text-shadow:0 0 40px rgba(255,0,85,0.7);line-height:1;">${seconds}</div>
+            <div style="width:180px;height:5px;background:rgba(255,255,255,0.15);border-radius:3px;overflow:hidden;margin-top:28px;">
+                <div id="pqc-bar" style="height:100%;background:var(--primary);border-radius:3px;width:100%;transition:width ${seconds}s linear;"></div>
+            </div>
+        `;
+    }
     document.body.appendChild(overlay);
 
-    // Trigger bar drain
-    requestAnimationFrame(() => {
+    if (!compactMode) {
+        // Trigger bar drain
         requestAnimationFrame(() => {
-            const bar = document.getElementById('pqc-bar');
-            if (bar) bar.style.width = '0%';
+            requestAnimationFrame(() => {
+                const bar = document.getElementById('pqc-bar');
+                if (bar) bar.style.width = '0%';
+            });
         });
-    });
+    }
 
     let count = seconds;
     preQuestionCountdownTimer = setInterval(() => {
@@ -1249,6 +1344,17 @@ function renderPlayerView() {
     const sorted = [...(scores || [])].sort((a, b) => b.score - a.score);
     const myRank = sorted.findIndex(s => s.socketId === socket.id) + 1;
     playerEls.rank.textContent = myRank > 0 ? `#${myRank}` : '-';
+
+    // Round counter
+    if (playerEls.qCounter) {
+        const idx = gameState.currentQuestionIndex;
+        const total = gameState.totalQuestions;
+        if (typeof idx === 'number' && total > 0) {
+            playerEls.qCounter.textContent = `Q ${idx + 1}/${total}`;
+        } else {
+            playerEls.qCounter.textContent = '';
+        }
+    }
 
     // Question info - only show if question is revealed
     if (phase === 'waiting') {
@@ -1762,7 +1868,7 @@ function showResultsOverlay(event) {
         } else if (r.isCorrect) {
             badge = `<span class="correct-badge">+${r.points || 100}</span>`;
         } else {
-            badge = `<span class="wrong-badge">✗</span>`;
+            badge = `<span class="wrong-badge">✕</span>`;
         }
         return `
             <div class="result-item ${itemClass}">
