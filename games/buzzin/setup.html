@@ -290,18 +290,20 @@
 
             <div class="setup-section">
                 <h3>Game Options:</h3>
-                <label class="option-toggle">
-                    <input type="checkbox" id="bonus-points-toggle" checked>
-                    <span>First correct answer gets +50 bonus points</span>
-                </label>
-                <label class="option-toggle">
-                    <input type="checkbox" id="host-plays-toggle" checked>
-                    <span>Host plays as a player (uncheck to spectate / admin only)</span>
-                </label>
-                <label class="option-toggle">
-                    <input type="checkbox" id="countdown-toggle" checked>
-                    <span>3-2-1 countdown between questions</span>
-                </label>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    <label class="option-toggle">
+                        <input type="checkbox" id="bonus-points-toggle" checked>
+                        <span>First correct answer gets +50 bonus points</span>
+                    </label>
+                    <label class="option-toggle">
+                        <input type="checkbox" id="host-plays-toggle" checked>
+                        <span>Host plays as a player (uncheck to spectate / admin only)</span>
+                    </label>
+                    <label class="option-toggle">
+                        <input type="checkbox" id="countdown-toggle" checked>
+                        <span>3-2-1 countdown between questions</span>
+                    </label>
+                </div>
             </div>
 
             <button id="btn-create-room" class="btn-create-room">Create Room</button>
