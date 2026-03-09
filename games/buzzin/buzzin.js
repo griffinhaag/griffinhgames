@@ -1454,7 +1454,7 @@ function showOffTheDomeOverlay() {
     overlay.className = 'off-the-dome-overlay';
     overlay.innerHTML = `
         <div class="off-the-dome-text">OFF THE DOME</div>
-        <div class="off-the-dome-subtitle">${offTheDomeCount} question${offTheDomeCount !== 1 ? 's' : ''} — type your answers!</div>
+        <div class="off-the-dome-subtitle">${otdAtEnd ? `${offTheDomeCount} question${offTheDomeCount !== 1 ? 's' : ''} — type your answers!` : 'Type your answer!'}</div>
     `;
     document.body.appendChild(overlay);
 
