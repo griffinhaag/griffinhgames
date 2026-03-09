@@ -433,7 +433,7 @@ body {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     text-align: center;
-    animation: offTheDomePulse 1s ease-in-out infinite;
+    animation: offTheDomePulse 3s ease-in-out infinite;
     margin-bottom: 20px;
 }
 
@@ -1422,11 +1422,27 @@ body {
 }
 
 .wrong-badge {
-    color: var(--danger);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 50, 50, 0.22);
+    border-radius: 50%;
+    width: 26px;
+    height: 26px;
+    color: rgba(255, 140, 140, 0.95);
+    font-size: 0.7rem;
     font-weight: 900;
-    font-size: 0.9rem;
-    min-width: 24px;
-    text-align: center;
+    flex-shrink: 0;
+    font-family: var(--font-main);
+}
+
+.player-q-counter {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.45);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    align-self: center;
 }
 
 /* --- End Screen Actions --- */
