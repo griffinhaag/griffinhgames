@@ -8,6 +8,7 @@ let isHost = false;
 let hostAsPlayer = false; // If false, host is spectate/admin only (no score, no answers)
 let offTheDomeCount = 3; // Number of free-text (OFF THE DOME) questions
 let otdAtEnd = false;    // false = OTD randomly distributed (default), true = OTD at end of game
+let showOtdCategory = true; // Show category label alongside OFF THE DOME badge by default
 let gameState = null;
 let roomState = null; // Store room state for lobby display
 
@@ -249,6 +250,7 @@ const playerEls = {
     score: document.getElementById('player-score'),
     rank: document.getElementById('player-rank'),
     qCounter: document.getElementById('player-q-counter'),
+    roomCode: document.getElementById('player-room-code'),
     category: document.getElementById('player-category'),
     question: document.getElementById('player-question-text'),
     btnBuzz: document.getElementById('btn-buzz'),
@@ -348,6 +350,11 @@ function restoreSettingsFromStorage() {
         // Restore otdAtEnd (set by setup.html or Play Again modal)
         if (settings.otdAtEnd !== undefined) {
             otdAtEnd = settings.otdAtEnd;
+        }
+
+        // Restore showOtdCategory
+        if (settings.showOtdCategory !== undefined) {
+            showOtdCategory = settings.showOtdCategory;
         }
     } catch (e) {
         console.error('Failed to restore settings:', e);
@@ -489,6 +496,23 @@ function setupSocketListeners() {
             return;
         }
 
+        // Always sync host status and room code from server-authoritative room state
+        const meInRoom = rs.players.find(p => p.socketId === socket.id);
+        if (meInRoom) {
+            const wasHost = isHost;
+            isHost = meInRoom.isHost === true;
+            if (isHost !== wasHost) {
+                updateAdminMenuVisibility();
+                if (gameState) renderGameState();
+            }
+        }
+
+        // Show room code to players
+        const playerRoomCodeEl = document.getElementById('player-room-code');
+        if (playerRoomCodeEl) {
+            playerRoomCodeEl.textContent = rs.code || roomCode || '';
+        }
+
         // If room is in-progress (reconnecting player starting fresh), show loading
         if (rs.phase === 'in-progress') {
             console.log('Room is in-progress, waiting for game state...');
@@ -502,11 +526,9 @@ function setupSocketListeners() {
         // Otherwise, show lobby
         updateLobbyUI(rs);
 
-        // Sync host status — URL param is authoritative, server confirmation is a bonus
+        // Sync host status — URL param overrides (for setup-page redirects)
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('host') === 'true') isHost = true;
-        const me = rs.players.find(p => p.socketId === socket.id);
-        if (me && me.isHost) isHost = true;
         console.log('I am host:', isHost);
 
         updateHostControlsVisibility();
@@ -515,6 +537,25 @@ function setupSocketListeners() {
     // Player kicked event
     socket.on('player:kicked', () => {
         showKickedOverlay();
+    });
+
+    // Host transferred to this player (original host left)
+    socket.on('host:transferred', (data) => {
+        isHost = true;
+        updateAdminMenuVisibility();
+        if (gameState) renderGameState();
+        // Brief toast notification
+        const toast = document.createElement('div');
+        toast.style.cssText = [
+            'position:fixed;top:20px;left:50%;transform:translateX(-50%)',
+            'background:rgba(0,180,100,0.92);color:white',
+            'padding:12px 24px;border-radius:12px',
+            'font-size:0.9rem;font-weight:700;z-index:9500',
+            'font-family:var(--font-main);animation:fadeIn 0.3s ease-out',
+        ].join(';');
+        toast.textContent = 'You are now the host!';
+        document.body.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 3000);
     });
 
     // Some servers send kick as a room error
@@ -750,6 +791,19 @@ function setupUIListeners() {
                 stopLobbyVideo();
                 stopQuestionMusic();
             }
+        });
+    }
+
+    // Quit game button (players only)
+    const btnQuit = document.getElementById('btn-quit-game');
+    if (btnQuit) {
+        btnQuit.addEventListener('click', () => {
+            if (!confirm('Quit the game? Your score is saved and you can rejoin with the same name.')) return;
+            if (socket && roomCode) {
+                socket.emit('player:quit', { roomCode });
+            }
+            // Navigate to join page with room code pre-filled
+            window.location.href = `join.html?room=${encodeURIComponent(roomCode || '')}`;
         });
     }
 
@@ -1079,6 +1133,23 @@ function renderGameState() {
     // Update admin menu visibility
     updateAdminMenuVisibility();
 
+    // Quit button: show for non-host players during active game, hide otherwise
+    const btnQuitGame = document.getElementById('btn-quit-game');
+    if (btnQuitGame) {
+        const activePhases = ['waiting', 'question', 'result', 'paused'];
+        if (!isHost && activePhases.includes(gameState.phase)) {
+            btnQuitGame.classList.remove('hidden');
+        } else {
+            btnQuitGame.classList.add('hidden');
+        }
+    }
+
+    // Keep player room code visible
+    const playerRoomCodeEl = document.getElementById('player-room-code');
+    if (playerRoomCodeEl && roomCode) {
+        playerRoomCodeEl.textContent = roomCode;
+    }
+
     // Switch screens based on phase
     if (gameState.phase === 'lobby') {
         showScreen('lobby');
@@ -1246,8 +1317,14 @@ function renderHostView() {
     hostEls.qIndex.textContent = (currentQuestionIndex + 1) || 0;
     hostEls.qTotal.textContent = totalQuestions || 0;
     if (isOffTheDome) {
-        hostEls.category.innerHTML = `<span class="off-the-dome-badge">OFF THE DOME</span>`;
+        const catLabel = showOtdCategory && currentQuestion?.category
+            ? `<span class="otd-category-label">${currentQuestion.category}</span>` : '';
+        hostEls.category.style.background = 'none';
+        hostEls.category.style.padding = '0';
+        hostEls.category.innerHTML = `<span class="off-the-dome-badge">OFF THE DOME</span>${catLabel}`;
     } else {
+        hostEls.category.style.background = '';
+        hostEls.category.style.padding = '';
         hostEls.category.textContent = currentQuestion ? currentQuestion.category : '-';
     }
 
@@ -1363,7 +1440,9 @@ function renderPlayerView() {
     } else if (currentQuestion) {
         // Show OFF THE DOME badge if applicable
         if (isOffTheDome) {
-            playerEls.category.innerHTML = `<span class="off-the-dome-badge">OFF THE DOME</span>`;
+            const catLabel = showOtdCategory && currentQuestion?.category
+                ? `<span class="otd-category-label">${currentQuestion.category}</span>` : '';
+            playerEls.category.innerHTML = `<span class="off-the-dome-badge">OFF THE DOME</span>${catLabel}`;
         } else {
             playerEls.category.textContent = currentQuestion.category || '';
         }
@@ -1602,6 +1681,7 @@ async function showPlayAgainModal() {
     const bonus = lastSettings.bonusFirstCorrect !== false;
     const otdCount = lastSettings.offTheDomeCount ?? 3;
     const otdAtEndSaved = lastSettings.otdAtEnd === true;
+    const showOtdCatSaved = lastSettings.showOtdCategory !== false;
 
     const CATEGORIES = [
         "General Knowledge","Science","Movies & TV","Music","Sports",
@@ -1657,6 +1737,12 @@ async function showPlayAgainModal() {
                 <label class="pa-toggle">
                     <input type="checkbox" id="pa-otd-at-end" ${!otdAtEndSaved ? 'checked' : ''}>
                     <span>OFF THE DOME questions randomized throughout (uncheck to put at end of game)</span>
+                </label>
+            </div>
+            <div class="pa-section">
+                <label class="pa-toggle">
+                    <input type="checkbox" id="pa-show-otd-cat" ${showOtdCatSaved ? 'checked' : ''}>
+                    <span>Show category alongside OFF THE DOME badge</span>
                 </label>
             </div>
             <div class="pa-actions">
@@ -1727,10 +1813,12 @@ async function showPlayAgainModal() {
         const newBonus = modal.querySelector('#pa-bonus').checked;
         const newCountdown = modal.querySelector('#pa-countdown').checked;
         const newOtdAtEnd = !modal.querySelector('#pa-otd-at-end').checked;
+        const newShowOtdCat = modal.querySelector('#pa-show-otd-cat').checked;
 
         // Update in-memory settings immediately
         countdownEnabled = newCountdown;
         otdAtEnd = newOtdAtEnd;
+        showOtdCategory = newShowOtdCat;
 
         // Save updated settings
         sessionStorage.setItem('buzzin_settings', JSON.stringify({
@@ -1741,7 +1829,8 @@ async function showPlayAgainModal() {
             timerDuration: newTimer,
             bonusFirstCorrect: newBonus,
             countdownEnabled: newCountdown,
-            otdAtEnd: newOtdAtEnd
+            otdAtEnd: newOtdAtEnd,
+            showOtdCategory: newShowOtdCat
         }));
 
         socket.emit('host:restartGame', {

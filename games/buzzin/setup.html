@@ -307,6 +307,10 @@
                         <input type="checkbox" id="otd-at-end-toggle" checked>
                         <span>OFF THE DOME questions randomized throughout (uncheck to put at end of game)</span>
                     </label>
+                    <label class="option-toggle">
+                        <input type="checkbox" id="show-otd-category-toggle" checked>
+                        <span>Show category alongside OFF THE DOME badge in-game</span>
+                    </label>
                 </div>
             </div>
 
@@ -500,6 +504,7 @@
             const hostAsPlayer = document.getElementById('host-plays-toggle')?.checked === true;
             const countdownEnabled = document.getElementById('countdown-toggle')?.checked !== false;
             const otdAtEnd = document.getElementById('otd-at-end-toggle')?.checked === false;
+            const showOtdCategory = document.getElementById('show-otd-category-toggle')?.checked !== false;
             sessionStorage.setItem('buzzin_settings', JSON.stringify({
                 categories: selectedCategories,
                 questionCount: questionCount,
@@ -509,7 +514,8 @@
                 hostAsPlayer: hostAsPlayer,
                 offTheDomeCount: offTheDomeCount,
                 countdownEnabled: countdownEnabled,
-                otdAtEnd: otdAtEnd
+                otdAtEnd: otdAtEnd,
+                showOtdCategory: showOtdCategory
             }));
             
             // Wait for socket to be connected before creating room
@@ -575,7 +581,8 @@
                 hostAsPlayer: document.getElementById('host-plays-toggle')?.checked === true,
                 offTheDomeCount: offTheDomeCount,
                 countdownEnabled: document.getElementById('countdown-toggle')?.checked !== false,
-                otdAtEnd: document.getElementById('otd-at-end-toggle')?.checked === false
+                otdAtEnd: document.getElementById('otd-at-end-toggle')?.checked === false,
+                showOtdCategory: document.getElementById('show-otd-category-toggle')?.checked !== false
             }));
 
             // Store redirect info for the game page
