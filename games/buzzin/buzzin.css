@@ -445,8 +445,15 @@ body {
 }
 
 @keyframes offTheDomePulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
+    0%,
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 rgba(255, 0, 85, 0);
+    }
+    50% {
+        transform: scale(1.03);
+        box-shadow: 0 0 18px rgba(255, 80, 120, 0.28);
+    }
 }
 
 @keyframes fadeInUp {
@@ -472,8 +479,10 @@ body {
     text-transform: uppercase;
     letter-spacing: 2px;
     margin-bottom: clamp(10px, 2vh, 15px);
-    animation: offTheDomePulse 3.5s ease-in-out infinite;
+    animation: offTheDomePulse 5.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
     vertical-align: middle;
+    transform-origin: center;
+    will-change: transform, box-shadow;
 }
 
 .otd-category-label {
