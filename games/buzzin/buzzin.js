@@ -1329,7 +1329,7 @@ function renderHostView() {
             ? `<span class="otd-category-label">${currentQuestion.category}</span>` : '';
         hostEls.category.style.background = 'none';
         hostEls.category.style.padding = '0';
-        hostEls.category.innerHTML = `<span class="otd-badge-row"><span class="off-the-dome-badge">OFF THE DOME</span>${catLabel}</span>`;
+        hostEls.category.innerHTML = `<span class="off-the-dome-badge">OFF THE DOME</span>${catLabel}`;
     } else {
         hostEls.category.style.background = '';
         hostEls.category.style.padding = '';
@@ -1450,7 +1450,7 @@ function renderPlayerView() {
         if (isOffTheDome) {
             const catLabel = showOtdCategory && currentQuestion?.category
                 ? `<span class="otd-category-label">${currentQuestion.category}</span>` : '';
-            playerEls.category.innerHTML = `<span class="otd-badge-row"><span class="off-the-dome-badge">OFF THE DOME</span>${catLabel}</span>`;
+            playerEls.category.innerHTML = `<span class="off-the-dome-badge">OFF THE DOME</span>${catLabel}`;
         } else {
             playerEls.category.textContent = currentQuestion.category || '';
         }
