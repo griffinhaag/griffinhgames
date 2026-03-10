@@ -473,6 +473,7 @@ body {
     letter-spacing: 2px;
     margin-bottom: clamp(10px, 2vh, 15px);
     animation: offTheDomePulse 3.5s ease-in-out infinite;
+    vertical-align: middle;
 }
 
 .otd-category-label {
@@ -485,8 +486,6 @@ body {
     background: rgba(255,255,255,0.1);
     border-radius: 20px;
     vertical-align: middle;
-    position: relative;
-    top: 3px;
     letter-spacing: 0.5px;
     margin-bottom: clamp(10px, 2vh, 15px);
 }
