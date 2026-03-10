@@ -488,15 +488,8 @@ function setupSocketListeners() {
         console.log('Room state received:', rs);
         roomState = rs; // Store for later use
 
-        // If a game is actively running, don't let room:state interrupt it.
-        // game:state events handle all in-game rendering. room:state arriving during
-        // a disconnect event would otherwise call showScreen('lobby') and interrupt
-        // the host and players.
-        if (gameState && gameState.phase !== 'lobby' && gameState.phase !== 'end') {
-            return;
-        }
-
-        // Always sync host status and room code from server-authoritative room state
+        // Always sync isHost and room code FIRST — must happen even during active games
+        // so host demotion (when original host rejoins) takes effect immediately.
         const meInRoom = rs.players.find(p => p.socketId === socket.id);
         if (meInRoom) {
             const wasHost = isHost;
@@ -504,13 +497,22 @@ function setupSocketListeners() {
             if (isHost !== wasHost) {
                 updateAdminMenuVisibility();
                 if (gameState) renderGameState();
+                if (!isHost && wasHost) {
+                    // Demoted — show burgundy notification
+                    showHostChangeToast('You are no longer the host.', '#7B2D3E');
+                }
             }
         }
 
-        // Show room code to players
+        // Keep player room code display current
         const playerRoomCodeEl = document.getElementById('player-room-code');
         if (playerRoomCodeEl) {
             playerRoomCodeEl.textContent = rs.code || roomCode || '';
+        }
+
+        // If a game is actively running, stop here — game:state handles all in-game rendering.
+        if (gameState && gameState.phase !== 'lobby' && gameState.phase !== 'end') {
+            return;
         }
 
         // If room is in-progress (reconnecting player starting fresh), show loading
@@ -519,7 +521,6 @@ function setupSocketListeners() {
             showScreen('lobby');
             lobbyEls.code.textContent = rs.code || roomCode || '----';
             lobbyEls.list.innerHTML = '<div class="player-tag">Game in progress, loading...</div>';
-            // Game state should arrive shortly via game:state event
             return;
         }
 
@@ -544,18 +545,7 @@ function setupSocketListeners() {
         isHost = true;
         updateAdminMenuVisibility();
         if (gameState) renderGameState();
-        // Brief toast notification
-        const toast = document.createElement('div');
-        toast.style.cssText = [
-            'position:fixed;top:20px;left:50%;transform:translateX(-50%)',
-            'background:rgba(0,180,100,0.92);color:white',
-            'padding:12px 24px;border-radius:12px',
-            'font-size:0.9rem;font-weight:700;z-index:9500',
-            'font-family:var(--font-main);animation:fadeIn 0.3s ease-out',
-        ].join(';');
-        toast.textContent = 'You are now the host!';
-        document.body.appendChild(toast);
-        setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 3000);
+        showHostChangeToast('You are now the host!', '#2D6A4F'); // forest green
     });
 
     // Some servers send kick as a room error
@@ -645,6 +635,24 @@ const adminMenuEls = {
 };
 
 // --- UI Listeners ---
+function showHostChangeToast(message, bgColor) {
+    const toast = document.createElement('div');
+    toast.style.cssText = [
+        'position:fixed;top:20px;left:50%;transform:translateX(-50%)',
+        `background:${bgColor};color:white`,
+        'padding:12px 24px;border-radius:12px',
+        'font-size:0.9rem;font-weight:700;z-index:9500',
+        'font-family:var(--font-main);animation:fadeIn 0.3s ease-out',
+    ].join(';');
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
 function setupUIListeners() {
     // Initialize category checkboxes
     setupCategoryCheckboxes();
@@ -1321,7 +1329,7 @@ function renderHostView() {
             ? `<span class="otd-category-label">${currentQuestion.category}</span>` : '';
         hostEls.category.style.background = 'none';
         hostEls.category.style.padding = '0';
-        hostEls.category.innerHTML = `<span class="off-the-dome-badge">OFF THE DOME</span>${catLabel}`;
+        hostEls.category.innerHTML = `<span class="otd-badge-row"><span class="off-the-dome-badge">OFF THE DOME</span>${catLabel}</span>`;
     } else {
         hostEls.category.style.background = '';
         hostEls.category.style.padding = '';
@@ -1442,7 +1450,7 @@ function renderPlayerView() {
         if (isOffTheDome) {
             const catLabel = showOtdCategory && currentQuestion?.category
                 ? `<span class="otd-category-label">${currentQuestion.category}</span>` : '';
-            playerEls.category.innerHTML = `<span class="off-the-dome-badge">OFF THE DOME</span>${catLabel}`;
+            playerEls.category.innerHTML = `<span class="otd-badge-row"><span class="off-the-dome-badge">OFF THE DOME</span>${catLabel}</span>`;
         } else {
             playerEls.category.textContent = currentQuestion.category || '';
         }

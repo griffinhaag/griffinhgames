@@ -445,8 +445,12 @@ body {
 }
 
 @keyframes offTheDomePulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
+    0%, 100% {
+        box-shadow: 0 0 8px rgba(255, 0, 85, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 22px rgba(255, 204, 0, 0.75), 0 0 38px rgba(255, 0, 85, 0.45);
+    }
 }
 
 @keyframes fadeInUp {
@@ -461,6 +465,13 @@ body {
 }
 
 /* --- OFF THE DOME indicator badge --- */
+.otd-badge-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: clamp(10px, 2vh, 15px);
+}
+
 .off-the-dome-badge {
     display: inline-block;
     background: linear-gradient(135deg, #ff0055, #ffcc00);
@@ -471,24 +482,19 @@ body {
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 2px;
-    margin-bottom: clamp(10px, 2vh, 15px);
-    animation: offTheDomePulse 2s ease-in-out infinite;
+    animation: offTheDomePulse 4s ease-in-out infinite;
+    flex-shrink: 0;
 }
 
 .otd-category-label {
-    display: inline-block;
     font-size: clamp(0.65rem, 1.6vw, 0.8rem);
     font-weight: 600;
     color: rgba(255,255,255,0.6);
-    margin-left: 10px;
     padding: 4px 12px;
     background: rgba(255,255,255,0.1);
     border-radius: 20px;
-    vertical-align: middle;
-    position: relative;
-    top: 3px;
     letter-spacing: 0.5px;
-    margin-bottom: clamp(10px, 2vh, 15px);
+    animation: none;
 }
 
 .question-count-control {
