@@ -433,7 +433,7 @@ body {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     text-align: center;
-    animation: offTheDomePulse 4.5s ease-in-out infinite;
+    animation: none;
     margin-bottom: 20px;
 }
 
@@ -472,7 +472,7 @@ body {
     text-transform: uppercase;
     letter-spacing: 2px;
     margin-bottom: clamp(10px, 2vh, 15px);
-    animation: offTheDomePulse 2s ease-in-out infinite;
+    animation: offTheDomePulse 3.5s ease-in-out infinite;
 }
 
 .otd-category-label {
