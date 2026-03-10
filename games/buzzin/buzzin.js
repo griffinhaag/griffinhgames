@@ -250,6 +250,7 @@ const playerEls = {
     score: document.getElementById('player-score'),
     rank: document.getElementById('player-rank'),
     qCounter: document.getElementById('player-q-counter'),
+    roomCode: document.getElementById('player-room-code'),
     category: document.getElementById('player-category'),
     question: document.getElementById('player-question-text'),
     btnBuzz: document.getElementById('btn-buzz'),
@@ -495,6 +496,23 @@ function setupSocketListeners() {
             return;
         }
 
+        // Always sync host status and room code from server-authoritative room state
+        const meInRoom = rs.players.find(p => p.socketId === socket.id);
+        if (meInRoom) {
+            const wasHost = isHost;
+            isHost = meInRoom.isHost === true;
+            if (isHost !== wasHost) {
+                updateAdminMenuVisibility();
+                if (gameState) renderGameState();
+            }
+        }
+
+        // Show room code to players
+        const playerRoomCodeEl = document.getElementById('player-room-code');
+        if (playerRoomCodeEl) {
+            playerRoomCodeEl.textContent = rs.code || roomCode || '';
+        }
+
         // If room is in-progress (reconnecting player starting fresh), show loading
         if (rs.phase === 'in-progress') {
             console.log('Room is in-progress, waiting for game state...');
@@ -508,11 +526,9 @@ function setupSocketListeners() {
         // Otherwise, show lobby
         updateLobbyUI(rs);
 
-        // Sync host status — URL param is authoritative, server confirmation is a bonus
+        // Sync host status — URL param overrides (for setup-page redirects)
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('host') === 'true') isHost = true;
-        const me = rs.players.find(p => p.socketId === socket.id);
-        if (me && me.isHost) isHost = true;
         console.log('I am host:', isHost);
 
         updateHostControlsVisibility();
@@ -521,6 +537,25 @@ function setupSocketListeners() {
     // Player kicked event
     socket.on('player:kicked', () => {
         showKickedOverlay();
+    });
+
+    // Host transferred to this player (original host left)
+    socket.on('host:transferred', (data) => {
+        isHost = true;
+        updateAdminMenuVisibility();
+        if (gameState) renderGameState();
+        // Brief toast notification
+        const toast = document.createElement('div');
+        toast.style.cssText = [
+            'position:fixed;top:20px;left:50%;transform:translateX(-50%)',
+            'background:rgba(0,180,100,0.92);color:white',
+            'padding:12px 24px;border-radius:12px',
+            'font-size:0.9rem;font-weight:700;z-index:9500',
+            'font-family:var(--font-main);animation:fadeIn 0.3s ease-out',
+        ].join(';');
+        toast.textContent = 'You are now the host!';
+        document.body.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 3000);
     });
 
     // Some servers send kick as a room error
@@ -756,6 +791,19 @@ function setupUIListeners() {
                 stopLobbyVideo();
                 stopQuestionMusic();
             }
+        });
+    }
+
+    // Quit game button (players only)
+    const btnQuit = document.getElementById('btn-quit-game');
+    if (btnQuit) {
+        btnQuit.addEventListener('click', () => {
+            if (!confirm('Quit the game? Your score is saved and you can rejoin with the same name.')) return;
+            if (socket && roomCode) {
+                socket.emit('player:quit', { roomCode });
+            }
+            // Navigate to join page with room code pre-filled
+            window.location.href = `join.html?room=${encodeURIComponent(roomCode || '')}`;
         });
     }
 
@@ -1084,6 +1132,23 @@ function renderGameState() {
 
     // Update admin menu visibility
     updateAdminMenuVisibility();
+
+    // Quit button: show for non-host players during active game, hide otherwise
+    const btnQuitGame = document.getElementById('btn-quit-game');
+    if (btnQuitGame) {
+        const activePhases = ['waiting', 'question', 'result', 'paused'];
+        if (!isHost && activePhases.includes(gameState.phase)) {
+            btnQuitGame.classList.remove('hidden');
+        } else {
+            btnQuitGame.classList.add('hidden');
+        }
+    }
+
+    // Keep player room code visible
+    const playerRoomCodeEl = document.getElementById('player-room-code');
+    if (playerRoomCodeEl && roomCode) {
+        playerRoomCodeEl.textContent = roomCode;
+    }
 
     // Switch screens based on phase
     if (gameState.phase === 'lobby') {
