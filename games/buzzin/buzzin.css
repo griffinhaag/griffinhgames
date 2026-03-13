@@ -433,7 +433,7 @@ body {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     text-align: center;
-    animation: offTheDomePulse 4.5s ease-in-out infinite;
+    animation: none;
     margin-bottom: 20px;
 }
 
@@ -445,8 +445,22 @@ body {
 }
 
 @keyframes offTheDomePulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 rgba(255, 80, 120, 0);
+    }
+    30% {
+        transform: scale(1.008);
+        box-shadow: 0 0 6px rgba(255, 80, 120, 0.08);
+    }
+    50% {
+        transform: scale(1.015);
+        box-shadow: 0 0 10px rgba(255, 80, 120, 0.12);
+    }
+    70% {
+        transform: scale(1.008);
+        box-shadow: 0 0 6px rgba(255, 80, 120, 0.08);
+    }
 }
 
 @keyframes fadeInUp {
@@ -472,7 +486,17 @@ body {
     text-transform: uppercase;
     letter-spacing: 2px;
     margin-bottom: clamp(10px, 2vh, 15px);
-    animation: offTheDomePulse 2s ease-in-out infinite;
+    vertical-align: middle;
+    transform-origin: center;
+    will-change: transform, box-shadow;
+}
+
+#host-category .off-the-dome-badge {
+    animation: none;
+}
+
+#player-category .off-the-dome-badge {
+    animation: offTheDomePulse 2.8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
 }
 
 .otd-category-label {
@@ -485,8 +509,6 @@ body {
     background: rgba(255,255,255,0.1);
     border-radius: 20px;
     vertical-align: middle;
-    position: relative;
-    top: 3px;
     letter-spacing: 0.5px;
     margin-bottom: clamp(10px, 2vh, 15px);
 }
@@ -2126,4 +2148,3 @@ input[type="range"]::-webkit-slider-thumb {
         max-width: 700px;
     }
 }
-
