@@ -445,25 +445,13 @@ body {
 }
 
 @keyframes offTheDomePulse {
-    0% {
+    0%, 100% {
         transform: scale(1);
         box-shadow: 0 0 0 rgba(255, 80, 120, 0);
-    }
-    25% {
-        transform: scale(1.012);
-        box-shadow: 0 0 8px rgba(255, 80, 120, 0.12);
     }
     50% {
-        transform: scale(1.03);
-        box-shadow: 0 0 18px rgba(255, 80, 120, 0.22);
-    }
-    75% {
-        transform: scale(1.012);
-        box-shadow: 0 0 8px rgba(255, 80, 120, 0.12);
-    }
-    100% {
-        transform: scale(1);
-        box-shadow: 0 0 0 rgba(255, 80, 120, 0);
+        transform: scale(1.02);
+        box-shadow: 0 0 14px rgba(255, 80, 120, 0.18);
     }
 }
 
@@ -490,10 +478,17 @@ body {
     text-transform: uppercase;
     letter-spacing: 2px;
     margin-bottom: clamp(10px, 2vh, 15px);
-    animation: offTheDomePulse 6s ease-in-out infinite;
     vertical-align: middle;
     transform-origin: center;
     will-change: transform, box-shadow;
+}
+
+#host-category .off-the-dome-badge {
+    animation: offTheDomePulse 3.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+#player-category .off-the-dome-badge {
+    animation: none;
 }
 
 .otd-category-label {
@@ -2145,4 +2140,3 @@ input[type="range"]::-webkit-slider-thumb {
         max-width: 700px;
     }
 }
-
