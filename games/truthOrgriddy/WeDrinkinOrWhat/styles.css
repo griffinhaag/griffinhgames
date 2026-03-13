@@ -1,167 +1,396 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+/* styles.css — We Drinkin Or What: Warm Fire Theme */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --accent:       #fbbf24;
+    --accent-glow:  rgba(251, 191, 36, 0.2);
+    --btn-1:        #22c55e;
+    --btn-1-hover:  #16a34a;
+    --btn-1-glow:   rgba(34, 197, 94, 0.4);
+    --btn-2:        #f97316;
+    --btn-2-hover:  #ea6c09;
+    --btn-2-glow:   rgba(249, 115, 22, 0.4);
+    --btn-3:        #ef4444;
+    --btn-3-hover:  #dc2626;
+    --btn-3-glow:   rgba(239, 68, 68, 0.4);
+    --glass:        rgba(255, 255, 255, 0.06);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --text:         #fef3c7;
+    --text-muted:   rgba(254, 243, 199, 0.5);
+    --r:            14px;
+    --font:         'Inter', sans-serif;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
 
 body {
     margin: 0;
+    padding: 72px 20px 48px;
+    min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    height: 100vh;
-    background: linear-gradient(270deg, #550202, #781313, #ff7f00, #ffff00, #ff7f00, #ff0000, #8e0909);
-    background-size: 3000% 3000%;
-    overflow: hidden;
-    font-family: 'Roboto', sans-serif;
-    animation: backgroundShift 300s ease infinite;
+    background: linear-gradient(135deg, #130508 0%, #1e0a0a 45%, #180d00 100%);
+    background-size: 300% 300%;
+    animation: bgShift 25s ease infinite;
+    font-family: var(--font);
+    color: var(--text);
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
-@keyframes backgroundShift {
+@keyframes bgShift {
     0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
+    50%       { background-position: 100% 50%; }
 }
 
+/* ── Homepage Button ── */
+#homepage-button {
+    position: fixed !important;
+    top: 14px !important;
+    left: 14px !important;
+    z-index: 999;
+    padding: 8px 16px !important;
+    font-family: var(--font);
+    font-size: 13px !important;
+    font-weight: 600;
+    color: var(--accent) !important;
+    background: var(--glass) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 10px !important;
+    cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+    margin: 0 !important;
+    transform: none !important;
+    letter-spacing: 0.02em;
+}
+
+#homepage-button:hover {
+    background: var(--accent-glow) !important;
+    box-shadow: 0 0 0 1px var(--accent) !important;
+    transform: none !important;
+}
+
+/* ── Welcome Container — in normal flow ── */
+#welcome-container {
+    position: static;
+    transform: none;
+    left: auto;
+    width: 100%;
+    max-width: 580px;
+    text-align: center;
+}
+
+#welcome-text {
+    background: var(--glass);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-top: 3px solid var(--accent);
+    border-radius: var(--r);
+    padding: 24px 28px;
+    font-size: clamp(0.9rem, 2.2vw, 1.1rem);
+    font-weight: 500;
+    line-height: 1.75;
+    color: var(--text);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    margin: 0 0 20px;
+}
+
+/* ── Start Container ── */
 #start-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 420px;
     text-align: center;
 }
 
 #playerInput {
-    margin-bottom: 10px;
-    padding: 10px;
-    border: 2px solid #333;
-    border-radius: 8px;
-    font-size: 18px;
+    flex: 0 0 100%;
+    padding: 13px 18px;
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--r);
+    font-family: var(--font);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    margin-bottom: 0;
 }
 
+#playerInput::placeholder { color: var(--text-muted); }
+
+#playerInput:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* ── Base button reset ── */
+button {
+    cursor: pointer;
+    font-family: var(--font);
+    font-weight: 700;
+    border: none;
+    transition: all 0.18s ease;
+}
+
+/* Start / Add Player buttons */
+#start-container button {
+    flex: 1;
+    min-width: 110px;
+    padding: 13px 18px;
+    border-radius: var(--r);
+    font-size: 14px;
+    letter-spacing: 0.02em;
+}
+
+#start-container button:first-of-type {
+    background: var(--accent);
+    color: #130508;
+}
+
+#start-container button:first-of-type:hover {
+    filter: brightness(1.08);
+    box-shadow: 0 6px 20px var(--accent-glow);
+    transform: translateY(-2px);
+}
+
+#start-container button:last-of-type {
+    background: var(--glass);
+    color: var(--accent);
+    border: 1px solid var(--glass-border);
+}
+
+#start-container button:last-of-type:hover {
+    background: var(--accent-glow);
+    border-color: var(--accent);
+    transform: translateY(-2px);
+}
+
+/* ── Game Container ── */
 #game-container {
     display: none;
     flex-direction: column;
     align-items: center;
+    gap: 16px;
+    width: 100%;
+    max-width: 580px;
 }
 
+/* ── Question Card ── */
 #card-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    background-color: rgba(255, 255, 255, 0.8);
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    margin-bottom: 20px;
-    animation: fadeIn 0.5s ease;
+    width: 100%;
+    background: var(--glass);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--glass-border);
+    border-top: 3px solid var(--accent);
+    border-radius: var(--r);
+    padding: clamp(22px, 5vw, 40px);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    margin-bottom: 0;
+    animation: fadeIn 0.4s ease;
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
-.fade-in-animation {
-    animation: fadeIn 0.5s ease;
-}
+.fade-in-animation { animation: fadeIn 0.4s ease; }
 
-#question-card, #player-name {
+#player-name {
+    font-size: clamp(1rem, 2.8vw, 1.3rem);
+    font-weight: 800;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     text-align: center;
-    font-size: 24px;
+    margin-bottom: 14px;
 }
 
+#question-card { text-align: center; width: 100%; }
+
+#question {
+    font-size: clamp(1rem, 2.8vw, 1.25rem);
+    font-weight: 500;
+    line-height: 1.7;
+    color: var(--text);
+    text-align: center;
+    margin-top: 0;
+}
+
+/* ── Action Buttons ── */
 #buttons-container {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-top: 10px;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+    flex-wrap: nowrap;
+    margin-top: 0;
 }
 
-button, .action-button {
-    cursor: pointer;
-    background-color: #1b0238;
-    border: none;
+.action-button {
+    flex: 1;
+    padding: 13px 8px;
+    border-radius: var(--r);
+    font-family: var(--font);
+    font-size: clamp(12px, 2vw, 14px);
+    font-weight: 700;
+    letter-spacing: 0.03em;
     color: white;
-    padding: 15px 32px;
-    text-align: center;
-    text-decoration: none;
-    display: inline-block;
-    font-size: 16px;
-    margin: 4px;
-    border-radius: 8px;
-    transition: transform 0.3s ease-in-out, background-color 0.3s ease;
-}
-
-button:hover, .action-button:hover {
-    transform: scale(1.05);
-    background-color: #3a0229;
-}
-
-#homepage-button {
+    border: none;
     cursor: pointer;
-    background-color: #ce63c8;
-    color: plum;
-    padding: 10px;
+    transition: all 0.18s ease;
+    min-width: 0;
     text-align: center;
-    text-decoration: none;
-    font-size: 16px;
-    margin: 10px;
-    border: 2px solid plum;
-    border-radius: 8px;
-    position: absolute;
-    top: 10px;
-    left: 10px;
 }
 
+/* Answered — 1st child */
+#buttons-container > :nth-child(1) { background: var(--btn-1); color: white; }
+#buttons-container > :nth-child(1):hover {
+    background: var(--btn-1-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px var(--btn-1-glow);
+}
+
+/* Shuffle — 2nd child */
+#buttons-container > :nth-child(2) { background: var(--btn-2); color: white; }
+#buttons-container > :nth-child(2):hover {
+    background: var(--btn-2-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px var(--btn-2-glow);
+}
+
+/* Griddy — 4th child (spacer div is 3rd) */
+#buttons-container > :nth-child(4) { background: var(--btn-3); color: white; }
+#buttons-container > :nth-child(4):hover {
+    background: var(--btn-3-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px var(--btn-3-glow);
+}
+
+/* ── Score Table ── */
 #point-container {
-    margin-top: 20px;
-    text-align: center;
-}
-
-#game-over {
-    display: none;
-    font-size: 24px;
-    font-weight: bold;
-    margin-top: 20px;
-    margin-left: 10px;
-}
-
-#welcome-container {
-    position: absolute;
-    top: 3%;
-    left: 50%;
-    transform: translateX(-50%);
-    text-align: center;
-    width: 50%;
-}
-
-#welcome-text {
-    display: block;
-    background-color: rgba(255, 255, 255, 0.8);
-    padding: 20px;
-    border: 2px solid #333;
-    border-radius: 8px;
-    font-size: 36px;
-    font-weight: bold;
-    margin-bottom: 20px;
-}
-
-#results-table-container {
-    margin-top: 20px;
+    width: 100%;
+    margin-top: 0;
     text-align: center;
 }
 
 .results-table {
     width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: var(--r);
+    overflow: hidden;
+    background: var(--glass);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    margin-top: 0;
 }
 
-.results-table th, .results-table td {
-    border: 1px solid #fff;
-    padding: 8px;
+.results-table th,
+.results-table td {
+    padding: 10px 14px;
+    text-align: center;
 }
 
 .results-table th {
-    background-color: rgba(255, 255, 255, 0.8);
-    color: #000;
+    background: rgba(251, 191, 36, 0.12);
+    color: var(--accent);
+    font-family: var(--font);
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid var(--glass-border);
 }
-/* td stands for table data */
+
 .results-table td {
-    color: #FFFFFF;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 500;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
+.results-table tr:last-child td { border-bottom: none; }
+.results-table tr:nth-child(even) td { background: rgba(255, 255, 255, 0.02); }
 
+/* ── Game Over ── */
+#game-over {
+    display: none;
+    font-size: clamp(1.6rem, 6vw, 2.8rem);
+    font-weight: 800;
+    color: var(--accent);
+    text-align: center;
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 30px var(--accent-glow);
+    margin-top: 0;
+    margin-left: 0;
+}
+
+#results-table-container {
+    width: 100%;
+    max-width: 580px;
+    text-align: center;
+    margin-top: 0;
+    color: var(--text);
+}
+
+/* ── End-game appended container ── */
+hr {
+    border: none;
+    border-top: 1px solid var(--glass-border);
+    margin: 12px 0;
+}
+
+body > div:last-of-type {
+    width: 100%;
+    max-width: 580px;
+    color: var(--text);
+    text-align: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+    letter-spacing: 0.04em;
+}
+
+/* ── Responsive ── */
+@media (max-width: 520px) {
+    body { padding: 68px 14px 32px; }
+
+    #welcome-text {
+        padding: 18px 20px;
+        font-size: 0.88rem;
+    }
+
+    .action-button {
+        padding: 12px 6px;
+        font-size: 12px;
+    }
+
+    #card-container { padding: 20px 16px; }
+}
+
+@media (max-width: 360px) {
+    #buttons-container { gap: 5px; }
+    .action-button { padding: 11px 4px; font-size: 11px; }
+}
