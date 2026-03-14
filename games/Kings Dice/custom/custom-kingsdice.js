@@ -10,18 +10,18 @@ let customGameRules = {};
 
 // Default rules to use if no custom rules are saved
 const defaultRules = {
-    1: { action: "Take a drink" },
-    2: { action: "Give someone two drinks" },
-    3: { action: "Take three drinks" },
-    4: { action: "Last to point to floor drinks" },
-    5: { action: "Guys drink" },
-    6: { action: "Chicks drink" },
-    7: { action: "Last to point up drinks" },
-    8: { action: "Choose drinking buddy" },
-    9: { action: "Pick word, rhyme or drink" },
+    1:  { action: "Take a drink" },
+    2:  { action: "Give someone two drinks" },
+    3:  { action: "Take three drinks" },
+    4:  { action: "Last to point to floor drinks" },
+    5:  { action: "Guys drink" },
+    6:  { action: "Chicks drink" },
+    7:  { action: "Last to point up drinks" },
+    8:  { action: "Choose drinking buddy" },
+    9:  { action: "Pick word, rhyme or drink" },
     10: { action: "Pick category, name or drink" },
     11: { action: "Three fingers up" },
-    12: { action: "Ask around, mess up drink" },
+    12: { action: "Ask around, mess up and drink" },
     13: { action: "Make a rule" },
     14: { action: "Start the chain" }
 };
@@ -141,7 +141,7 @@ function startCustomGame() {
     customGameRules = loadSavedRules();
     
     document.getElementById('setup-container').style.display = 'none';
-    document.getElementById('game-container').style.display = 'block';
+    document.getElementById('game-container').style.display = 'flex';
     initializeDice();
     updateCurrentPlayer();
     updateCustomRulesGrid();
@@ -149,7 +149,7 @@ function startCustomGame() {
     // Initialize balloon
     const balloon = document.querySelector('.balloon');
     balloon.style.display = 'block';
-    balloon.style.transform = 'scale(1)';
+    balloon.style.transform = 'translateX(-50%) scale(1)';
 }
 
 function createDiceFace(value) {
@@ -218,45 +218,22 @@ function moveToNextPlayer() {
     updateCurrentPlayer();
 }
 
-function getValidThirdDiceValue(roll1, roll2) {
-    const currentSum = roll1 + roll2;
-
-    // No third dice needed if we already hit 13 or 14
-    if (currentSum >= 13) return null;
-
-    // Calculate needed third dice values
-    const roll3For13 = 13 - currentSum;
-    const roll3For14 = 14 - currentSum;
-
-    // Ensure third dice is within valid range (1-6)
-    if (roll3For13 >= 1 && roll3For13 <= 6) return roll3For13;
-    if (roll3For14 >= 1 && roll3For14 <= 6) return roll3For14;
-
-    return null; // If a third dice is not needed, return null
+function getValidThirdDiceValue(roll1, roll2, targetSum) {
+    const roll3 = targetSum - roll1 - roll2;
+    return (roll3 >= 1 && roll3 <= 6) ? roll3 : null;
 }
 
-
-
-function showThirdDice(roll1, roll2, targetSum) {
-    const roll3 = getValidThirdDiceValue(roll1, roll2, targetSum);
-
-    if (roll3 !== null) {
-        const dice3 = document.getElementById('dice3');
-        dice3.style.display = 'block';
-        dice3.style.opacity = '1';
-        dice3.className = 'dice show-' + roll3;
-        dice3.classList.add('magical-entrance-enhanced');
-        return roll3;
-    } else {
-        // Ensure third dice remains hidden when not needed
-        const dice3 = document.getElementById('dice3');
-        dice3.style.display = 'none';
-        dice3.style.opacity = '0';
-        dice3.className = 'dice';
-    }
-
-    return null; // If no third dice is needed, return null
+function showFace(diceEl, value) {
+    const hasGlow = diceEl.classList.contains('lucky-glow');
+    diceEl.className = `dice show-${value}`;
+    if (hasGlow) diceEl.classList.add('lucky-glow');
 }
+
+function finishRoll() {
+    document.getElementById('rollButton').disabled = false;
+    isRolling = false;
+}
+
 
 
 
@@ -268,67 +245,81 @@ function rollDice() {
     const dice2 = document.getElementById('dice2');
     const dice3 = document.getElementById('dice3');
     const rollButton = document.getElementById('rollButton');
-    
+
     rollButton.disabled = true;
 
-    // Hide third dice initially
-    if (dice3) {
-        dice3.style.display = 'none';
-        dice3.style.opacity = '0';
-        dice3.className = 'dice';
-    }
+    // Reset dice3 & active highlights
+    dice3.style.display = 'none';
+    dice3.style.opacity = '0';
+    dice3.className = 'dice';
+    document.querySelectorAll('.rule-item').forEach(el => el.classList.remove('active'));
 
-    dice1.classList.add('rolling');
-    dice2.classList.add('rolling');
+    // 12% single die | 15% lucky (3 dice) | 73% normal 2 dice
+    const rand = Math.random();
+    const isSingleDie = rand < 0.12;
+    const isLucky     = rand >= 0.85;
 
-    let roll1, roll2, roll3 = null;
-    let targetSum = null;
+    if (isSingleDie) {
+        dice2.style.visibility = 'hidden';
+        const roll1 = Math.floor(Math.random() * 6) + 1;
+        dice1.classList.add('rolling');
+        setTimeout(() => {
+            dice1.classList.remove('rolling');
+            showFace(dice1, roll1);
+            dice2.style.visibility = 'visible';
+            displayResult(roll1, true, false);
+            finishRoll();
+        }, 1600);
 
-    const isRareRoll = Math.random() < (2 / 13); // 2/13 chance for 13 or 14
-
-    if (isRareRoll) {
-        // Randomly choose 13 or 14 as the target sum
-        targetSum = Math.random() < 0.5 ? 13 : 14;
-
-        // Generate first two dice and determine the needed third dice
+    } else if (isLucky) {
+        dice2.style.visibility = 'visible';
+        const targetSum = Math.random() < 0.5 ? 13 : 14;
+        let roll1, roll2, roll3;
         do {
             roll1 = Math.floor(Math.random() * 6) + 1;
             roll2 = Math.floor(Math.random() * 6) + 1;
             roll3 = getValidThirdDiceValue(roll1, roll2, targetSum);
-        } while (roll3 === null); // Ensure we get a valid combination
+        } while (roll3 === null);
 
-    } else {
-        // Normal roll with only two dice (no third dice)
-        roll1 = Math.floor(Math.random() * 6) + 1;
-        roll2 = Math.floor(Math.random() * 6) + 1;
-    }
+        dice1.classList.add('rolling');
+        dice2.classList.add('rolling');
 
-    setTimeout(() => {
-        dice1.classList.remove('rolling');
-        dice2.classList.remove('rolling');
+        setTimeout(() => {
+            dice1.classList.remove('rolling');
+            dice2.classList.remove('rolling');
+            showFace(dice1, roll1);
+            showFace(dice2, roll2);
 
-        dice1.className = `dice show-${roll1}`;
-        dice2.className = `dice show-${roll2}`;
-
-        if (isRareRoll && roll3 !== null) {
             setTimeout(() => {
                 dice3.style.display = 'block';
-                dice3.style.opacity = '1';
-                dice3.classList.add('rolling');
-                
+                requestAnimationFrame(() => {
+                    dice3.style.opacity = '1';
+                    dice3.classList.add('rolling', 'lucky-entrance');
+                });
                 setTimeout(() => {
-                    dice3.classList.remove('rolling');
-                    dice3.classList.add(`show-${roll3}`);
-                    displayResult(roll1 + roll2 + roll3, true);
-                }, 1000);
-            }, 500);
-        } else {
-            displayResult(roll1 + roll2, false);
-        }
+                    dice3.classList.remove('rolling', 'lucky-entrance');
+                    dice3.className = `dice show-${roll3} lucky-glow`;
+                    displayResult(targetSum, false, true);
+                    finishRoll();
+                }, 1400);
+            }, 450);
+        }, 1600);
 
-        rollButton.disabled = false;
-        isRolling = false;
-    }, 2000);
+    } else {
+        dice2.style.visibility = 'visible';
+        const roll1 = Math.floor(Math.random() * 6) + 1;
+        const roll2 = Math.floor(Math.random() * 6) + 1;
+        dice1.classList.add('rolling');
+        dice2.classList.add('rolling');
+        setTimeout(() => {
+            dice1.classList.remove('rolling');
+            dice2.classList.remove('rolling');
+            showFace(dice1, roll1);
+            showFace(dice2, roll2);
+            displayResult(roll1 + roll2, false, false);
+            finishRoll();
+        }, 1600);
+    }
 }
 
 
@@ -339,7 +330,8 @@ function updateCustomRulesGrid() {
     for (let i = 1; i <= 14; i++) {
         const ruleDiv = document.createElement('div');
         ruleDiv.className = 'rule-item';
-        ruleDiv.innerHTML = `#${i} - ${customGameRules[i].action}`;
+        ruleDiv.setAttribute('data-rule', i);
+        ruleDiv.innerHTML = `<span class="rule-num">${i}</span><span class="rule-text">${customGameRules[i].action}</span>`;
         rulesGrid.appendChild(ruleDiv);
     }
 }
@@ -354,7 +346,7 @@ function inflateBalloon() {
     const inflationSize = inflationCount * 20;
     const newSize = baseSize + inflationSize;
     
-    balloon.style.transform = `scale(${newSize/100})`;
+    balloon.style.transform = `translateX(-50%) scale(${newSize/100})`;
     balloon.classList.add('inflate');
     setTimeout(() => balloon.classList.remove('inflate'), 300);
 
@@ -385,30 +377,41 @@ function showGameOver(losingPlayer) {
     gameOverDiv.className = 'game-over';
     gameOverDiv.innerHTML = `
         <div class="game-over-content">
-            <h2>BOOM! Game Over!</h2>
-            <p>${losingPlayer} popped the balloon!</p>
+            <div class="game-over-title">💥 BOOM!</div>
+            <p class="game-over-sub">${losingPlayer} popped the balloon!</p>
             <button onclick="location.reload()">Play Again</button>
         </div>
     `;
     document.body.appendChild(gameOverDiv);
 }
 
-function displayResult(total, isRareRoll) {
-    const diceResult = document.getElementById('dice-result');
+function displayResult(total, isSingleDie, isLucky) {
+    const diceResult   = document.getElementById('dice-result');
     const actionResult = document.getElementById('action-result');
-    
     const rule = customGameRules[total];
+
     if (rule) {
-        diceResult.textContent = isRareRoll ? 
-            `Rare Roll! You've rolled: ${total}` : 
-            `Rolled: ${total}`;
+        let badge = '';
+        if (isLucky)     badge = '<span class="roll-badge lucky-badge">Lucky Roll</span>';
+        else if (isSingleDie) badge = '<span class="roll-badge single-badge">Single Die</span>';
+
+        diceResult.innerHTML = `${badge}<span class="roll-total">${total}</span>`;
         actionResult.innerHTML = `
-            <div class="rule-name">#${total}</div>
-            <div class="rule-action">${rule.action}</div>
+            <div class="result-num">#${total}</div>
+            <div class="result-action">${rule.action}</div>
         `;
+        actionResult.classList.remove('pop-in');
+        void actionResult.offsetWidth;
+        actionResult.classList.add('pop-in');
+
+        const tile = document.querySelector(`.rule-item[data-rule="${total}"]`);
+        if (tile) {
+            tile.classList.add('active');
+            tile.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
     } else {
         diceResult.textContent = `Rolled: ${total}`;
-        actionResult.textContent = 'Roll again!';
+        actionResult.textContent = 'No rule for this roll.';
     }
 }
 
