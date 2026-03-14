@@ -327,7 +327,7 @@ button:disabled {
 }
 
 .dice.rolling {
-    animation: diceRoll 1.6s cubic-bezier(0.4, 0, 0.35, 1) forwards;
+    animation: diceRoll 2.0s cubic-bezier(0.4, 0, 0.35, 1) forwards;
 }
 
 /* Lucky die entrance: drop in from above with spin */
