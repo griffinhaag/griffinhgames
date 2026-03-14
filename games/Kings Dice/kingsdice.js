@@ -166,35 +166,31 @@ function rollDice() {
     dice3.className = 'dice';
     document.querySelectorAll('.rule-item').forEach(el => el.classList.remove('active'));
 
-    // ── Determine roll type ──
-    // 12% single die  |  15% lucky (3 dice → 13 or 14)  |  73% normal 2 dice
-    const rand = Math.random();
-    const isSingleDie = rand < 0.12;
-    const isLucky     = rand >= 0.85;
+    // ── Pick rule 1–14 with equal probability (1/14 each) ──
+    // Then determine what dice to display for that result.
+    const total = Math.floor(Math.random() * 14) + 1;
+    const isSingleDie = total === 1;
+    const isLucky     = total >= 13;
 
     if (isSingleDie) {
-        // Only dice1 is visible; dice2 hidden so single die is visually centered
+        // Rule 1: single die showing 1
         dice2.style.visibility = 'hidden';
-        const roll1 = Math.floor(Math.random() * 6) + 1;
         dice1.classList.add('rolling');
         setTimeout(() => {
             dice1.classList.remove('rolling');
-            showFace(dice1, roll1);
+            showFace(dice1, 1);
             // dice2 remains hidden — restored at start of next rollDice()
-            displayResult(roll1, true, false);
+            displayResult(1, true, false);
             finishRoll();
         }, 2000);
 
     } else if (isLucky) {
-        // Restore dice2 if it was hidden
-        dice2.style.visibility = 'visible';
-
-        const targetSum = Math.random() < 0.5 ? 13 : 14;
+        // Rules 13–14: three dice summing to total
         let roll1, roll2, roll3;
         do {
             roll1 = Math.floor(Math.random() * 6) + 1;
             roll2 = Math.floor(Math.random() * 6) + 1;
-            roll3 = getValidThirdDice(roll1, roll2, targetSum);
+            roll3 = getValidThirdDice(roll1, roll2, total);
         } while (roll3 === null);
 
         dice1.classList.add('rolling');
@@ -216,7 +212,7 @@ function rollDice() {
                 setTimeout(() => {
                     dice3.classList.remove('rolling', 'lucky-entrance');
                     dice3.className = `dice show-${roll3} lucky-glow`;
-                    displayResult(targetSum, false, true);
+                    displayResult(total, false, true);
                     finishRoll();
                 }, 1400);
             }, 450);
@@ -224,10 +220,12 @@ function rollDice() {
         }, 2000);
 
     } else {
-        // Normal two-dice roll
-        dice2.style.visibility = 'visible';
-        const roll1 = Math.floor(Math.random() * 6) + 1;
-        const roll2 = Math.floor(Math.random() * 6) + 1;
+        // Rules 2–12: two dice summing to total
+        // Pick roll1 uniformly from the valid range so both dice show a natural value
+        const min1 = Math.max(1, total - 6);
+        const max1 = Math.min(6, total - 1);
+        const roll1 = Math.floor(Math.random() * (max1 - min1 + 1)) + min1;
+        const roll2 = total - roll1;
 
         dice1.classList.add('rolling');
         dice2.classList.add('rolling');
@@ -237,7 +235,7 @@ function rollDice() {
             dice2.classList.remove('rolling');
             showFace(dice1, roll1);
             showFace(dice2, roll2);
-            displayResult(roll1 + roll2, false, false);
+            displayResult(total, false, false);
             finishRoll();
         }, 2000);
     }
