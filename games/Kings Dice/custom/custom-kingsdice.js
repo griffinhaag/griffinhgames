@@ -248,6 +248,9 @@ function rollDice() {
 
     rollButton.disabled = true;
 
+    // Reset dice2 visibility from any previous single die roll
+    dice2.style.visibility = 'visible';
+
     // Reset dice3 & active highlights
     dice3.style.display = 'none';
     dice3.style.opacity = '0';
@@ -266,7 +269,7 @@ function rollDice() {
         setTimeout(() => {
             dice1.classList.remove('rolling');
             showFace(dice1, roll1);
-            dice2.style.visibility = 'visible';
+            // dice2 remains hidden — restored at start of next rollDice()
             displayResult(roll1, true, false);
             finishRoll();
         }, 1600);
@@ -391,11 +394,12 @@ function displayResult(total, isSingleDie, isLucky) {
     const rule = customGameRules[total];
 
     if (rule) {
-        let badge = '';
-        if (isLucky)     badge = '<span class="roll-badge lucky-badge">Lucky Roll</span>';
-        else if (isSingleDie) badge = '<span class="roll-badge single-badge">Single Die</span>';
-
-        diceResult.innerHTML = `${badge}<span class="roll-total">${total}</span>`;
+        if (isSingleDie) {
+            diceResult.innerHTML = '';
+        } else {
+            const badge = isLucky ? '<span class="roll-badge lucky-badge">Lucky Roll</span>' : '';
+            diceResult.innerHTML = `${badge}<span class="roll-total">${total}</span>`;
+        }
         actionResult.innerHTML = `
             <div class="result-num">#${total}</div>
             <div class="result-action">${rule.action}</div>
