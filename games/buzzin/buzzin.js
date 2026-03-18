@@ -929,7 +929,8 @@ function showScreen(screenName) {
     screens[screenName].classList.add('active');
 
     // Clean up transition overlays (results-overlay manages its own lifecycle)
-    ['off-the-dome-overlay', 'play-again-modal', 'kicked-overlay'].forEach(id => {
+    ['off-the-dome-overlay', 'play-again-modal', 'kicked-overlay',
+     'player-answered-list', 'player-image-display', 'host-image-display'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.remove();
     });
@@ -1764,6 +1765,7 @@ async function showPlayAgainModal() {
     const otdAtEndSaved = lastSettings.otdAtEnd === true;
     const showOtdCatSaved = lastSettings.showOtdCategory !== false;
     const hardModeSaved = lastSettings.hardMode === true;
+    const countdownSaved = lastSettings.countdownEnabled !== false;
 
     const CATEGORIES = [
         "General Knowledge","Science","Movies & TV","Music","Sports",
@@ -1811,7 +1813,7 @@ async function showPlayAgainModal() {
             </div>
             <div class="pa-section">
                 <label class="pa-toggle">
-                    <input type="checkbox" id="pa-countdown" ${countdownEnabled ? 'checked' : ''}>
+                    <input type="checkbox" id="pa-countdown" ${countdownSaved ? 'checked' : ''}>
                     <span>3-2-1 countdown between questions</span>
                 </label>
             </div>
@@ -2108,7 +2110,7 @@ function showResultsOverlay(event) {
             <div class="correct-answer">
                 Correct Answer: <strong>${event.correctAnswer || 'N/A'}</strong>
             </div>
-            ${event.explanation ? `<div class="round-explanation">${event.explanation}</div>` : ''}
+            ${event.explanation ? `<div class="round-explanation" id="overlay-explanation-slot"></div>` : ''}
             <div class="results-list">
                 ${resultsHTML || '<div class="result-item" style="justify-content:center;color:#888;">No answers submitted</div>'}
             </div>
@@ -2122,6 +2124,12 @@ function showResultsOverlay(event) {
     `;
 
     document.body.appendChild(overlay);
+
+    // Safely set explanation text (avoid innerHTML injection from Groq output)
+    if (event.explanation) {
+        const expSlot = overlay.querySelector('#overlay-explanation-slot');
+        if (expSlot) expSlot.textContent = event.explanation;
+    }
 
     // Temporarily allow overflow so rank-change animations render outside card bounds
     const card = overlay.querySelector('#results-card-inner');
