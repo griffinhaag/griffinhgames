@@ -29,7 +29,8 @@ const CATEGORIES = [
   "Geography",
   "Pop Culture",
   "Games",
-  "Random"
+  "Random",
+  "Flags"
 ];
 
 // Question counts per category — fetched from server so they stay in sync
@@ -293,7 +294,7 @@ function init() {
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
-        reconnectionAttempts: 5
+        reconnectionAttempts: 50
     });
 
     setupSocketListeners();
@@ -412,11 +413,9 @@ function setupSocketListeners() {
         reconnectAttempts = 0;
         const ro = document.getElementById('reconnecting-overlay');
         if (ro) ro.remove();
-        // Re-establish isHost from URL params in case it was lost
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('host') === 'true') isHost = true;
+        // isHost is determined server-side via room:state — do not override from URL
         if (roomCode && playerName) {
-            socket.emit('player:joinRoom', { roomCode, name: playerName, isHost: isHost });
+            socket.emit('player:joinRoom', { roomCode, name: playerName, isHost: false });
         }
     });
     
@@ -527,11 +526,7 @@ function setupSocketListeners() {
         // Otherwise, show lobby
         updateLobbyUI(rs);
 
-        // Sync host status — URL param overrides (for setup-page redirects)
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('host') === 'true') isHost = true;
         console.log('I am host:', isHost);
-
         updateHostControlsVisibility();
     });
 
@@ -686,6 +681,7 @@ function setupUIListeners() {
             let questionCount = 10;
             let timerDurationValue = 30;
             let bonusFirstCorrect = true;
+            let hardMode = false;
             try {
                 const settings = JSON.parse(sessionStorage.getItem('buzzin_settings') || '{}');
                 if (settings.categories && settings.categories.length > 0) categories = settings.categories;
@@ -695,6 +691,7 @@ function setupUIListeners() {
                 hostAsPlayer = settings.hostAsPlayer === true;
                 offTheDomeCount = settings.offTheDomeCount ?? 3;
                 otdAtEnd = settings.otdAtEnd === true;
+                hardMode = settings.hardMode === true;
             } catch (e) {}
 
             btn.disabled = true;
@@ -710,6 +707,7 @@ function setupUIListeners() {
                 hostAsPlayer,
                 offTheDomeCount,
                 otdAtEnd,
+                hardMode,
                 seenQuestions: getSeenQuestions()
             });
 
@@ -1072,14 +1070,20 @@ function renderGameState() {
         }
     }
 
-    // When host clicks NEXT QUESTION, phase moves to "waiting" — dismiss overlay for everyone
-    if (currentPhase === 'waiting' && previousPhase === 'result') {
+    // Dismiss results overlay whenever leaving the 'result' phase (covers end-of-game too)
+    if (previousPhase === 'result' && currentPhase !== 'result') {
         const ro = document.getElementById('results-overlay');
         if (ro) {
             ro.style.transition = 'opacity 0.25s ease-out';
             ro.style.opacity = '0';
             setTimeout(() => { if (ro.parentNode) ro.remove(); }, 250);
         }
+    }
+
+    // Start pre-question countdown when entering 'waiting' from result or question phase
+    // (covers normal next-question AND shuffle-during-question scenarios)
+    if (currentPhase === 'waiting' &&
+        (previousPhase === 'result' || previousPhase === 'question' || previousPhase === 'paused')) {
         if (countdownEnabled) {
             startPreQuestionCountdown(3, () => {
                 if (isHost) socket.emit('host:showQuestion', { roomCode });
@@ -1110,6 +1114,16 @@ function renderGameState() {
     const currentQText = gameState.currentQuestion?.question;
     if (currentQText && currentQText !== previousQuestionText) {
         addSeenQuestion(currentQText);
+        // Shuffle during waiting phase: same phase but a new question arrived — trigger countdown
+        if (currentPhase === 'waiting' && previousPhase === 'waiting') {
+            if (countdownEnabled) {
+                startPreQuestionCountdown(3, () => {
+                    if (isHost) socket.emit('host:showQuestion', { roomCode });
+                }, gameState.isOffTheDome);
+            } else if (isHost) {
+                socket.emit('host:showQuestion', { roomCode });
+            }
+        }
         previousQuestionText = currentQText;
     }
 
@@ -1343,6 +1357,19 @@ function renderHostView() {
 
     if (phase === 'result') {
         if (hostCard) hostCard.classList.remove('hidden');
+        // Image display (flag emoji etc.) above question text
+        let hostImgEl = document.getElementById('host-image-display');
+        if (currentQuestion?.imageDisplay) {
+            if (!hostImgEl) {
+                hostImgEl = document.createElement('div');
+                hostImgEl.id = 'host-image-display';
+                hostImgEl.className = 'question-image-display';
+                hostEls.question.parentNode.insertBefore(hostImgEl, hostEls.question);
+            }
+            hostImgEl.textContent = currentQuestion.imageDisplay;
+        } else if (hostImgEl) {
+            hostImgEl.remove();
+        }
         hostEls.question.textContent = currentQuestion?.question || '...';
         if (answerBox) {
             answerBox.textContent = currentQuestion?.answer || '...';
@@ -1351,6 +1378,8 @@ function renderHostView() {
         }
     } else {
         if (hostCard) hostCard.classList.add('hidden');
+        const hostImgEl = document.getElementById('host-image-display');
+        if (hostImgEl) hostImgEl.remove();
     }
 
     // Phase controls — hide all first
@@ -1445,6 +1474,8 @@ function renderPlayerView() {
     if (phase === 'waiting') {
         playerEls.category.textContent = 'Waiting...';
         playerEls.question.textContent = 'Waiting for host to show question...';
+        const staleImg = document.getElementById('player-image-display');
+        if (staleImg) staleImg.remove();
     } else if (currentQuestion) {
         // Show OFF THE DOME badge if applicable
         if (isOffTheDome) {
@@ -1453,6 +1484,19 @@ function renderPlayerView() {
             playerEls.category.innerHTML = `<span class="off-the-dome-badge">OFF THE DOME</span>${catLabel}`;
         } else {
             playerEls.category.textContent = currentQuestion.category || '';
+        }
+        // Image display (e.g. flag emoji shown large above question text)
+        let playerImgEl = document.getElementById('player-image-display');
+        if (currentQuestion.imageDisplay) {
+            if (!playerImgEl) {
+                playerImgEl = document.createElement('div');
+                playerImgEl.id = 'player-image-display';
+                playerImgEl.className = 'question-image-display';
+                playerEls.question.parentNode.insertBefore(playerImgEl, playerEls.question);
+            }
+            playerImgEl.textContent = currentQuestion.imageDisplay;
+        } else if (playerImgEl) {
+            playerImgEl.remove();
         }
         playerEls.question.textContent = currentQuestion.question || 'Wait for it...';
     } else {
@@ -1560,16 +1604,45 @@ function renderPlayerView() {
         playerEls.btnBuzz.disabled = true;
         selectedChoice = null;
     }
+
+    // Show answered players count during question phase (Task 3)
+    let answeredListEl = document.getElementById('player-answered-list');
+    if (phase === 'question') {
+        if (!answeredListEl) {
+            answeredListEl = document.createElement('div');
+            answeredListEl.id = 'player-answered-list';
+            answeredListEl.className = 'player-answered-status';
+            playerEls.view.appendChild(answeredListEl);
+        }
+        const answeredPlayers = (playerBuzzStatus || []).filter(p => p.hasAnswered);
+        const totalCount = (playerBuzzStatus || []).length;
+        if (answeredPlayers.length > 0) {
+            answeredListEl.innerHTML = `<div class="answered-status-label">Locked in: ${answeredPlayers.length}/${totalCount}</div>
+                <div class="answered-names">${answeredPlayers.map(p => `<span class="answered-tag">${p.name}</span>`).join('')}</div>`;
+        } else {
+            answeredListEl.innerHTML = `<div class="answered-status-label" style="opacity:0.5">Waiting for answers... 0/${totalCount}</div>`;
+        }
+    } else if (answeredListEl) {
+        answeredListEl.remove();
+    }
 }
 
 function renderMultipleChoiceButtons(choices) {
     if (!choicesEls.grid || !choices) return;
 
-    // Only shuffle once per question
+    // True/False (2-choice) detection — use two-choice layout, no shuffle
+    const isTwoChoice = choices.length === 2;
+    if (isTwoChoice) {
+        choicesEls.grid.classList.add('two-choice');
+    } else {
+        choicesEls.grid.classList.remove('two-choice');
+    }
+
+    // Only shuffle once per question (skip shuffle for 2-choice True/False)
     const questionKey = gameState?.currentQuestion?.question;
     if (questionKey !== lastRenderedQuestionKey) {
         lastRenderedQuestionKey = questionKey;
-        cachedShuffledChoices = [...choices].sort(() => Math.random() - 0.5);
+        cachedShuffledChoices = isTwoChoice ? [...choices] : [...choices].sort(() => Math.random() - 0.5);
     }
     const shuffledChoices = cachedShuffledChoices || choices;
 
@@ -1690,10 +1763,11 @@ async function showPlayAgainModal() {
     const otdCount = lastSettings.offTheDomeCount ?? 3;
     const otdAtEndSaved = lastSettings.otdAtEnd === true;
     const showOtdCatSaved = lastSettings.showOtdCategory !== false;
+    const hardModeSaved = lastSettings.hardMode === true;
 
     const CATEGORIES = [
         "General Knowledge","Science","Movies & TV","Music","Sports",
-        "History","Geography","Pop Culture","Games","Random"
+        "History","Geography","Pop Culture","Games","Random","Flags"
     ];
 
     const initialMax = cappedMax(totalQuestionsForCategories(cats.length ? cats : CATEGORIES));
@@ -1751,6 +1825,12 @@ async function showPlayAgainModal() {
                 <label class="pa-toggle">
                     <input type="checkbox" id="pa-show-otd-cat" ${showOtdCatSaved ? 'checked' : ''}>
                     <span>Show category alongside OFF THE DOME badge</span>
+                </label>
+            </div>
+            <div class="pa-section">
+                <label class="pa-toggle">
+                    <input type="checkbox" id="pa-hard-mode" ${hardModeSaved ? 'checked' : ''}>
+                    <span>Hard Mode — pull from harder question set</span>
                 </label>
             </div>
             <div class="pa-actions">
@@ -1822,6 +1902,7 @@ async function showPlayAgainModal() {
         const newCountdown = modal.querySelector('#pa-countdown').checked;
         const newOtdAtEnd = !modal.querySelector('#pa-otd-at-end').checked;
         const newShowOtdCat = modal.querySelector('#pa-show-otd-cat').checked;
+        const newHardMode = modal.querySelector('#pa-hard-mode').checked;
 
         // Update in-memory settings immediately
         countdownEnabled = newCountdown;
@@ -1838,7 +1919,8 @@ async function showPlayAgainModal() {
             bonusFirstCorrect: newBonus,
             countdownEnabled: newCountdown,
             otdAtEnd: newOtdAtEnd,
-            showOtdCategory: newShowOtdCat
+            showOtdCategory: newShowOtdCat,
+            hardMode: newHardMode
         }));
 
         socket.emit('host:restartGame', {
@@ -1849,6 +1931,7 @@ async function showPlayAgainModal() {
             timerDuration: newTimer,
             bonusFirstCorrect: newBonus,
             otdAtEnd: newOtdAtEnd,
+            hardMode: newHardMode,
             seenQuestions: getSeenQuestions()
         });
 
@@ -2025,6 +2108,7 @@ function showResultsOverlay(event) {
             <div class="correct-answer">
                 Correct Answer: <strong>${event.correctAnswer || 'N/A'}</strong>
             </div>
+            ${event.explanation ? `<div class="round-explanation">${event.explanation}</div>` : ''}
             <div class="results-list">
                 ${resultsHTML || '<div class="result-item" style="justify-content:center;color:#888;">No answers submitted</div>'}
             </div>

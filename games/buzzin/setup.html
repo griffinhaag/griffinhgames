@@ -311,6 +311,10 @@
                         <input type="checkbox" id="show-otd-category-toggle" checked>
                         <span>Show category alongside OFF THE DOME badge in-game</span>
                     </label>
+                    <label class="option-toggle">
+                        <input type="checkbox" id="hard-mode-toggle">
+                        <span>Hard Mode — pull from harder question set</span>
+                    </label>
                 </div>
             </div>
 
@@ -333,7 +337,8 @@
             "Geography",
             "Pop Culture",
             "Games",
-            "Random"
+            "Random",
+            "Flags"
         ];
         
         const backendUrl = window.BACKEND_URL || 'http://localhost:3000';
@@ -505,6 +510,7 @@
             const countdownEnabled = document.getElementById('countdown-toggle')?.checked !== false;
             const otdAtEnd = document.getElementById('otd-at-end-toggle')?.checked === false;
             const showOtdCategory = document.getElementById('show-otd-category-toggle')?.checked !== false;
+            const hardMode = document.getElementById('hard-mode-toggle')?.checked === true;
             sessionStorage.setItem('buzzin_settings', JSON.stringify({
                 categories: selectedCategories,
                 questionCount: questionCount,
@@ -515,7 +521,8 @@
                 offTheDomeCount: offTheDomeCount,
                 countdownEnabled: countdownEnabled,
                 otdAtEnd: otdAtEnd,
-                showOtdCategory: showOtdCategory
+                showOtdCategory: showOtdCategory,
+                hardMode: hardMode
             }));
             
             // Wait for socket to be connected before creating room
@@ -582,7 +589,8 @@
                 offTheDomeCount: offTheDomeCount,
                 countdownEnabled: document.getElementById('countdown-toggle')?.checked !== false,
                 otdAtEnd: document.getElementById('otd-at-end-toggle')?.checked === false,
-                showOtdCategory: document.getElementById('show-otd-category-toggle')?.checked !== false
+                showOtdCategory: document.getElementById('show-otd-category-toggle')?.checked !== false,
+                hardMode: document.getElementById('hard-mode-toggle')?.checked === true
             }));
 
             // Store redirect info for the game page
