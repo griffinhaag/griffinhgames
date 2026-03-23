@@ -262,23 +262,48 @@ const playerEls = {
 
 // --- Initialization ---
 function init() {
-    // Parse URL params
+    // Parse URL params — only trust room code from URL, never isHost
+    // (host status is exclusively determined by the server; reading it from a
+    //  user-editable URL would allow anyone to spoof admin controls)
     const urlParams = new URLSearchParams(window.location.search);
     roomCode = urlParams.get('room');
     playerName = urlParams.get('name');
-    isHost = urlParams.get('host') === 'true';
+    // isHost intentionally NOT read from URL
 
-    // Check sessionStorage for redirect info (from lobby/join page)
+    // Strip params from the URL bar so the address can't be shared with host=true
+    if (urlParams.has('host') || urlParams.has('name')) {
+      urlParams.delete('host');
+      urlParams.delete('name');
+      const cleanSearch = urlParams.toString() ? `?${urlParams.toString()}` : '';
+      window.history.replaceState({}, '', `${window.location.pathname}${cleanSearch}`);
+    }
+
+    // One-time redirect info written by setup.html / join.html — read it and clear it
     const redirectInfo = sessionStorage.getItem('buzzin_redirect');
     if (redirectInfo) {
         try {
             const info = JSON.parse(redirectInfo);
             roomCode = roomCode || info.room;
             playerName = playerName || info.name;
-            isHost = isHost || info.host === true;
+            // Only set isHost from the trusted one-time redirect (NOT from URL params)
+            if (info.host === true) isHost = true;
             sessionStorage.removeItem('buzzin_redirect');
         } catch (e) {
             console.error('Failed to parse redirect info:', e);
+        }
+    }
+
+    // Persistent session fallback — used when the page is refreshed after buzzin_redirect
+    // was already consumed. Allows the player to rejoin without going back to join.html.
+    if (!playerName || !roomCode) {
+        const sessionStr = sessionStorage.getItem('buzzin_session');
+        if (sessionStr) {
+            try {
+                const session = JSON.parse(sessionStr);
+                roomCode = roomCode || session.room;
+                playerName = playerName || session.name;
+                // isHost NOT restored here — server grants it via name-match reconnection
+            } catch (e) {}
         }
     }
 
@@ -413,9 +438,10 @@ function setupSocketListeners() {
         reconnectAttempts = 0;
         const ro = document.getElementById('reconnecting-overlay');
         if (ro) ro.remove();
-        // isHost is determined server-side via room:state — do not override from URL
+        // Let the server determine host status from name-based reconnection state.
+        // Pass current isHost as a hint; server ignores it if there's already an active host.
         if (roomCode && playerName) {
-            socket.emit('player:joinRoom', { roomCode, name: playerName, isHost: false });
+            socket.emit('player:joinRoom', { roomCode, name: playerName, isHost });
         }
     });
     
@@ -501,6 +527,14 @@ function setupSocketListeners() {
                     showHostChangeToast('You are no longer the host.', '#7B2D3E');
                 }
             }
+            // Persist the confirmed session so a page refresh can reconnect without
+            // going back to join.html (buzzin_redirect is one-time and already cleared).
+            try {
+                sessionStorage.setItem('buzzin_session', JSON.stringify({
+                    room: rs.code || roomCode,
+                    name: meInRoom.name || playerName
+                }));
+            } catch (e) {}
         }
 
         // Keep player room code display current
@@ -541,6 +575,14 @@ function setupSocketListeners() {
         updateAdminMenuVisibility();
         if (gameState) renderGameState();
         showHostChangeToast('You are now the host!', '#2D6A4F'); // forest green
+    });
+
+    // Original host reclaimed host status after reconnecting
+    socket.on('host:restored', (data) => {
+        isHost = true;
+        updateAdminMenuVisibility();
+        if (gameState) renderGameState();
+        showHostChangeToast('Host status restored.', '#2D6A4F');
     });
 
     // Some servers send kick as a room error
@@ -680,6 +722,7 @@ function setupUIListeners() {
             let categories = CATEGORIES.slice(); // default: all categories
             let questionCount = 10;
             let timerDurationValue = 30;
+            let otdTimerDurationValue = 60;
             let bonusFirstCorrect = true;
             let hardMode = false;
             try {
@@ -687,6 +730,7 @@ function setupUIListeners() {
                 if (settings.categories && settings.categories.length > 0) categories = settings.categories;
                 if (settings.questionCount) questionCount = settings.questionCount;
                 if (settings.timerDuration) timerDurationValue = settings.timerDuration;
+                if (settings.otdTimerDuration) otdTimerDurationValue = settings.otdTimerDuration;
                 bonusFirstCorrect = settings.bonusFirstCorrect !== false;
                 hostAsPlayer = settings.hostAsPlayer === true;
                 offTheDomeCount = settings.offTheDomeCount ?? 3;
@@ -703,6 +747,7 @@ function setupUIListeners() {
                 categories,
                 questionCount,
                 timerDuration: timerDurationValue,
+                otdTimerDuration: otdTimerDurationValue,
                 bonusFirstCorrect,
                 hostAsPlayer,
                 offTheDomeCount,
@@ -771,6 +816,7 @@ function setupUIListeners() {
     const btnReturn = document.getElementById('btn-return-lobby');
     if (btnReturn) {
         btnReturn.addEventListener('click', () => {
+            sessionStorage.removeItem('buzzin_session');
             window.location.href = '../../index.html';
         });
     }
@@ -1606,15 +1652,15 @@ function renderPlayerView() {
         selectedChoice = null;
     }
 
-    // Show answered players count during question phase (Task 3)
+    // Show answered players count during question phase
     let answeredListEl = document.getElementById('player-answered-list');
     if (phase === 'question') {
         if (!answeredListEl) {
             answeredListEl = document.createElement('div');
             answeredListEl.id = 'player-answered-list';
             answeredListEl.className = 'player-answered-status';
-            playerEls.view.appendChild(answeredListEl);
         }
+
         const answeredPlayers = (playerBuzzStatus || []).filter(p => p.hasAnswered);
         const totalCount = (playerBuzzStatus || []).length;
         if (answeredPlayers.length > 0) {
@@ -1622,6 +1668,24 @@ function renderPlayerView() {
                 <div class="answered-names">${answeredPlayers.map(p => `<span class="answered-tag">${p.name}</span>`).join('')}</div>`;
         } else {
             answeredListEl.innerHTML = `<div class="answered-status-label" style="opacity:0.5">Waiting for answers... 0/${totalCount}</div>`;
+        }
+
+        // For OTD questions (non-host): position the answered list near the top of the view,
+        // right after the timer container, so it stays visible while the player types.
+        // For normal MC questions: append to end (below the choices grid).
+        if (isOffTheDome) {
+            const timerEl = document.getElementById('player-timer-container');
+            if (timerEl && timerEl.nextSibling !== answeredListEl) {
+                playerEls.view.insertBefore(answeredListEl, timerEl.nextSibling);
+            } else if (!timerEl && !answeredListEl.parentNode) {
+                // No timer (shouldn't happen in question phase, but fallback)
+                playerEls.view.insertBefore(answeredListEl, playerEls.view.firstChild);
+            }
+        } else {
+            // MC: append at end if not already there
+            if (answeredListEl.parentNode !== playerEls.view || playerEls.view.lastChild !== answeredListEl) {
+                playerEls.view.appendChild(answeredListEl);
+            }
         }
     } else if (answeredListEl) {
         answeredListEl.remove();
@@ -1685,6 +1749,8 @@ function handleChoiceClick(choice) {
 function showKickedOverlay() {
     // Disconnect socket so no further events come in
     if (socket) socket.disconnect();
+    // Clear persistent session so a kicked player can't auto-rejoin the same room
+    sessionStorage.removeItem('buzzin_session');
 
     const overlay = document.createElement('div');
     overlay.id = 'kicked-overlay';
@@ -1760,6 +1826,7 @@ async function showPlayAgainModal() {
     const cats = lastSettings.categories || [];
     const qCount = lastSettings.questionCount || 10;
     const timer = lastSettings.timerDuration || 30;
+    const otdTimer = lastSettings.otdTimerDuration || 60;
     const bonus = lastSettings.bonusFirstCorrect !== false;
     const otdCount = lastSettings.offTheDomeCount ?? 3;
     const otdAtEndSaved = lastSettings.otdAtEnd === true;
@@ -1806,6 +1873,10 @@ async function showPlayAgainModal() {
                 <input type="range" id="pa-t-slider" min="5" max="120" value="${timer}" step="5" style="width:100%">
             </div>
             <div class="pa-section">
+                <label class="pa-label">OFF THE DOME Timer: <span id="pa-otd-t-val">${otdTimer}</span>s per OTD question</label>
+                <input type="range" id="pa-otd-t-slider" min="10" max="180" value="${otdTimer}" step="5" style="width:100%">
+            </div>
+            <div class="pa-section">
                 <label class="pa-toggle">
                     <input type="checkbox" id="pa-bonus" ${bonus ? 'checked' : ''}>
                     <span>First correct +50 bonus</span>
@@ -1842,6 +1913,8 @@ async function showPlayAgainModal() {
         </div>
     `;
     document.body.appendChild(modal);
+    // Ensure the modal scrolls to the top on open (prevents iOS from starting mid-scroll)
+    requestAnimationFrame(() => { modal.scrollTop = 0; });
 
     const paQSlider = modal.querySelector('#pa-q-slider');
     const paQVal = modal.querySelector('#pa-q-val');
@@ -1888,6 +1961,9 @@ async function showPlayAgainModal() {
     modal.querySelector('#pa-t-slider').addEventListener('input', (e) => {
         modal.querySelector('#pa-t-val').textContent = e.target.value;
     });
+    modal.querySelector('#pa-otd-t-slider').addEventListener('input', (e) => {
+        modal.querySelector('#pa-otd-t-val').textContent = e.target.value;
+    });
 
     modal.querySelector('#pa-cancel').addEventListener('click', () => modal.remove());
 
@@ -1900,6 +1976,7 @@ async function showPlayAgainModal() {
         const newQCount = parseInt(modal.querySelector('#pa-q-slider').value);
         const newOtdCount = parseInt(modal.querySelector('#pa-otd-slider').value);
         const newTimer = parseInt(modal.querySelector('#pa-t-slider').value);
+        const newOtdTimer = parseInt(modal.querySelector('#pa-otd-t-slider').value);
         const newBonus = modal.querySelector('#pa-bonus').checked;
         const newCountdown = modal.querySelector('#pa-countdown').checked;
         const newOtdAtEnd = !modal.querySelector('#pa-otd-at-end').checked;
@@ -1918,6 +1995,7 @@ async function showPlayAgainModal() {
             questionCount: newQCount,
             offTheDomeCount: newOtdCount,
             timerDuration: newTimer,
+            otdTimerDuration: newOtdTimer,
             bonusFirstCorrect: newBonus,
             countdownEnabled: newCountdown,
             otdAtEnd: newOtdAtEnd,
@@ -1931,6 +2009,7 @@ async function showPlayAgainModal() {
             questionCount: newQCount,
             offTheDomeCount: newOtdCount,
             timerDuration: newTimer,
+            otdTimerDuration: newOtdTimer,
             bonusFirstCorrect: newBonus,
             otdAtEnd: newOtdAtEnd,
             hardMode: newHardMode,
