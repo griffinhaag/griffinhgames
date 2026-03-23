@@ -1670,22 +1670,9 @@ function renderPlayerView() {
             answeredListEl.innerHTML = `<div class="answered-status-label" style="opacity:0.5">Waiting for answers... 0/${totalCount}</div>`;
         }
 
-        // For OTD questions (non-host): position the answered list near the top of the view,
-        // right after the timer container, so it stays visible while the player types.
-        // For normal MC questions: append to end (below the choices grid).
-        if (isOffTheDome) {
-            const timerEl = document.getElementById('player-timer-container');
-            if (timerEl && timerEl.nextSibling !== answeredListEl) {
-                playerEls.view.insertBefore(answeredListEl, timerEl.nextSibling);
-            } else if (!timerEl && !answeredListEl.parentNode) {
-                // No timer (shouldn't happen in question phase, but fallback)
-                playerEls.view.insertBefore(answeredListEl, playerEls.view.firstChild);
-            }
-        } else {
-            // MC: append at end if not already there
-            if (answeredListEl.parentNode !== playerEls.view || playerEls.view.lastChild !== answeredListEl) {
-                playerEls.view.appendChild(answeredListEl);
-            }
+        // Always append at end — below all answer options (choices grid, lock-in button, or text input)
+        if (answeredListEl.parentNode !== playerEls.view || playerEls.view.lastChild !== answeredListEl) {
+            playerEls.view.appendChild(answeredListEl);
         }
     } else if (answeredListEl) {
         answeredListEl.remove();
