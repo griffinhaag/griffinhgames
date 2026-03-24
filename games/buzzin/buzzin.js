@@ -1480,9 +1480,9 @@ function renderHostView() {
 
 function renderPlayerView() {
     const { currentQuestion, phase, playerBuzzStatus, scores, answeredCount, totalPlayers, isOffTheDome, isFirstOffTheDome } = gameState;
-    // Fallback to name match in case socketId changed after reconnect
+    // Fallback to name match in case socketId changed after reconnect (case-insensitive)
     const myScoreEntry = (scores || []).find(s => s.socketId === socket.id)
-        || (scores || []).find(s => s.name === playerName)
+        || (scores || []).find(s => s.name?.toLowerCase() === playerName?.toLowerCase())
         || { score: 0 };
 
     // Update timer state
