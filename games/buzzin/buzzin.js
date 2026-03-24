@@ -579,6 +579,8 @@ function setupSocketListeners() {
 
     // Original host reclaimed host status after reconnecting
     socket.on('host:restored', (data) => {
+        // Ignore stale events from a different room/socket race.
+        if (data?.roomCode && roomCode && data.roomCode !== roomCode) return;
         isHost = true;
         updateAdminMenuVisibility();
         if (gameState) renderGameState();
@@ -2313,4 +2315,3 @@ function playSound(type) {
 // Start — prefetch category counts so they're ready before Play Again modal opens
 fetchCategoryCounts();
 init();
-
