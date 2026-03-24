@@ -587,6 +587,38 @@ function setupSocketListeners() {
         showHostChangeToast('Host status restored.', '#2D6A4F');
     });
 
+    // Host session moved to another device (IP-verified device switch)
+    socket.on('host:deviceChanged', (data) => {
+        if (data?.roomCode && roomCode && data.roomCode !== roomCode) return;
+        isHost = false;
+        updateAdminMenuVisibility();
+        // Show a persistent banner — old device's controls are now locked out
+        let banner = document.getElementById('device-changed-banner');
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'device-changed-banner';
+            banner.style.cssText = [
+                'position:fixed;top:0;left:0;right:0;z-index:9999',
+                'background:#c0392b;color:#fff;text-align:center',
+                'padding:14px 20px;font-weight:700;font-size:0.95rem',
+                'font-family:var(--font-main);',
+            ].join(';');
+            banner.innerHTML = 'Host session moved to another device. <button id="device-changed-rejoin" style="margin-left:12px;background:#fff;color:#c0392b;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-weight:700;">Rejoin</button>';
+            document.body.appendChild(banner);
+            document.getElementById('device-changed-rejoin')?.addEventListener('click', () => {
+                if (roomCode && playerName) {
+                    socket.emit('player:joinRoom', { roomCode, name: playerName, isHost: true });
+                }
+            });
+        }
+    });
+
+    // Regular player session moved to another device
+    socket.on('room:deviceChanged', (data) => {
+        if (data?.roomCode && roomCode && data.roomCode !== roomCode) return;
+        showHostChangeToast('Session moved to another device.', '#555');
+    });
+
     // Some servers send kick as a room error
     // (handled in room:error — "kicked" keyword triggers redirect below)
 
@@ -667,11 +699,55 @@ const adminMenuEls = {
     toggle: document.getElementById('admin-menu-toggle'),
     dropdown: document.getElementById('admin-menu-dropdown'),
     roomCodeValue: document.getElementById('admin-room-code-value'),
+    kickPlayer: document.getElementById('admin-kick-player'),
     shuffleQuestions: document.getElementById('admin-shuffle-questions'),
     pauseGame: document.getElementById('admin-pause-game'),
     newGame: document.getElementById('admin-new-game'),
     endGame: document.getElementById('admin-end-game')
 };
+
+// --- Kick Player Modal ---
+function showKickPlayerModal() {
+    // Build list of kickable players (everyone except the host)
+    const players = (gameState?.players || []).filter(p => !p.isHost);
+    if (!players.length) {
+        showHostChangeToast('No players to kick.', '#555');
+        return;
+    }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'kick-player-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9600;display:flex;align-items:center;justify-content:center;';
+
+    const modal = document.createElement('div');
+    modal.style.cssText = 'background:#1a1a2e;border-radius:16px;padding:24px;min-width:280px;max-width:380px;width:90%;font-family:var(--font-main);';
+
+    const title = document.createElement('div');
+    title.style.cssText = 'color:#fff;font-size:1.1rem;font-weight:700;margin-bottom:16px;text-align:center;';
+    title.textContent = 'Kick Player';
+    modal.appendChild(title);
+
+    players.forEach(p => {
+        const row = document.createElement('button');
+        row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;width:100%;background:#2a2a4a;border:none;border-radius:10px;padding:12px 16px;margin-bottom:8px;color:#fff;font-size:1rem;cursor:pointer;';
+        row.innerHTML = `<span>${p.name}</span><span style="color:#e74c3c;font-weight:700;">Kick ✕</span>`;
+        row.addEventListener('click', () => {
+            socket.emit('host:kickPlayer', { roomCode, socketId: p.socketId });
+            overlay.remove();
+        });
+        modal.appendChild(row);
+    });
+
+    const cancel = document.createElement('button');
+    cancel.style.cssText = 'display:block;width:100%;margin-top:8px;background:transparent;border:1px solid #555;border-radius:10px;padding:10px;color:#aaa;font-size:0.9rem;cursor:pointer;';
+    cancel.textContent = 'Cancel';
+    cancel.addEventListener('click', () => overlay.remove());
+    modal.appendChild(cancel);
+
+    overlay.appendChild(modal);
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+}
 
 // --- UI Listeners ---
 function showHostChangeToast(message, bgColor) {
@@ -882,6 +958,14 @@ function setupAdminMenu() {
             adminMenuEls.dropdown?.classList.add('hidden');
         }
     });
+
+    // Kick Player (works in lobby and during game)
+    if (adminMenuEls.kickPlayer) {
+        adminMenuEls.kickPlayer.addEventListener('click', () => {
+            closeAdminMenu();
+            showKickPlayerModal();
+        });
+    }
 
     // Shuffle Questions
     if (adminMenuEls.shuffleQuestions) {
