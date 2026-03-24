@@ -5,9 +5,6 @@ let socket;
 let roomCode = null;
 let playerName = null;
 let isHost = false;
-// Suppress one false-positive host restore toast during setup -> game handoff.
-let suppressInitialHostRestoreToast = false;
-let suppressHostRestoreUntil = 0;
 let hostAsPlayer = false; // If false, host is spectate/admin only (no score, no answers)
 let offTheDomeCount = 3; // Number of free-text (OFF THE DOME) questions
 let otdAtEnd = false;    // false = OTD randomly distributed (default), true = OTD at end of game
@@ -289,13 +286,7 @@ function init() {
             roomCode = roomCode || info.room;
             playerName = playerName || info.name;
             // Only set isHost from the trusted one-time redirect (NOT from URL params)
-            if (info.host === true) {
-                isHost = true;
-                // setup.html creates the room on a different socket, then redirects here.
-                // During that handoff we can receive a non-reconnect host:restored event.
-                suppressInitialHostRestoreToast = true;
-                suppressHostRestoreUntil = Date.now() + 15000;
-            }
+            if (info.host === true) isHost = true;
             sessionStorage.removeItem('buzzin_redirect');
         } catch (e) {
             console.error('Failed to parse redirect info:', e);
@@ -590,17 +581,6 @@ function setupSocketListeners() {
     socket.on('host:restored', (data) => {
         // Ignore stale events from a different room/socket race.
         if (data?.roomCode && roomCode && data.roomCode !== roomCode) return;
-        // Suppress only the setup->game initial handoff false positive.
-        if (suppressInitialHostRestoreToast && Date.now() <= suppressHostRestoreUntil) {
-            suppressInitialHostRestoreToast = false;
-            suppressHostRestoreUntil = 0;
-            isHost = true;
-            updateAdminMenuVisibility();
-            if (gameState) renderGameState();
-            return;
-        }
-        suppressInitialHostRestoreToast = false;
-        suppressHostRestoreUntil = 0;
         isHost = true;
         updateAdminMenuVisibility();
         if (gameState) renderGameState();
