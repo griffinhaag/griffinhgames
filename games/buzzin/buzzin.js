@@ -709,7 +709,9 @@ const adminMenuEls = {
 // --- Kick Player Modal ---
 function showKickPlayerModal() {
     // Build list of kickable players (everyone except the host)
-    const players = (gameState?.players || []).filter(p => !p.isHost);
+    // Use roomState which is always current; fall back to gameState if needed
+    const allPlayers = roomState?.players || gameState?.players || [];
+    const players = allPlayers.filter(p => !p.isHost && p.socketId !== socket.id);
     if (!players.length) {
         showHostChangeToast('No players to kick.', '#555');
         return;
