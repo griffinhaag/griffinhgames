@@ -468,8 +468,8 @@
                 host: false
             }));
 
-            // Redirect to game page with params in URL (for reconnection via URL)
-            const target = `index.html?room=${roomCode}&name=${encodeURIComponent(playerName)}&host=false`;
+            // Redirect to game page — room code in URL, player identity in sessionStorage
+            const target = `index.html?room=${roomCode}&name=${encodeURIComponent(playerName)}`;
             window.location.replace(target);
         });
 
@@ -504,7 +504,7 @@
                 host: false
             }));
 
-            const target = `index.html?room=${roomCode}&name=${encodeURIComponent(playerName)}&host=false`;
+            const target = `index.html?room=${roomCode}&name=${encodeURIComponent(playerName)}`;
             window.location.replace(target);
         });
     </script>

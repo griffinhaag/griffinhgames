@@ -289,6 +289,16 @@
             </div>
 
             <div class="setup-section">
+                <h3>OFF THE DOME Timer:</h3>
+                <div class="question-count-control">
+                    <input type="range" id="otd-timer-slider" min="10" max="180" value="60" step="5">
+                    <div class="question-count-display">
+                        <span id="otd-timer-display">60</span> seconds per OTD question
+                    </div>
+                </div>
+            </div>
+
+            <div class="setup-section">
                 <h3>Game Options:</h3>
                 <div style="display:flex;flex-direction:column;gap:10px;">
                     <label class="option-toggle">
@@ -353,6 +363,7 @@
         let selectedCategories = [];
         let questionCount = 10;
         let timerDuration = 30;
+        let otdTimerDuration = 60;
         let offTheDomeCount = 3;
         let availableQuestions = 0; // Will be calculated based on categories
         
@@ -452,6 +463,14 @@
             timerDuration = parseInt(e.target.value);
             timerDisplay.textContent = timerDuration;
         });
+
+        // OTD timer slider
+        const otdTimerSlider = document.getElementById('otd-timer-slider');
+        const otdTimerDisplay = document.getElementById('otd-timer-display');
+        otdTimerSlider.addEventListener('input', (e) => {
+            otdTimerDuration = parseInt(e.target.value);
+            otdTimerDisplay.textContent = otdTimerDuration;
+        });
         
         // Update selected categories
         categoryContainer.addEventListener('change', (e) => {
@@ -515,6 +534,7 @@
                 categories: selectedCategories,
                 questionCount: questionCount,
                 timerDuration: timerDuration,
+                otdTimerDuration: otdTimerDuration,
                 hostName: hostName,
                 bonusFirstCorrect: bonusFirstCorrect,
                 hostAsPlayer: hostAsPlayer,
@@ -524,7 +544,7 @@
                 showOtdCategory: showOtdCategory,
                 hardMode: hardMode
             }));
-            
+
             // Wait for socket to be connected before creating room
             if (socket.connected) {
                 createRoom();
@@ -583,6 +603,7 @@
                 categories: selectedCategories,
                 questionCount: questionCount,
                 timerDuration: timerDuration,
+                otdTimerDuration: otdTimerDuration,
                 hostName: hostName,
                 bonusFirstCorrect: document.getElementById('bonus-points-toggle')?.checked !== false,
                 hostAsPlayer: document.getElementById('host-plays-toggle')?.checked === true,
@@ -600,8 +621,9 @@
                 host: true
             }));
 
-            // Redirect to game page with params in URL (for reconnection via URL)
-            const gameUrl = `index.html?room=${roomState.code}&name=${encodeURIComponent(hostName)}&host=true`;
+            // Redirect to game page — room code in URL, host identity only in sessionStorage
+            // (never put host=true in the URL — anyone can copy/type that to spoof controls)
+            const gameUrl = `index.html?room=${roomState.code}&name=${encodeURIComponent(hostName)}`;
             window.location.replace(gameUrl);
         });
         
