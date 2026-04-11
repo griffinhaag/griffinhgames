@@ -109,6 +109,9 @@ let lastChoiceRenderKey = null; // prevent full DOM rebuild on every timer tick
 let previousScores = null;
 let pendingRoundResults = null; // Stored until game:state delivers updated scores
 
+// --- End-of-game flagged questions summary ---
+let flaggedSummaryShown = false; // prevent re-showing if game:state fires multiple times at end
+
 // --- Session question history (resets on browser close via sessionStorage) ---
 function getSeenQuestions() {
     try {
@@ -701,6 +704,7 @@ const adminMenuEls = {
     roomCodeValue: document.getElementById('admin-room-code-value'),
     kickPlayer: document.getElementById('admin-kick-player'),
     shuffleQuestions: document.getElementById('admin-shuffle-questions'),
+    flagQuestion: document.getElementById('admin-flag-question'),
     pauseGame: document.getElementById('admin-pause-game'),
     newGame: document.getElementById('admin-new-game'),
     endGame: document.getElementById('admin-end-game')
@@ -979,6 +983,16 @@ function setupAdminMenu() {
         });
     }
 
+    // Flag Question (no score)
+    if (adminMenuEls.flagQuestion) {
+        adminMenuEls.flagQuestion.addEventListener('click', () => {
+            if (confirm('Flag this question as bad? No scores will be counted and the game will move to the next question.')) {
+                socket.emit('host:flagQuestion', { roomCode: roomCode });
+                closeAdminMenu();
+            }
+        });
+    }
+
     // Pause / Resume Game
     if (adminMenuEls.pauseGame) {
         adminMenuEls.pauseGame.addEventListener('click', () => {
@@ -1036,11 +1050,16 @@ function updateAdminMenuVisibility() {
 
             // Update button states based on phase
             if (adminMenuEls.shuffleQuestions) {
-                // Allow shuffle during waiting/question/result phases — always,
-                // including the last question (server will re-show same if no alternatives).
-                const canShuffle = gameState.phase === 'waiting' || gameState.phase === 'question' || gameState.phase === 'result';
+                // Allow shuffle during waiting/question/result/paused phases.
+                const canShuffle = ['waiting', 'question', 'result', 'paused'].includes(gameState.phase);
                 adminMenuEls.shuffleQuestions.disabled = !canShuffle;
                 adminMenuEls.shuffleQuestions.style.opacity = canShuffle ? '1' : '0.4';
+            }
+            if (adminMenuEls.flagQuestion) {
+                // Allow flagging during any active gameplay phase
+                const canFlag = ['waiting', 'question', 'result', 'paused'].includes(gameState.phase);
+                adminMenuEls.flagQuestion.disabled = !canFlag;
+                adminMenuEls.flagQuestion.style.opacity = canFlag ? '1' : '0.4';
             }
             if (adminMenuEls.pauseGame) {
                 const isPaused = gameState.phase === 'paused';
@@ -1064,7 +1083,8 @@ function showScreen(screenName) {
 
     // Clean up transition overlays (results-overlay manages its own lifecycle)
     ['off-the-dome-overlay', 'play-again-modal', 'kicked-overlay',
-     'player-answered-list', 'player-image-display', 'host-image-display'].forEach(id => {
+     'player-answered-list', 'player-image-display', 'host-image-display',
+     'flagged-summary-overlay', 'void-round-toast'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.remove();
     });
@@ -1266,6 +1286,7 @@ function renderGameState() {
     if (currentPhase === 'countdown' && previousPhase !== 'countdown') {
         previousQuestionText = null;
         offTheDomeShownForIndex = -1;
+        flaggedSummaryShown = false;
         // Clean up any stale overlays from the previous game
         ['results-overlay', 'pause-overlay', 'off-the-dome-overlay', 'pre-q-countdown'].forEach(id => {
             const el = document.getElementById(id);
@@ -1314,13 +1335,32 @@ function renderGameState() {
         showScreen('game');
         renderCountdown();
     } else if (gameState.phase === 'end') {
-        showScreen('end');
-        renderEndScreen();
-        // Show Play Again button for host
-        const btnPlayAgain = document.getElementById('btn-play-again');
-        if (btnPlayAgain) {
-            if (isHost) btnPlayAgain.classList.remove('hidden');
-            else btnPlayAgain.classList.add('hidden');
+        const flagged = gameState.flaggedQuestions || [];
+        if (flagged.length > 0 && !flaggedSummaryShown) {
+            flaggedSummaryShown = true;
+            // Show flagged questions summary first; render end screen only after dismissal
+            showFlaggedQuestionsSummary(flagged, () => {
+                showScreen('end');
+                renderEndScreen();
+                const btnPlayAgain = document.getElementById('btn-play-again');
+                if (btnPlayAgain) {
+                    if (isHost) btnPlayAgain.classList.remove('hidden');
+                    else btnPlayAgain.classList.add('hidden');
+                }
+            });
+        } else {
+            // Guard: if the flagged-summary overlay is still visible (e.g. game:state fired again
+            // before the user tapped through it), don't call showScreen('end') — that would remove
+            // the overlay. The overlay's onDismiss callback will render the end screen when dismissed.
+            if (!document.getElementById('flagged-summary-overlay')) {
+                showScreen('end');
+                renderEndScreen();
+                const btnPlayAgain = document.getElementById('btn-play-again');
+                if (btnPlayAgain) {
+                    if (isHost) btnPlayAgain.classList.remove('hidden');
+                    else btnPlayAgain.classList.add('hidden');
+                }
+            }
         }
     } else {
         showScreen('game');
@@ -2166,7 +2206,14 @@ function handleGameEvent(event) {
     } else if (event.type === 'round_skipped') {
         showFeedback('ROUND SKIPPED', 'warning');
     } else if (event.type === 'questions_shuffled') {
-        showFeedback('QUESTIONS SHUFFLED', 'info');
+        if (event.voidedRound) {
+            // Shuffle happened after everyone answered — scores for that round are void
+            showVoidRoundToast(event.message || 'No scores counted — round was shuffled away');
+        } else {
+            showFeedback('QUESTIONS SHUFFLED', 'info');
+        }
+    } else if (event.type === 'question_flagged') {
+        showVoidRoundToast(event.message || 'Question flagged — no scores counted');
     } else if (event.type === 'player_reconnected') {
         showGlobalToast(`${event.playerName} reconnected!`, 'success');
     } else if (event.type === 'player_disconnected') {
@@ -2396,6 +2443,113 @@ function showGlobalToast(text, type) {
 // Optional sound effects placeholders
 function playSound(type) {
     // Implementation for audio
+}
+
+// Short, prominent toast for voided rounds (shuffle-after-result, flagged questions).
+// Shown to all players. Lasts ~1.5s, styled like the game's accent color scheme.
+function showVoidRoundToast(message) {
+    // Remove any existing void toast to avoid stacking
+    document.getElementById('void-round-toast')?.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'void-round-toast';
+    toast.style.cssText = [
+        'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%)',
+        'background:#1a1a2e;border:2px solid #ff0055;color:#fff',
+        'padding:18px 32px;border-radius:16px',
+        'font-size:1.05rem;font-weight:700;z-index:9800',
+        'text-align:center;max-width:320px;width:90%',
+        'box-shadow:0 8px 32px rgba(255,0,85,0.35)',
+        'animation:fadeIn 0.25s ease-out',
+        'font-family:var(--font-main)',
+    ].join(';');
+    toast.innerHTML = `<div style="font-size:1.4rem;margin-bottom:8px;">🚩</div>${message}`;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.transition = 'opacity 0.4s ease-out';
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 400);
+    }, 1800);
+}
+
+// End-of-game summary overlay listing all questions flagged during the game.
+// Shown before the final leaderboard; both host and players tap through it.
+function showFlaggedQuestionsSummary(flaggedQuestions, onDismiss) {
+    document.getElementById('flagged-summary-overlay')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'flagged-summary-overlay';
+    overlay.style.cssText = [
+        'position:fixed;inset:0',
+        'background:rgba(0,0,0,0.88)',
+        'display:flex;align-items:center;justify-content:center',
+        'z-index:8500;font-family:var(--font-main)',
+        'animation:fadeIn 0.35s ease-out',
+        'padding:24px;box-sizing:border-box',
+    ].join(';');
+
+    const rows = flaggedQuestions.map((fq, i) => `
+        <div style="
+            background:rgba(255,255,255,0.06);
+            border:1px solid rgba(255,0,85,0.25);
+            border-radius:12px;
+            padding:14px 16px;
+            margin-bottom:10px;
+            text-align:left;
+        ">
+            <div style="color:rgba(255,255,255,0.45);font-size:0.72rem;font-weight:700;
+                        text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">
+                Round ${fq.roundNumber}
+            </div>
+            <div style="color:#fff;font-size:0.93rem;font-weight:600;margin-bottom:6px;
+                        line-height:1.4;">${fq.question}</div>
+            <div style="color:rgba(255,255,255,0.5);font-size:0.82rem;">
+                Intended answer: <span style="color:rgba(255,255,255,0.8);font-weight:600;">${fq.answer}</span>
+            </div>
+        </div>
+    `).join('');
+
+    overlay.innerHTML = `
+        <div style="
+            background:#12122a;
+            border-radius:20px;
+            padding:28px 24px;
+            max-width:420px;
+            width:100%;
+            max-height:85vh;
+            overflow-y:auto;
+            box-shadow:0 12px 48px rgba(0,0,0,0.6);
+        ">
+            <div style="text-align:center;margin-bottom:20px;">
+                <div style="font-size:2rem;margin-bottom:8px;">🚩</div>
+                <h2 style="color:#fff;margin:0 0 6px;font-size:1.3rem;font-weight:800;">Flagged Questions</h2>
+                <p style="color:rgba(255,255,255,0.5);margin:0;font-size:0.85rem;">
+                    These rounds were flagged — no scores were counted.
+                </p>
+            </div>
+            <div>${rows}</div>
+            <div style="
+                text-align:center;
+                margin-top:20px;
+                color:rgba(255,255,255,0.4);
+                font-size:0.82rem;
+                font-weight:600;
+                letter-spacing:0.5px;
+            ">Tap anywhere to see final results</div>
+        </div>
+    `;
+
+    overlay.addEventListener('click', () => {
+        overlay.style.transition = 'opacity 0.25s ease-out';
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+            overlay.remove();
+            if (onDismiss) onDismiss();
+        }, 250);
+    });
+
+    document.body.appendChild(overlay);
 }
 
 // Start — prefetch category counts so they're ready before Play Again modal opens
