@@ -567,6 +567,11 @@ function setupSocketListeners() {
         updateHostControlsVisibility();
     });
 
+    // Host is broadcasting selected categories so non-host players can see them in the lobby
+    socket.on('lobby:categoriesPreview', (data) => {
+        if (data?.categories) updatePlayerCategoriesDisplay(data.categories);
+    });
+
     // Player kicked event
     socket.on('player:kicked', () => {
         showKickedOverlay();
@@ -930,17 +935,21 @@ function setupUIListeners() {
         });
     }
 
-    // Quit game button (players only)
+    // Leave lobby button (same action as back arrow on lobby screen)
+    const btnLeaveLobby = document.getElementById('btn-leave-lobby');
+    if (btnLeaveLobby) {
+        btnLeaveLobby.addEventListener('click', () => {
+            if (confirm('Leave the lobby? You can rejoin with the same room code.')) {
+                sessionStorage.removeItem('buzzin_session');
+                window.location.href = '../../index.html';
+            }
+        });
+    }
+
+    // Back arrow — always-visible, context-aware navigation button
     const btnQuit = document.getElementById('btn-quit-game');
     if (btnQuit) {
-        btnQuit.addEventListener('click', () => {
-            if (!confirm('Quit the game? Your score is saved and you can rejoin with the same name.')) return;
-            if (socket && roomCode) {
-                socket.emit('player:quit', { roomCode });
-            }
-            // Navigate to join page with room code pre-filled
-            window.location.href = `join.html?room=${encodeURIComponent(roomCode || '')}`;
-        });
+        btnQuit.addEventListener('click', handleBackArrow);
     }
 
     // --- Admin Menu Setup ---
@@ -1080,6 +1089,7 @@ function updateAdminMenuVisibility() {
 function showScreen(screenName) {
     Object.values(screens).forEach(el => el.classList.remove('active'));
     screens[screenName].classList.add('active');
+    updateBackArrowVisibility();
 
     // Clean up transition overlays (results-overlay manages its own lifecycle)
     ['off-the-dome-overlay', 'play-again-modal', 'kicked-overlay',
@@ -1116,6 +1126,29 @@ function setupCategoryCheckboxes() {
             <span>${cat}</span>
         </label>
     `).join('');
+
+    // When the host changes their category selection, broadcast it to all players in the lobby
+    container.addEventListener('change', () => {
+        if (!isHost || !socket?.connected) return;
+        const selected = [...container.querySelectorAll('input:checked')].map(cb => cb.value);
+        socket.emit('host:previewCategories', { roomCode, categories: selected });
+    });
+}
+
+// Update the player-facing categories display in the lobby.
+// Called when a lobby:categoriesPreview event arrives from the server.
+function updatePlayerCategoriesDisplay(cats) {
+    const wrapper = document.getElementById('lobby-categories-player');
+    if (!wrapper) return;
+    const tagsEl = wrapper.querySelector('.player-cat-tags');
+    if (!tagsEl) return;
+
+    if (!cats || cats.length === 0) {
+        wrapper.classList.add('hidden');
+        return;
+    }
+    tagsEl.innerHTML = cats.map(c => `<span class="selected-cat-tag">${c}</span>`).join('');
+    wrapper.classList.remove('hidden');
 }
 
 function updateLobbyUI(rs) {
@@ -1197,14 +1230,19 @@ function updateHostControlsVisibility() {
 function renderSelectedCategories() {
     const listEl = document.getElementById('selected-categories-list');
     if (!listEl) return;
+    let cats = [];
     try {
         const settings = JSON.parse(sessionStorage.getItem('buzzin_settings') || '{}');
-        const cats = settings.categories || [];
+        cats = settings.categories || [];
         listEl.innerHTML = cats.length
             ? cats.map(c => `<span class="selected-cat-tag">${c}</span>`).join('')
             : '<span style="opacity:0.5">All categories</span>';
     } catch (e) {
         listEl.innerHTML = '<span style="opacity:0.5">All categories</span>';
+    }
+    // Broadcast current selection to players in the lobby
+    if (socket?.connected && roomCode) {
+        socket.emit('host:previewCategories', { roomCode, categories: cats });
     }
 }
 
@@ -1311,16 +1349,8 @@ function renderGameState() {
     // Update admin menu visibility
     updateAdminMenuVisibility();
 
-    // Quit button: show for non-host players during active game, hide otherwise
-    const btnQuitGame = document.getElementById('btn-quit-game');
-    if (btnQuitGame) {
-        const activePhases = ['waiting', 'question', 'result', 'paused'];
-        if (!isHost && activePhases.includes(gameState.phase)) {
-            btnQuitGame.classList.remove('hidden');
-        } else {
-            btnQuitGame.classList.add('hidden');
-        }
-    }
+    // Update back arrow visibility for the current game phase
+    updateBackArrowVisibility();
 
     // Keep player room code visible
     const playerRoomCodeEl = document.getElementById('player-room-code');
@@ -1914,20 +1944,61 @@ function renderEndScreen() {
     const podium = document.getElementById('winner-podium');
     if (!podium || !gameState.scores) return;
 
+    // Item 6: keep room code visible on end screen
+    const endRoomCodeEl = document.getElementById('end-room-code');
+    if (endRoomCodeEl) endRoomCodeEl.textContent = roomCode ? `Room: ${roomCode}` : '';
+
     const sorted = [...gameState.scores].sort((a, b) => b.score - a.score);
     const medals = ['🏆', '🥈', '🥉'];
 
+    // Item 9: detect ties at the top score
+    const topScore = sorted[0]?.score ?? 0;
+    const tiedAtTop = sorted.filter(p => p.score === topScore);
+    const hasTie = tiedAtTop.length > 1;
+
+    // Item 9: show tie notice above the podium
+    const tieNoticeEl = document.getElementById('end-tie-notice');
+    if (hasTie) {
+        let noticeEl = tieNoticeEl || document.createElement('div');
+        noticeEl.id = 'end-tie-notice';
+        noticeEl.className = 'tie-notice';
+        noticeEl.textContent = `🤝 It's a tie — ${tiedAtTop.map(p => p.name).join(' & ')} are level on ${topScore} pts!`;
+        if (!tieNoticeEl) podium.before(noticeEl);
+    } else {
+        tieNoticeEl?.remove();
+    }
+
     podium.innerHTML = sorted.map((p, i) => {
         const name = p.name || `Player-${p.socketId?.slice(0, 4) || '?'}`;
-        const medal = medals[i] || `${i + 1}.`;
+        const isTied = hasTie && p.score === topScore;
+        // Item 9: medal logic — tied players share the same rank symbol
+        let medal;
+        if (hasTie && isTied) {
+            medal = '🏆';
+        } else if (hasTie && i === tiedAtTop.length) {
+            medal = '🥈'; // first non-tied entry gets silver
+        } else {
+            medal = medals[i] || `${i + 1}.`;
+        }
+        const tieBadge = isTied ? `<span class="tie-badge">TIE</span>` : '';
         return `
-            <div class="podium-entry" style="animation-delay:${i * 80}ms">
+            <div class="podium-entry${isTied ? ' tie-entry' : ''}" style="animation-delay:${i * 80}ms">
                 <span class="podium-rank">${medal}</span>
-                <span class="podium-name">${name}</span>
+                <span class="podium-name">${name}${tieBadge}</span>
                 <span class="podium-score">${p.score} pts</span>
             </div>
         `;
     }).join('');
+
+    // Item 10: replay guidance — shown to non-host players, hidden for host (they have Play Again button)
+    const replayGuidanceEl = document.getElementById('end-replay-guidance');
+    if (replayGuidanceEl) {
+        if (!isHost) {
+            replayGuidanceEl.classList.remove('hidden');
+        } else {
+            replayGuidanceEl.classList.add('hidden');
+        }
+    }
 }
 
 async function showPlayAgainModal() {
@@ -2229,17 +2300,34 @@ function showResultsOverlay(event) {
     overlay.id = 'results-overlay';
     overlay.className = 'results-overlay';
 
-    // Build results list — always show all players, even those who didn't answer
+    // Build results list — always show all players, even those who didn't answer.
+    // Item 8: separate ordering — results list uses correctness + timing, NOT standings order.
+    //   1. First correct (isFirstCorrect)
+    //   2. Other correct, sorted earliest answeredAt first
+    //   3. Incorrect (answered but wrong)
+    //   4. No answer
     const allPlayers = gameState?.scores || [];
     const resultsMap = {};
     (event.results || []).forEach(r => { resultsMap[r.name] = r; });
 
-    const allResults = [
-        ...(event.results || []),
-        ...allPlayers
-            .filter(p => !resultsMap[p.name])
-            .map(p => ({ name: p.name, answer: null, isCorrect: false }))
-    ];
+    const answered = event.results || [];
+    const noAnswer = allPlayers
+        .filter(p => !resultsMap[p.name])
+        .map(p => ({ name: p.name, answer: null, isCorrect: false, answeredAt: Infinity }));
+
+    const sortedAnswered = [...answered].sort((a, b) => {
+        // Correct before incorrect
+        if (a.isCorrect !== b.isCorrect) return a.isCorrect ? -1 : 1;
+        // Among correct: first-correct first, then by answer time
+        if (a.isCorrect && b.isCorrect) {
+            if (a.isFirstCorrect) return -1;
+            if (b.isFirstCorrect) return 1;
+            return (a.answeredAt ?? Infinity) - (b.answeredAt ?? Infinity);
+        }
+        return 0;
+    });
+
+    const allResults = [...sortedAnswered, ...noAnswer];
 
     const resultsHTML = allResults.map(r => {
         let itemClass = r.isCorrect ? 'correct' : 'wrong';
@@ -2303,7 +2391,7 @@ function showResultsOverlay(event) {
 
     const continueHint = isHost
         ? `<div class="results-continue-hint host">▶ Tap anywhere to continue</div>`
-        : `<div class="results-continue-hint">Waiting for host...</div>`;
+        : `<div class="results-continue-hint">Tap to dismiss — waiting for host to continue</div>`;
 
     overlay.innerHTML = `
         <div class="results-card" id="results-card-inner">
@@ -2340,17 +2428,14 @@ function showResultsOverlay(event) {
         setTimeout(() => card.classList.remove('animating-lb'), animDuration);
     }
 
-    // Host: tap overlay to dismiss — NEXT QUESTION button advances the round
-    if (isHost) {
-        const hint = overlay.querySelector('.results-tap-hint');
-        if (hint) hint.textContent = 'Tap to dismiss — then click NEXT QUESTION';
-        overlay.addEventListener('click', () => {
-            overlay.style.transition = 'opacity 0.2s ease-out';
-            overlay.style.opacity = '0';
-            setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 200);
-        });
-    }
-    // Non-hosts: overlay auto-dismisses when phase changes away from "result"
+    // Everyone can tap/click to dismiss the overlay.
+    // Host: dismiss → use NEXT QUESTION button to advance.
+    // Players: dismiss → see the waiting game screen; overlay also auto-clears when phase changes.
+    overlay.addEventListener('click', () => {
+        overlay.style.transition = 'opacity 0.2s ease-out';
+        overlay.style.opacity = '0';
+        setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 200);
+    });
 }
 
 function showPointsAnimation(points) {
@@ -2550,6 +2635,81 @@ function showFlaggedQuestionsSummary(flaggedQuestions, onDismiss) {
     });
 
     document.body.appendChild(overlay);
+}
+
+// ============================================================
+// BACK ARROW — context-aware navigation (Group 2)
+// ============================================================
+
+// Determine what the back arrow should do based on the current UI context and act on it.
+// Priority order (most specific layer first):
+//   1. Results overlay visible  → dismiss it (go back one layer)
+//   2. End screen active        → confirm return to main menu
+//   3. Lobby screen active      → confirm leave lobby
+//   4. In-game (any phase)      → confirm quit (score is saved, can rejoin)
+function handleBackArrow() {
+    // Layer 1: round-results overlay is showing — tap dismisses it
+    const resultsOverlay = document.getElementById('results-overlay');
+    if (resultsOverlay) {
+        resultsOverlay.style.transition = 'opacity 0.2s ease-out';
+        resultsOverlay.style.opacity = '0';
+        setTimeout(() => { if (resultsOverlay.parentNode) resultsOverlay.remove(); }, 200);
+        return;
+    }
+
+    // Layer 2: end screen
+    if (screens.end?.classList.contains('active')) {
+        if (confirm('Return to the main menu?')) {
+            sessionStorage.removeItem('buzzin_session');
+            window.location.href = '../../index.html';
+        }
+        return;
+    }
+
+    // Layer 3: lobby screen
+    if (screens.lobby?.classList.contains('active')) {
+        if (confirm('Leave the lobby? You can rejoin with the same room code.')) {
+            sessionStorage.removeItem('buzzin_session');
+            window.location.href = '../../index.html';
+        }
+        return;
+    }
+
+    // Layer 4: in-game — quit with rejoin reminder
+    if (confirm('Quit the game? Your score is saved — you can rejoin with the same name.')) {
+        if (socket && roomCode) {
+            socket.emit('player:quit', { roomCode });
+        }
+        window.location.href = `join.html?room=${encodeURIComponent(roomCode || '')}`;
+    }
+}
+
+// Show or hide the back arrow based on which screen / phase is active.
+// Hidden only on the initial connecting screen (nothing meaningful to go back to yet)
+// and for the host during active gameplay (they use the admin menu for navigation).
+function updateBackArrowVisibility() {
+    const btn = document.getElementById('btn-quit-game');
+    if (!btn) return;
+
+    // Connecting screen — hide entirely
+    if (screens.connecting?.classList.contains('active')) {
+        btn.classList.add('hidden');
+        return;
+    }
+
+    // End screen or lobby — show for everyone
+    if (screens.end?.classList.contains('active') || screens.lobby?.classList.contains('active')) {
+        btn.classList.remove('hidden');
+        return;
+    }
+
+    // In-game: show for non-host players only
+    // (hosts navigate via the admin menu; showing both would be redundant and cluttered)
+    if (!isHost) {
+        btn.classList.remove('hidden');
+    } else {
+        btn.classList.add('hidden');
+    }
 }
 
 // Start — prefetch category counts so they're ready before Play Again modal opens

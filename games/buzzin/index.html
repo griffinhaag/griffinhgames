@@ -46,11 +46,22 @@
                 Waiting for host to start...
             </div>
 
+            <!-- Categories display for non-host players (populated via socket) -->
+            <div id="lobby-categories-player" class="lobby-categories-player hidden">
+                <p class="lobby-cat-label">SELECTED CATEGORIES</p>
+                <div class="player-cat-tags"></div>
+            </div>
+
             <!-- Music toggle — visible to all in lobby, hidden once game starts -->
             <div class="music-toggle-row">
                 <button id="btn-music-toggle" class="music-toggle-btn" aria-label="Toggle music">
                     🔊 Music On
                 </button>
+            </div>
+
+            <!-- Leave lobby button — lets any player (or stuck host) return home cleanly -->
+            <div class="lobby-leave-row">
+                <button id="btn-leave-lobby" class="lobby-leave-btn">&#8592; Leave</button>
             </div>
         </div>
 
@@ -58,7 +69,6 @@
         <div id="screen-game" class="screen">
             <!-- Player View -->
             <div id="view-player" class="game-view hidden">
-                <button id="btn-quit-game" class="quit-game-btn hidden" aria-label="Quit game" title="Quit game">&#8592;</button>
                 <div class="player-header">
                     <div class="player-score-box">Score: <span id="player-score">0</span></div>
                     <div class="player-q-counter" id="player-q-counter"></div>
@@ -134,13 +144,20 @@
         <!-- End Screen -->
         <div id="screen-end" class="screen">
             <h1>Game Over!</h1>
-            <div class="winner-podium" id="winner-podium"></div>
+            <div id="end-room-code" class="end-room-code"></div>
+            <div id="end-replay-guidance" class="replay-guidance hidden">
+                Want to play again? Stay on this page — the host can start a new game with the same players!
+            </div>
+            <div id="winner-podium" class="winner-podium"></div>
             <div class="end-screen-actions">
                 <button id="btn-play-again" class="btn-primary hidden">Play Again (Same Players)</button>
                 <button id="btn-return-lobby" class="btn-secondary">Return to Main Menu</button>
             </div>
         </div>
     </div>
+
+    <!-- Back / Quit arrow — body-level fixed so it overlays all screens and overlays -->
+    <button id="btn-quit-game" class="quit-game-btn hidden" aria-label="Go back" title="Go back">&#8592;</button>
 
     <!-- Admin Hamburger Menu — body-level so position:fixed is never affected by parent display:none -->
     <div id="admin-menu" class="admin-menu hidden">
