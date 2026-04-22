@@ -964,7 +964,8 @@ body {
     width: 100%;
     display: flex;
     justify-content: space-between;
-    padding: 10px;
+    align-items: center;
+    padding: 10px 10px 10px 54px; /* left indent keeps content clear of the fixed back arrow */
     background: rgba(0,0,0,0.3);
     border-radius: 10px;
 }
@@ -1279,6 +1280,7 @@ body {
 .results-overlay.host-clickable { cursor: pointer; }
 
 .results-card {
+    position: relative; /* needed for any absolutely-positioned children */
     background: white;
     border-radius: 20px;
     padding: 30px;
@@ -1490,32 +1492,40 @@ body {
     white-space: nowrap;
 }
 
+/* --- Back Arrow — body-level fixed, always on top of game content --- */
+/* z-index 2000: above results-overlay (1000) so it's tappable while leaderboard is showing,
+   but below reconnecting (9000) and kicked (9999) overlays which must take full focus. */
 .quit-game-btn {
-    position: absolute;
+    position: fixed;
     top: 14px;
     left: 14px;
     background: rgba(255,255,255,0.08);
     border: 1px solid rgba(255,255,255,0.12);
     border-radius: 50%;
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    color: rgba(255,255,255,0.45);
-    font-size: 1.1rem;
+    color: rgba(255,255,255,0.55);
+    font-size: 1.2rem;
     line-height: 1;
-    transition: background 0.15s, color 0.15s;
-    z-index: 10;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    z-index: 2000;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
+    font-family: var(--font-main);
 }
 
 .quit-game-btn:hover {
     background: rgba(255,50,50,0.2);
-    color: rgba(255,120,120,0.9);
-    border-color: rgba(255,50,50,0.3);
+    color: rgba(255,130,130,0.95);
+    border-color: rgba(255,50,50,0.35);
+}
+
+.quit-game-btn:active {
+    transform: scale(0.92);
 }
 
 /* --- End Screen Actions --- */
@@ -2224,3 +2234,125 @@ input[type="range"]::-webkit-slider-thumb {
         max-width: 700px;
     }
 }
+
+/* ============================================================
+   GROUP 2 ADDITIONS
+   ============================================================ */
+
+/* --- Player categories display in lobby (non-host players) --- */
+.lobby-categories-player {
+    width: 100%;
+    max-width: 600px;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    padding: 14px 18px 16px;
+}
+
+.lobby-cat-label {
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.4);
+    margin: 0 0 12px 0;
+}
+
+.player-cat-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* --- Lobby leave button --- */
+.lobby-leave-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 2px;
+}
+
+.lobby-leave-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.3);
+    font-family: var(--font-main);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 8px 16px;
+    border-radius: 20px;
+    transition: color 0.2s, background 0.2s;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.lobby-leave-btn:hover {
+    color: rgba(255,255,255,0.65);
+    background: rgba(255,255,255,0.06);
+}
+
+/* --- Persistent room code on end screen --- */
+.end-room-code {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin: -6px 0 12px;
+}
+
+/* --- Replay guidance message (end screen, non-host players) --- */
+.replay-guidance {
+    width: 100%;
+    max-width: 460px;
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 12px;
+    padding: 12px 18px;
+    color: rgba(255,255,255,0.7);
+    font-size: 0.88rem;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.5;
+    margin-bottom: 8px;
+}
+
+/* --- Tie display on end screen --- */
+.tie-notice {
+    width: 100%;
+    max-width: 460px;
+    background: linear-gradient(135deg, rgba(255,204,0,0.12), rgba(255,0,85,0.1));
+    border: 1px solid rgba(255,204,0,0.35);
+    border-radius: 12px;
+    padding: 10px 18px;
+    color: #ffdd55;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+}
+
+.tie-badge {
+    display: inline-block;
+    background: rgba(255,204,0,0.25);
+    border: 1px solid rgba(255,204,0,0.5);
+    color: #ffdd55;
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-left: 7px;
+    vertical-align: middle;
+}
+
+.podium-entry.tie-entry {
+    border-color: rgba(255,204,0,0.4);
+    background: linear-gradient(135deg,
+        rgba(255,204,0,0.08) 0%,
+        rgba(255,255,255,0.06) 100%);
+}
+
+
