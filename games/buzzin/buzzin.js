@@ -398,6 +398,10 @@ function setupSocketListeners() {
         console.log('Connected to BuzzIn! server');
         clearTimeout(connectionTimeout);
 
+        // Clear any stale connection-failed modal from a previous timeout
+        const staleModal = document.getElementById('connection-failed-modal');
+        if (staleModal) staleModal.remove();
+
         // Join room immediately after connection
         // Server handles reconnection by player name automatically
         if (roomCode && playerName) {
@@ -419,26 +423,42 @@ function setupSocketListeners() {
             }
         }, 45000);
     });
-    
-    // Set timeout for connection
+
+    // Set timeout for connection — shows a dismissible overlay, not a blocking modal
     connectionTimeout = setTimeout(() => {
         if (!socket.connected) {
             console.error('Connection timeout');
+            if (document.getElementById('connection-failed-modal')) return;
             const errorMsg = document.createElement('div');
-            errorMsg.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,0,0,0.9); color: white; padding: 20px; border-radius: 10px; z-index: 1000; text-align: center;';
-            errorMsg.innerHTML = '<h2>Connection Failed</h2><p>Unable to connect to server. Please check your connection and try again.</p>';
+            errorMsg.id = 'connection-failed-modal';
+            errorMsg.style.cssText = [
+                'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%)',
+                'background:rgba(180,0,0,0.93);color:white;padding:28px 32px',
+                'border-radius:14px;z-index:9999;text-align:center',
+                'max-width:88vw;box-shadow:0 8px 32px rgba(0,0,0,0.5)',
+                'font-family:var(--font-main);cursor:pointer',
+            ].join(';');
+            errorMsg.innerHTML = `
+                <h2 style="margin:0 0 10px;font-size:1.3rem;">Connection Failed</h2>
+                <p style="margin:0 0 16px;font-size:0.9rem;opacity:0.85;">Unable to connect to server. Check your connection and try again.</p>
+                <p style="margin:0;font-size:0.8rem;opacity:0.6;">Tap anywhere on this message to dismiss.</p>
+            `;
+            errorMsg.addEventListener('click', () => errorMsg.remove());
             document.body.appendChild(errorMsg);
         }
     }, 10000);
-    
+
     socket.on('disconnect', () => {
         console.log('Disconnected from server');
         // Don't immediately show connecting - might be reconnecting
     });
-    
+
     socket.on('reconnect', () => {
         console.log('Reconnected to server');
         reconnectAttempts = 0;
+        // Clear stale connection-failed modal now that we're back online
+        const cfm = document.getElementById('connection-failed-modal');
+        if (cfm) cfm.remove();
         const ro = document.getElementById('reconnecting-overlay');
         if (ro) ro.remove();
         // Let the server determine host status from name-based reconnection state.
@@ -502,6 +522,24 @@ function setupSocketListeners() {
             errorDiv.textContent = message;
             document.body.appendChild(errorDiv);
             setTimeout(() => { window.location.href = '../../index.html'; }, 3000);
+        } else if (message.toLowerCase().includes('already active')) {
+            // Old session is still closing (common after Wi-Fi blip or hard-refresh).
+            // Auto-retry once after a short delay to let the server clear the stale socket.
+            const errorDiv = document.createElement('div');
+            errorDiv.style.cssText = [
+                'position:fixed;top:20px;left:50%;transform:translateX(-50%)',
+                'background:rgba(160,80,0,0.95);color:white;padding:15px 26px',
+                'border-radius:10px;z-index:9500;font-family:var(--font-main)',
+                'text-align:center;max-width:88vw;',
+            ].join(';');
+            errorDiv.innerHTML = '<strong>Session still closing</strong><br><span style="font-size:0.85rem;opacity:0.85;">Retrying automatically in 4 seconds…</span>';
+            document.body.appendChild(errorDiv);
+            setTimeout(() => {
+                errorDiv.remove();
+                if (roomCode && playerName) {
+                    socket.emit('player:joinRoom', { roomCode, name: playerName, isHost });
+                }
+            }, 4000);
         } else {
             const errorDiv = document.createElement('div');
             errorDiv.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:rgba(200,0,0,0.92);color:white;padding:15px 30px;border-radius:10px;z-index:9500;font-family:var(--font-main);';
@@ -2020,6 +2058,44 @@ async function showPlayAgainModal() {
     const hardModeSaved = lastSettings.hardMode === true;
     const countdownSaved = lastSettings.countdownEnabled !== false;
 
+    // --- Missing-player detection ---
+    // gameState.scores at end phase has every player who finished the game.
+    // roomState.players has everyone currently connected.
+    const connectedNonHost = (roomState?.players || []).filter(p => !p.isHost);
+    const lastGameNames = new Set(
+        (gameState?.scores || []).map(p => (p.name || '').toLowerCase()).filter(Boolean)
+    );
+    const connectedNames = new Set(connectedNonHost.map(p => (p.name || '').toLowerCase()));
+    const missingNames = [...lastGameNames].filter(n => !connectedNames.has(n));
+
+    const noPlayersLeft = connectedNonHost.length === 0;
+    let playerStatusBanner = '';
+    if (noPlayersLeft) {
+        playerStatusBanner = `
+            <div style="background:rgba(200,80,0,0.25);border:1px solid rgba(200,120,0,0.5);
+                        border-radius:10px;padding:12px 16px;margin-bottom:18px;text-align:center;">
+                <div style="font-weight:700;font-size:0.95rem;margin-bottom:4px;">No other players are connected</div>
+                <div style="font-size:0.82rem;color:rgba(255,255,255,0.65);">
+                    You can still start — players can join with room code <strong>${roomCode || '—'}</strong>.
+                </div>
+            </div>`;
+    } else if (missingNames.length > 0) {
+        const nameList = missingNames.map(n => {
+            // Restore original casing from gameState.scores if available
+            const original = (gameState?.scores || []).find(p => (p.name || '').toLowerCase() === n);
+            return original?.name || n;
+        }).join(', ');
+        playerStatusBanner = `
+            <div style="background:rgba(200,150,0,0.2);border:1px solid rgba(200,170,0,0.4);
+                        border-radius:10px;padding:12px 16px;margin-bottom:18px;text-align:center;">
+                <div style="font-weight:700;font-size:0.92rem;margin-bottom:4px;">Not all players are connected</div>
+                <div style="font-size:0.82rem;color:rgba(255,255,255,0.65);">
+                    Missing: <strong>${nameList}</strong><br>
+                    <span style="opacity:0.75;">You can still start with the players who are here.</span>
+                </div>
+            </div>`;
+    }
+
     const CATEGORIES = [
         "General Knowledge","Science","Movies & TV","Music","Sports",
         "History","Geography","Pop Culture","Games","Random","Flags"
@@ -2035,6 +2111,7 @@ async function showPlayAgainModal() {
         <div class="play-again-card">
             <h2>Play Again</h2>
             <p style="color:rgba(255,255,255,0.6);margin:0 0 20px;font-size:0.9rem;">Same players, new game</p>
+            ${playerStatusBanner}
             <div class="pa-section">
                 <label class="pa-label">Categories:</label>
                 <div class="pa-cat-grid">
