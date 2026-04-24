@@ -199,17 +199,37 @@ function stopLobbyVideo() {
 
 function startQuestionMusic() {
     if (!musicEnabled) return;
-    if (questionMusicReady && questionMusicPlayer?.seekTo) {
+    if (!questionMusicReady || !questionMusicPlayer?.playVideo) return;
+    try {
         questionMusicPlayer.seekTo(0);
         questionMusicPlayer.playVideo();
-    }
+    } catch (e) { /* player not fully ready */ }
 }
 
 function stopQuestionMusic() {
-    if (questionMusicReady && questionMusicPlayer?.stopVideo) {
-        questionMusicPlayer.stopVideo();
-    }
+    if (!questionMusicReady || !questionMusicPlayer?.pauseVideo) return;
+    try {
+        questionMusicPlayer.pauseVideo();
+        questionMusicPlayer.seekTo(0);
+    } catch (e) { /* player not fully ready */ }
 }
+
+// Resume music after the page returns from background (mobile Safari/Chrome tab switching)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || !musicEnabled) return;
+    if (!gameState) return;
+    if (gameState.phase === 'lobby' || gameState.phase === 'countdown') {
+        playLobbyVideo();
+    } else if (gameState.phase === 'question') {
+        if (questionMusicReady && questionMusicPlayer?.getPlayerState) {
+            try {
+                const state = questionMusicPlayer.getPlayerState();
+                // -1 = unstarted, 2 = paused — both mean music has stalled; restart it
+                if (state === -1 || state === 2) questionMusicPlayer.playVideo();
+            } catch (e) {}
+        }
+    }
+});
 
 function updateMusicButton() {
     const btn = document.getElementById('btn-music-toggle');
@@ -222,6 +242,36 @@ function updateMusicButton() {
         btn.textContent = '🔇 Music Off';
         btn.classList.remove('music-on');
         btn.classList.add('music-off');
+    }
+}
+
+// Convert a regional-indicator flag emoji (🇺🇸, 🇫🇷 etc.) to an <img> HTML string
+// using flagcdn.com for cross-browser rendering (Windows/Edge doesn't render flag emojis).
+// Falls back to the raw emoji if conversion fails.
+function flagEmojiToImgHtml(emoji) {
+    if (!emoji) return '';
+    const codePoints = [...emoji].map(c => c.codePointAt(0));
+    if (codePoints.length !== 2) return emoji;
+    const [a, b] = codePoints;
+    if (a < 0x1F1E6 || a > 0x1F1FF || b < 0x1F1E6 || b > 0x1F1FF) return emoji;
+    const code = String.fromCharCode(a - 0x1F1E6 + 65, b - 0x1F1E6 + 65).toLowerCase();
+    return `<img class="flag-img" src="https://flagcdn.com/w160/${code}.png" alt="${emoji}" onerror="this.replaceWith(document.createTextNode('${emoji}'))">`;
+}
+
+// Returns true if the string is a two-codepoint regional-indicator (flag) emoji
+function isFlagEmoji(str) {
+    if (!str) return false;
+    const pts = [...str].map(c => c.codePointAt(0));
+    return pts.length === 2 && pts[0] >= 0x1F1E6 && pts[0] <= 0x1F1FF && pts[1] >= 0x1F1E6 && pts[1] <= 0x1F1FF;
+}
+
+// Set imageDisplay element content — uses <img> for flag emojis (Edge compat), textContent otherwise
+function setImageDisplay(el, value) {
+    if (!el || !value) return;
+    if (isFlagEmoji(value)) {
+        el.innerHTML = flagEmojiToImgHtml(value);
+    } else {
+        el.textContent = value;
     }
 }
 
@@ -1086,6 +1136,7 @@ function updateAdminMenuVisibility() {
             gameState.phase === 'question' ||
             gameState.phase === 'result' ||
             gameState.phase === 'paused' ||
+            gameState.phase === 'unpausing' ||
             gameState.phase === 'end'
         )) {
             adminMenuEls.menu.classList.remove('hidden');
@@ -1298,6 +1349,18 @@ function renderGameState() {
             po.style.transition = 'opacity 0.3s ease-out';
             po.style.opacity = '0';
             setTimeout(() => { if (po.parentNode) po.remove(); }, 300);
+        }
+    }
+
+    // Unpausing countdown overlay — shown for each broadcast while phase === 'unpausing'
+    if (currentPhase === 'unpausing') {
+        showUnpausingCountdown(gameState.unpausingCountdown || 3);
+    } else if (previousPhase === 'unpausing' && currentPhase !== 'unpausing') {
+        const uo = document.getElementById('unpausing-overlay');
+        if (uo) {
+            uo.style.transition = 'opacity 0.2s ease-out';
+            uo.style.opacity = '0';
+            setTimeout(() => { if (uo.parentNode) uo.remove(); }, 200);
         }
     }
 
@@ -1609,7 +1672,7 @@ function renderHostView() {
                 hostImgEl.className = 'question-image-display';
                 hostEls.question.parentNode.insertBefore(hostImgEl, hostEls.question);
             }
-            hostImgEl.textContent = currentQuestion.imageDisplay;
+            setImageDisplay(hostImgEl, currentQuestion.imageDisplay);
         } else if (hostImgEl) {
             hostImgEl.remove();
         }
@@ -1728,7 +1791,7 @@ function renderPlayerView() {
         } else {
             playerEls.category.textContent = currentQuestion.category || '';
         }
-        // Image display (e.g. flag emoji shown large above question text)
+        // Image display (e.g. flag shown large above question text)
         let playerImgEl = document.getElementById('player-image-display');
         if (currentQuestion.imageDisplay) {
             if (!playerImgEl) {
@@ -1737,7 +1800,7 @@ function renderPlayerView() {
                 playerImgEl.className = 'question-image-display';
                 playerEls.question.parentNode.insertBefore(playerImgEl, playerEls.question);
             }
-            playerImgEl.textContent = currentQuestion.imageDisplay;
+            setImageDisplay(playerImgEl, currentQuestion.imageDisplay);
         } else if (playerImgEl) {
             playerImgEl.remove();
         }
@@ -2316,6 +2379,34 @@ function showPauseOverlay() {
         document.getElementById('pause-resume-btn')?.addEventListener('click', () => {
             socket.emit('host:resumeGame', { roomCode });
         });
+    }
+}
+
+function showUnpausingCountdown(count) {
+    let overlay = document.getElementById('unpausing-overlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'unpausing-overlay';
+        overlay.style.cssText = [
+            'position:fixed;top:0;left:0;width:100%;height:100%',
+            'background:rgba(0,0,0,0.82)',
+            'display:flex;flex-direction:column;align-items:center;justify-content:center',
+            'z-index:7500;pointer-events:none;font-family:var(--font-main)',
+            'animation:fadeIn 0.3s ease-out',
+        ].join(';');
+        overlay.innerHTML = `
+            <div style="color:rgba(255,255,255,0.55);font-size:clamp(0.9rem,2.5vw,1.1rem);font-weight:700;text-transform:uppercase;letter-spacing:3px;margin-bottom:18px;">Resuming</div>
+            <div id="unpausing-number" style="font-size:clamp(5rem,20vw,9rem);font-weight:900;color:var(--primary);text-shadow:0 0 40px rgba(255,0,85,0.7);line-height:1;">${count}</div>
+        `;
+        document.body.appendChild(overlay);
+    } else {
+        const numEl = document.getElementById('unpausing-number');
+        if (numEl && numEl.textContent !== String(count)) {
+            numEl.style.animation = 'none';
+            numEl.offsetHeight;
+            numEl.style.animation = 'pqcBeat 0.4s ease-out';
+            numEl.textContent = count;
+        }
     }
 }
 

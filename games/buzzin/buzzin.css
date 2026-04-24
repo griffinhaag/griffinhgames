@@ -2164,13 +2164,23 @@ input[type="range"]::-webkit-slider-thumb {
     min-height: 90px;
 }
 
-/* ── Question image display — flag emoji etc (Task 10) ── */
+/* ── Question image display — flag emoji/image ── */
 .question-image-display {
-    font-size: clamp(4rem, 18vw, 8rem);
+    font-size: clamp(5rem, 22vw, 10rem);
     text-align: center;
     line-height: 1.1;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
     user-select: none;
+}
+
+.question-image-display .flag-img {
+    display: block;
+    width: clamp(120px, 40vw, 220px);
+    height: auto;
+    margin: 0 auto;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+    object-fit: contain;
 }
 
 /* ── Round explanation (Task 5) ── */
