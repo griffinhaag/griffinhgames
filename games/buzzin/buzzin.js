@@ -774,10 +774,9 @@ function setupSocketListeners() {
         
         // Handle game ended
         if (event.type === 'game_ended') {
-            // Clear session storage
+            // Clear navigation-only keys — keep buzzin_settings so Play Again can restore them
             sessionStorage.removeItem('buzzin_redirect');
             sessionStorage.removeItem('buzzin_room');
-            sessionStorage.removeItem('buzzin_settings');
 
             if (event.reason === 'ended_by_host') {
                 alert('Host ended the game. Returning to main menu...');
@@ -1226,7 +1225,9 @@ function setupCategoryCheckboxes() {
 
 // Update the player-facing categories display in the lobby.
 // Called when a lobby:categoriesPreview event arrives from the server.
+// Hosts already see categories in their own host-controls widget — skip to avoid duplication.
 function updatePlayerCategoriesDisplay(cats) {
+    if (isHost) return;
     const wrapper = document.getElementById('lobby-categories-player');
     if (!wrapper) return;
     const tagsEl = wrapper.querySelector('.player-cat-tags');
