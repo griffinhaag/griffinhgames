@@ -175,9 +175,35 @@
                 font-size: 1rem;
             }
         }
+
+        #homepage-button {
+            position: fixed;
+            top: 14px;
+            left: 14px;
+            z-index: 999;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.75);
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+            letter-spacing: 0.02em;
+        }
+
+        #homepage-button:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+        }
     </style>
 </head>
 <body>
+    <button id="homepage-button" onclick="goToHomepage()">Homepage</button>
     <div class="stars">
         <div class="star-layer" id="starLayer"></div>
         <div class="shooting-star"></div>
@@ -228,6 +254,10 @@
 
         // Create shooting stars periodically
         setInterval(createShootingStar, 12000);
+
+        function goToHomepage() {
+            window.location.href = '/index.html';
+        }
     </script>
 
     <div class="container">
