@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="walkonthebeach.css">
+    <title>Truth or Griddy</title>
+</head>
+
+<body>
+    <!-- Welcome text for the Griddy Game -->
+    <div id="welcome-container">
+        <div id="welcome-text">Welcome to Walk on the Beach. The rules are simple, you can't answer, you griddy.</div>
+    </div>
+
+    <!-- Homepage button -->
+    <button id="homepage-button" onclick="goToHomepage()">Homepage</button>
+
+    <div id="start-container">
+        <input type="text" id="playerInput" placeholder="Player 1" onkeypress="handleKeyPress(event)">
+        <button onclick="startGame()">Start</button>
+        <button onclick="addPlayer()">Add Player</button>
+    </div>
+
+    <div id="game-container">
+        <div id="card-container">
+            <div id="question-card">
+                <div id="player-name">Player 1</div>
+                <div id="question"></div>
+            </div>
+        </div>
+        <div id="buttons-container">
+            <!-- Buttons will be dynamically added here -->
+        </div>
+        <div id="point-container"></div>
+        <div id="game-over"></div>
+    </div>
+
+    <div id="results-table-container"></div>
+
+    <script src="walkonthebeachscript.js"></script>
+
+    <script>
+        function goToHomepage() {
+            // Replace 'your-homepage-link' with the actual link you want to navigate to
+            window.location.href = '/index.html';
+        }
+    </script>
+</body>
+
+</html>
