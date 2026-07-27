@@ -1,22 +1,22 @@
-/* allinorwhat.css — All In or What: Midnight Casino Theme */
+/* allinorwhat.css — All In or What: Confession Booth Theme */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --accent:       #e8b64c;
-    --accent-glow:  rgba(232, 182, 76, 0.22);
-    --btn-1:        #1f7a4d;
-    --btn-1-hover:  #17603c;
-    --btn-1-glow:   rgba(31, 122, 77, 0.4);
-    --btn-2:        #9d2a4d;
-    --btn-2-hover:  #7f2140;
-    --btn-2-glow:   rgba(157, 42, 77, 0.4);
-    --btn-3:        #d7263d;
-    --btn-3-hover:  #b81f33;
-    --btn-3-glow:   rgba(215, 38, 61, 0.4);
-    --glass:        rgba(255, 255, 255, 0.055);
-    --glass-border: rgba(255, 255, 255, 0.12);
-    --text:         #f5e6c8;
-    --text-muted:   rgba(245, 230, 200, 0.5);
+    --accent:       #f43f5e;
+    --accent-glow:  rgba(244, 63, 94, 0.2);
+    --btn-1:        #d97706;
+    --btn-1-hover:  #b45f04;
+    --btn-1-glow:   rgba(217, 119, 6, 0.4);
+    --btn-2:        #8b3a62;
+    --btn-2-hover:  #712d4e;
+    --btn-2-glow:   rgba(139, 58, 98, 0.4);
+    --btn-3:        #be123c;
+    --btn-3-hover:  #9f1239;
+    --btn-3-glow:   rgba(190, 18, 60, 0.4);
+    --glass:        rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --text:         #f3e1e3;
+    --text-muted:   rgba(243, 225, 227, 0.5);
     --r:            14px;
     --font:         'Inter', sans-serif;
 }
@@ -35,9 +35,9 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #0a0a0a 0%, #170e02 45%, #1c0303 100%);
+    background: linear-gradient(135deg, #0a0507 0%, #1f0508 50%, #2b0a0a 100%);
     background-size: 300% 300%;
-    animation: bgShift 28s ease infinite;
+    animation: bgShift 30s ease infinite;
     font-family: var(--font);
     color: var(--text);
     overflow-x: hidden;
@@ -47,6 +47,31 @@ body {
 @keyframes bgShift {
     0%, 100% { background-position: 0% 50%; }
     50%       { background-position: 100% 50%; }
+}
+
+/* ── Confession Vignette (ambient) ── */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(circle at 50% 32%, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.6) 78%);
+    pointer-events: none;
+    animation: lampFlicker 6s ease-in-out infinite;
+}
+
+@keyframes lampFlicker {
+    0%, 92%, 100% { opacity: 1; }
+    94%            { opacity: 0.85; }
+    96%            { opacity: 1; }
+    98%            { opacity: 0.9; }
+}
+
+#welcome-container,
+#start-container,
+#game-container,
+#results-table-container {
+    position: relative;
+    z-index: 1;
 }
 
 /* ── Homepage Button ── */
@@ -86,6 +111,7 @@ body {
     width: 100%;
     max-width: 580px;
     text-align: center;
+    animation: riseIn 0.6s ease both;
 }
 
 #welcome-text {
@@ -104,6 +130,11 @@ body {
     margin: 0 0 20px;
 }
 
+@keyframes riseIn {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ── Start Container ── */
 #start-container {
     display: flex;
@@ -114,6 +145,7 @@ body {
     width: 100%;
     max-width: 420px;
     text-align: center;
+    animation: riseIn 0.6s ease 0.15s both;
 }
 
 #playerInput {
@@ -161,13 +193,20 @@ button {
 
 #start-container button:first-of-type {
     background: var(--accent);
-    color: #130508;
+    color: #fff;
+    animation: breathe 3.4s ease-in-out infinite;
 }
 
 #start-container button:first-of-type:hover {
     filter: brightness(1.08);
     box-shadow: 0 6px 20px var(--accent-glow);
     transform: translateY(-2px);
+    animation: none;
+}
+
+@keyframes breathe {
+    0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+    50%       { box-shadow: 0 8px 26px var(--accent-glow); }
 }
 
 #start-container button:last-of-type {
@@ -198,8 +237,6 @@ button {
     flex-direction: column;
     align-items: center;
     width: 100%;
-    position: relative;
-    overflow: hidden;
     background: var(--glass);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
@@ -215,25 +252,6 @@ button {
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(14px); }
     to   { opacity: 1; transform: translateY(0); }
-}
-
-/* ── Gold Shimmer Sweep (ambient) ── */
-#card-container::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -150%;
-    width: 60%;
-    height: 100%;
-    background: linear-gradient(100deg, transparent, rgba(232, 182, 76, 0.16), transparent);
-    animation: goldSweep 7s ease-in-out infinite;
-    pointer-events: none;
-}
-
-@keyframes goldSweep {
-    0%   { left: -150%; }
-    45%  { left: 150%; }
-    100% { left: 150%; }
 }
 
 .fade-in-animation { animation: fadeIn 0.4s ease; }
@@ -286,7 +304,7 @@ button {
 }
 
 /* Answered — 1st child */
-#buttons-container > :nth-child(1) { background: var(--btn-1); color: white; }
+#buttons-container > :nth-child(1) { background: var(--btn-1); color: #fff; }
 #buttons-container > :nth-child(1):hover {
     background: var(--btn-1-hover);
     transform: translateY(-2px);
@@ -345,7 +363,7 @@ button {
 }
 
 .results-table th {
-    background: rgba(232, 182, 76, 0.12);
+    background: rgba(244, 63, 94, 0.12);
     color: var(--accent);
     font-family: var(--font);
     font-weight: 700;
