@@ -1,22 +1,22 @@
-/* wildincategories.css — Midnight Cosmic Theme */
+/* wildincategories.css — Wildin' Categories: Neon Riot Theme */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --accent:       #22d3ee;
-    --accent-glow:  rgba(34, 211, 238, 0.18);
-    --btn-1:        #10b981;
-    --btn-1-hover:  #059669;
-    --btn-1-glow:   rgba(16, 185, 129, 0.35);
-    --btn-2:        #6366f1;
-    --btn-2-hover:  #4f46e5;
-    --btn-2-glow:   rgba(99, 102, 241, 0.35);
-    --btn-3:        #f43f5e;
-    --btn-3-hover:  #e11d48;
-    --btn-3-glow:   rgba(244, 63, 94, 0.35);
+    --accent:       #ff3fb4;
+    --accent-glow:  rgba(255, 63, 180, 0.22);
+    --btn-1:        #a3ff12;
+    --btn-1-hover:  #8ee600;
+    --btn-1-glow:   rgba(163, 255, 18, 0.4);
+    --btn-2:        #7c5cff;
+    --btn-2-hover:  #6845f0;
+    --btn-2-glow:   rgba(124, 92, 255, 0.4);
+    --btn-3:        #ff5f1f;
+    --btn-3-hover:  #e64d0f;
+    --btn-3-glow:   rgba(255, 95, 31, 0.4);
     --glass:        rgba(255, 255, 255, 0.06);
-    --glass-border: rgba(255, 255, 255, 0.12);
-    --text:         #e2e8f0;
-    --text-muted:   rgba(226, 232, 240, 0.5);
+    --glass-border: rgba(255, 255, 255, 0.13);
+    --text:         #eae6ff;
+    --text-muted:   rgba(234, 230, 255, 0.5);
     --r:            14px;
     --font:         'Inter', sans-serif;
 }
@@ -35,9 +35,9 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #080818 0%, #0f1b40 45%, #1c0a36 100%);
+    background: linear-gradient(135deg, #050110 0%, #1a0733 45%, #06122e 100%);
     background-size: 300% 300%;
-    animation: bgShift 20s ease infinite;
+    animation: bgShift 16s ease infinite;
     font-family: var(--font);
     color: var(--text);
     overflow-x: hidden;
@@ -161,7 +161,7 @@ button {
 
 #start-container button:first-of-type {
     background: var(--accent);
-    color: #060614;
+    color: #1a0212;
 }
 
 #start-container button:first-of-type:hover {
@@ -207,12 +207,19 @@ button {
     padding: clamp(22px, 5vw, 40px);
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
     margin-bottom: 0;
-    animation: fadeIn 0.4s ease;
+    animation: fadeIn 0.4s ease, neonPulse 6s ease-in-out infinite;
 }
 
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(14px); }
     to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Neon Pulse (ambient) ── */
+@keyframes neonPulse {
+    0%, 100% { box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 34px rgba(255, 63, 180, 0.3); }
+    33%       { box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 34px rgba(124, 92, 255, 0.3); }
+    66%       { box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 0 34px rgba(255, 95, 31, 0.3); }
 }
 
 .fade-in-animation { animation: fadeIn 0.4s ease; }
@@ -265,7 +272,7 @@ button {
 }
 
 /* Answered — 1st child */
-#buttons-container > :nth-child(1) { background: var(--btn-1); color: white; }
+#buttons-container > :nth-child(1) { background: var(--btn-1); color: #132400; }
 #buttons-container > :nth-child(1):hover {
     background: var(--btn-1-hover);
     transform: translateY(-2px);
@@ -324,7 +331,7 @@ button {
 }
 
 .results-table th {
-    background: rgba(34, 211, 238, 0.12);
+    background: rgba(255, 63, 180, 0.12);
     color: var(--accent);
     font-family: var(--font);
     font-weight: 700;

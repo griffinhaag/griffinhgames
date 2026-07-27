@@ -1,22 +1,22 @@
-/* walkonthebeach.css — Walk on the Beach: Bold Fuchsia Theme */
+/* walkonthebeach.css — Walk on the Beach: Golden Hour Theme */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --accent:       #f0abfc;
-    --accent-glow:  rgba(240, 171, 252, 0.2);
-    --btn-1:        #f59e0b;
-    --btn-1-hover:  #d97706;
-    --btn-1-glow:   rgba(245, 158, 11, 0.4);
-    --btn-2:        #a855f7;
-    --btn-2-hover:  #9333ea;
-    --btn-2-glow:   rgba(168, 85, 247, 0.4);
-    --btn-3:        #ec4899;
-    --btn-3-hover:  #db2777;
-    --btn-3-glow:   rgba(236, 72, 153, 0.4);
+    --accent:       #ff9466;
+    --accent-glow:  rgba(255, 148, 102, 0.22);
+    --btn-1:        #ffc857;
+    --btn-1-hover:  #f0b429;
+    --btn-1-glow:   rgba(255, 200, 87, 0.4);
+    --btn-2:        #2ec4b6;
+    --btn-2-hover:  #23a99d;
+    --btn-2-glow:   rgba(46, 196, 182, 0.4);
+    --btn-3:        #ff5d73;
+    --btn-3-hover:  #e6435a;
+    --btn-3-glow:   rgba(255, 93, 115, 0.4);
     --glass:        rgba(255, 255, 255, 0.07);
     --glass-border: rgba(255, 255, 255, 0.14);
-    --text:         #fce7f3;
-    --text-muted:   rgba(252, 231, 243, 0.5);
+    --text:         #ffeddc;
+    --text-muted:   rgba(255, 237, 220, 0.55);
     --r:            14px;
     --font:         'Inter', sans-serif;
 }
@@ -35,9 +35,9 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #0e0520 0%, #1c0840 50%, #2a0635 100%);
+    background: linear-gradient(135deg, #041c2e 0%, #0d3b4f 45%, #3a1f3d 100%);
     background-size: 300% 300%;
-    animation: bgShift 22s ease infinite;
+    animation: bgShift 24s ease infinite;
     font-family: var(--font);
     color: var(--text);
     overflow-x: hidden;
@@ -47,6 +47,33 @@ body {
 @keyframes bgShift {
     0%, 100% { background-position: 0% 50%; }
     50%       { background-position: 100% 50%; }
+}
+
+/* ── Sun Glow (ambient) ── */
+body::before {
+    content: '';
+    position: fixed;
+    top: 6%;
+    left: 50%;
+    width: min(60vw, 640px);
+    height: min(60vw, 640px);
+    transform: translateX(-50%);
+    background: radial-gradient(circle, rgba(255, 148, 102, 0.35) 0%, rgba(255, 148, 102, 0) 70%);
+    pointer-events: none;
+    animation: sunPulse 8s ease-in-out infinite;
+}
+
+@keyframes sunPulse {
+    0%, 100% { opacity: 0.55; transform: translateX(-50%) scale(1); }
+    50%       { opacity: 1; transform: translateX(-50%) scale(1.08); }
+}
+
+#welcome-container,
+#start-container,
+#game-container,
+#results-table-container {
+    position: relative;
+    z-index: 1;
 }
 
 /* ── Homepage Button ── */
@@ -161,7 +188,7 @@ button {
 
 #start-container button:first-of-type {
     background: var(--accent);
-    color: #1a0040;
+    color: #2a1200;
 }
 
 #start-container button:first-of-type:hover {
@@ -265,7 +292,7 @@ button {
 }
 
 /* Answered — 1st child */
-#buttons-container > :nth-child(1) { background: var(--btn-1); color: #1a0800; }
+#buttons-container > :nth-child(1) { background: var(--btn-1); color: #2a1400; }
 #buttons-container > :nth-child(1):hover {
     background: var(--btn-1-hover);
     transform: translateY(-2px);
@@ -324,7 +351,7 @@ button {
 }
 
 .results-table th {
-    background: rgba(240, 171, 252, 0.12);
+    background: rgba(255, 148, 102, 0.12);
     color: var(--accent);
     font-family: var(--font);
     font-weight: 700;
