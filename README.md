@@ -4,13 +4,37 @@ Party games I built to play with friends. Everything runs in the browser, no ins
 
 **Play it:** https://griffinhgames.xyz
 
+![The GriffinGames main menu: LOCKED IN, Truth or Griddy, and Kings Dice](docs/screenshots/home.jpg)
+
 ## Games
 
-**LOCKED IN** – A multiplayer trivia game show. The host sets up a room on the big screen, everyone joins from their phone with a room code, and the first person to hit "Lock In" gets to answer. There are 11 categories (geography, sports, movies & TV, flags, and more) with around 6,000 questions total, plus "Off the Dome" free-response rounds where answers are graded by an LLM (Llama 3.1 via Groq), so typos and alternate spellings still count. It talks to a Node/Socket.IO backend: [griffinhgames-server](https://github.com/griffinhaag/griffinhgames-server).
+### LOCKED IN
 
-**Truth or Griddy** – A question-card game with four themed decks, each with its own color scheme and roughly 500 prompts. Can't answer? You hit the griddy.
+A multiplayer trivia game show. The host sets up a room on the big screen, everyone joins from their phone with a room code, and the first person to hit "Lock In" gets to answer. There are 11 categories (geography, sports, movies & TV, flags, and more) with around 6,000 questions total, plus "Off the Dome" free-response rounds where answers are graded by an LLM (Llama 3.1 via Groq), so typos and alternate spellings still count. It talks to a Node/Socket.IO backend: [griffinhgames-server](https://github.com/griffinhaag/griffinhgames-server).
 
-**Kings Dice** – A dice game where every roll pumps up a balloon, and it pops at a random point. There's also a custom mode for writing your own rules.
+![A LOCKED IN question on the host screen, with the timer, live scoreboard, and answer progress](docs/screenshots/locked-in.jpg)
+
+### Truth or Griddy
+
+A question-card game with four themed decks, each with its own color scheme and roughly 500 prompts. Can't answer? You hit the griddy.
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/truth-or-griddy-categories.jpg" alt="Truth or Griddy deck picker with four categories"></td>
+    <td><img src="docs/screenshots/truth-or-griddy-question.jpg" alt="A Truth or Griddy question card with Answered, Shuffle, and Griddy buttons"></td>
+  </tr>
+</table>
+
+### Kings Dice
+
+Roll the dice and the total picks a rule from the board. Rather not? Pump the balloon instead, and hope it doesn't pop on you. It bursts at a random point. There's also a custom mode for writing your own rules.
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/kings-dice.jpg" alt="Kings Dice turn screen with dice, balloon, and the rules board"></td>
+    <td><img src="docs/screenshots/kings-dice-pop.jpg" alt="The balloon popping in Kings Dice"></td>
+  </tr>
+</table>
 
 ## How it's built
 
@@ -27,6 +51,7 @@ games/
   buzzin/             LOCKED IN: host setup, lobby/game screen, phone join page
   truthOrgriddy/      Truth or Griddy and its four category decks
   Kings Dice/         Kings Dice plus the custom-rules version
+docs/screenshots/     Images used in this README
 ```
 
 ## Running locally
