@@ -268,6 +268,41 @@ const tests = [
     },
 
     {
+        name: 'Music: round music is never heard in the lobby, even on a slow connection',
+        async run({ newPage, check, sleep }) {
+            const { host } = await hostRoom(newPage, { hostPlays: true });
+            await host.evaluate(() => localStorage.removeItem('buzzin_music'));
+            await host.reload();
+            await sleep(4000);
+            // Record every time the round-music player starts, and whether it's muted
+            await host.evaluate(() => {
+                window.roundMusicStarts = [];
+                questionMusicPlayer.addEventListener('onStateChange', (e) => {
+                    if (e.data === 1) window.roundMusicStarts.push({ muted: questionMusicPlayer.isMuted() });
+                });
+            });
+            // A very slow connection makes the player buffer, which used to let it start un-muted
+            const network = await host.context().newCDPSession(host);
+            await network.send('Network.enable');
+            await network.send('Network.emulateNetworkConditions', { offline: false, latency: 1500, downloadThroughput: 20 * 1024, uploadThroughput: 20 * 1024 });
+            await host.click('#btn-music-toggle');
+            await sleep(4000);
+            await network.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+
+            const samples = [];
+            for (let i = 0; i < 16; i++) {
+                await sleep(500);
+                samples.push(await musicState(host).then(m => ({ ...m, roundMuted: host.evaluate(() => questionMusicPlayer.isMuted()) })));
+            }
+            for (const s of samples) s.roundMuted = await s.roundMuted;
+            const starts = await host.evaluate(() => window.roundMusicStarts);
+            const audible = samples.some(s => s.questionMusic === 1 && !s.roundMuted) || starts.some(s => !s.muted);
+            check('round music is never playing out loud while in the lobby', !audible, { starts, last: samples.at(-1) });
+            check('lobby music is playing', samples.at(-1).lobbyMusic === 1, samples.at(-1));
+        },
+    },
+
+    {
         name: 'Setup page: every option reaches the game exactly as chosen',
         async run({ newPage, check, sleep }) {
             const page = await newPage('setup');
