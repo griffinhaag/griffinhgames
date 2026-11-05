@@ -137,8 +137,13 @@ function startCustomGame() {
         return;
     }
 
-    // Load either saved rules or defaults
-    customGameRules = loadSavedRules();
+    // Use what's in the rule fields right now (filled from saved rules or defaults on page
+    // load), so edits count even if Save wasn't pressed. Empty fields fall back to defaults.
+    customGameRules = {};
+    for (let i = 1; i <= 14; i++) {
+        const ruleText = document.getElementById(`rule${i}`)?.value.trim();
+        customGameRules[i] = { action: ruleText || defaultRules[i].action };
+    }
     
     document.getElementById('setup-container').style.display = 'none';
     document.getElementById('game-container').style.display = 'flex';
@@ -336,13 +341,15 @@ function updateCustomRulesGrid() {
         const ruleDiv = document.createElement('div');
         ruleDiv.className = 'rule-item';
         ruleDiv.setAttribute('data-rule', i);
-        ruleDiv.innerHTML = `<span class="rule-num">${i}</span><span class="rule-text">${customGameRules[i].action}</span>`;
+        ruleDiv.innerHTML = `<span class="rule-num">${i}</span><span class="rule-text"></span>`;
+        ruleDiv.querySelector('.rule-text').textContent = customGameRules[i].action;
         rulesGrid.appendChild(ruleDiv);
     }
 }
 
 function inflateBalloon() {
-    if (isGameOver) return;
+    // Ignore presses mid-roll so the turn can't pass before the result shows
+    if (isGameOver || isRolling) return;
 
     inflationCount++;
     const balloon = document.querySelector('.balloon');
@@ -383,10 +390,11 @@ function showGameOver(losingPlayer) {
     gameOverDiv.innerHTML = `
         <div class="game-over-content">
             <div class="game-over-title">💥 BOOM!</div>
-            <p class="game-over-sub">${losingPlayer} popped the balloon!</p>
+            <p class="game-over-sub"></p>
             <button onclick="location.reload()">Play Again</button>
         </div>
     `;
+    gameOverDiv.querySelector('.game-over-sub').textContent = `${losingPlayer} popped the balloon!`;
     document.body.appendChild(gameOverDiv);
 }
 
@@ -403,8 +411,9 @@ function displayResult(total, isSingleDie, isLucky) {
         }
         actionResult.innerHTML = `
             <div class="result-num">#${total}</div>
-            <div class="result-action">${rule.action}</div>
+            <div class="result-action"></div>
         `;
+        actionResult.querySelector('.result-action').textContent = rule.action;
         actionResult.classList.remove('pop-in');
         void actionResult.offsetWidth;
         actionResult.classList.add('pop-in');

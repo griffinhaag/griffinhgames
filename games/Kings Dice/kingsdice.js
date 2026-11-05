@@ -16,8 +16,8 @@ const gameRules = {
     6:  { action: "Chicks drink" },
     7:  { action: "Last to point up drinks" },
     8:  { action: "Choose drinking buddy" },
-    9:  { action: "Pick a word, rhyme or drink" },
-    10: { action: "Pick a category, name or drink" },
+    9:  { action: "Pick word, rhyme or drink" },
+    10: { action: "Pick category, name or drink" },
     11: { action: "Three fingers up" },
     12: { action: "Ask around, mess up and drink" },
     13: { action: "Make a rule" },
@@ -243,7 +243,8 @@ function rollDice() {
 
 // ── Balloon mechanic ──
 function inflateBalloon() {
-    if (isGameOver) return;
+    // Ignore presses mid-roll so the turn can't pass before the result shows
+    if (isGameOver || isRolling) return;
     inflationCount++;
     const balloon = document.querySelector('.balloon');
     const newScale = (100 + inflationCount * 20) / 100;
@@ -277,10 +278,11 @@ function showGameOver(losingPlayer) {
     div.innerHTML = `
         <div class="game-over-content">
             <div class="game-over-title">💥 BOOM!</div>
-            <p class="game-over-sub">${losingPlayer} popped the balloon!</p>
+            <p class="game-over-sub"></p>
             <button onclick="location.reload()">Play Again</button>
         </div>
     `;
+    div.querySelector('.game-over-sub').textContent = `${losingPlayer} popped the balloon!`;
     document.body.appendChild(div);
 }
 
