@@ -1,0 +1,12 @@
+{
+  "name": "griffinhgames-e2e",
+  "private": true,
+  "description": "End-to-end browser tests for GriffinGames",
+  "type": "module",
+  "scripts": {
+    "test": "node run.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
+  }
+}

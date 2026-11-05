@@ -1,2 +1,3 @@
 /favicons/
 .DS_Store
+tests/e2e/node_modules/

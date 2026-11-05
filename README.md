@@ -58,6 +58,7 @@ games/
   truthOrgriddy/      Truth or Griddy and its four category decks
   Kings Dice/         Kings Dice plus the custom-rules version
 docs/screenshots/     Images used in this README
+tests/e2e/            Browser tests that play every game end to end
 ```
 
 ## Running locally
@@ -69,3 +70,7 @@ npx serve .
 ```
 
 Then open the URL it prints. For LOCKED IN, also run the [server](https://github.com/griffinhaag/griffinhgames-server) on port 3000. The site detects `localhost` and connects to it automatically.
+
+## Tests
+
+`tests/e2e` has browser tests that play every game the way people do: a full LOCKED IN game with a host and players in separate tabs, every Truth or Griddy deck to the end, and both versions of Kings Dice. See [tests/e2e/README.md](tests/e2e/README.md) for what's covered and how to run them.
