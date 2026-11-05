@@ -2,7 +2,7 @@
 
 Party games I built to play with friends. Everything runs in the browser, no installs or accounts. One person puts it on a TV or laptop and everyone else plays along.
 
-**Play it:** https://griffinhgames.netlify.app
+**Play it:** https://griffinhgames.xyz
 
 ## Games
 
