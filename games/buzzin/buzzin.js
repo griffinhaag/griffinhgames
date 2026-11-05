@@ -309,7 +309,7 @@ function flagEmojiToImgHtml(emoji) {
     const [a, b] = codePoints;
     if (a < 0x1F1E6 || a > 0x1F1FF || b < 0x1F1E6 || b > 0x1F1FF) return emoji;
     const code = String.fromCharCode(a - 0x1F1E6 + 65, b - 0x1F1E6 + 65).toLowerCase();
-    return `<img class="flag-img" src="https://flagcdn.com/w160/${code}.png" alt="${emoji}" onerror="this.replaceWith(document.createTextNode('${emoji}'))">`;
+    return `<img class="flag-img" src="https://flagcdn.com/w320/${code}.png" alt="${emoji}" onerror="this.replaceWith(document.createTextNode('${emoji}'))">`;
 }
 
 // Returns true if the string is a two-codepoint regional-indicator (flag) emoji

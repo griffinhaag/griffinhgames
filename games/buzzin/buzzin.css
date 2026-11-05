@@ -2175,8 +2175,12 @@ input[type="range"]::-webkit-slider-thumb {
 
 .question-image-display .flag-img {
     display: block;
-    width: clamp(120px, 40vw, 220px);
+    /* Fit inside a 220×150 frame (smaller on phones) whatever the flag's shape, so square
+       and tall flags (Switzerland, Nepal) aren't oversized next to the usual 2:1 ones */
+    width: auto;
     height: auto;
+    max-width: clamp(120px, 40vw, 220px);
+    max-height: clamp(90px, 18vh, 150px);
     margin: 0 auto;
     border-radius: 6px;
     box-shadow: 0 4px 16px rgba(0,0,0,0.35);
