@@ -143,6 +143,18 @@ let setupHandoffToken = null;
 // Set when the host came back through join.html; shown once the room confirms host status
 let announceHostRestored = false;
 
+// --- "Rejoin previous game" on the join page ---
+// Saved on this device (survives closing the tab) while you're in a lobby, so join.html can
+// offer to rejoin after you quit or lose connection. Forgotten when the game is over for you:
+// host ended it, you were kicked, or you left a finished game. join.html also asks the server
+// whether the lobby is still open before suggesting it.
+function rememberLastGame(room, name) {
+    try { localStorage.setItem('buzzin_last_game', JSON.stringify({ room, name, savedAt: Date.now() })); } catch (e) {}
+}
+function forgetLastGame() {
+    try { localStorage.removeItem('buzzin_last_game'); } catch (e) {}
+}
+
 // --- YouTube Players ---
 let lobbyPlayer = null;
 let questionMusicPlayer = null;
@@ -704,6 +716,7 @@ function setupSocketListeners() {
                     name: meInRoom.name || playerName
                 }));
             } catch (e) {}
+            rememberLastGame(rs.code || roomCode, meInRoom.name || playerName);
         }
 
         // Keep player room code display current
@@ -842,6 +855,7 @@ function setupSocketListeners() {
             sessionStorage.removeItem('buzzin_room');
 
             if (event.reason === 'ended_by_host') {
+                forgetLastGame();
                 alert('Host ended the game. Returning to main menu...');
                 setTimeout(() => {
                     window.location.href = '../../index.html';
@@ -1056,6 +1070,7 @@ function setupUIListeners() {
     if (btnReturn) {
         btnReturn.addEventListener('click', () => {
             sessionStorage.removeItem('buzzin_session');
+            forgetLastGame(); // leaving a finished game
             window.location.href = '../../index.html';
         });
     }
@@ -2086,6 +2101,7 @@ function showKickedOverlay() {
     if (socket) socket.disconnect();
     // Clear persistent session so a kicked player can't auto-rejoin the same room
     sessionStorage.removeItem('buzzin_session');
+    forgetLastGame();
 
     const overlay = document.createElement('div');
     overlay.id = 'kicked-overlay';
@@ -2953,6 +2969,7 @@ function handleBackArrow() {
     if (screens.end?.classList.contains('active')) {
         if (confirm('Return to the main menu?')) {
             sessionStorage.removeItem('buzzin_session');
+            forgetLastGame(); // leaving a finished game
             window.location.href = '../../index.html';
         }
         return;

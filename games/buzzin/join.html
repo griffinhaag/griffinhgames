@@ -417,37 +417,61 @@
             console.log('Connected to server');
         });
 
-        // Check URL for pre-filled room code (for easy rejoin via shared link)
+        // --- Rejoin previous game ---
+        // Shown for a shared link (?room=…&name=…) or for the last game this device was in
+        // (saved by the game page), as long as that lobby is still open.
+        const rejoinSection = document.getElementById('rejoin-section');
+        const rejoinInfo = document.getElementById('rejoin-info');
+        const btnRejoin = document.getElementById('btn-rejoin');
+        let rejoinTarget = null;
+
+        function offerRejoin(room, name) {
+            rejoinTarget = { room: room.toUpperCase(), name };
+            codeInput.value = rejoinTarget.room;
+            nameInput.value = rejoinTarget.name;
+            rejoinInfo.textContent = `${rejoinTarget.name} · Room ${rejoinTarget.room}`;
+            rejoinSection.classList.remove('hidden');
+        }
+
+        function forgetLastGame() {
+            try { localStorage.removeItem('buzzin_last_game'); } catch (e) {}
+        }
+
+        btnRejoin.addEventListener('click', () => {
+            if (!rejoinTarget) return;
+            // The redirect after joining reads these fields, so make sure they match
+            codeInput.value = rejoinTarget.room;
+            nameInput.value = rejoinTarget.name;
+            btnRejoin.disabled = true;
+            showConnecting(true);
+            socket.emit('player:setName', rejoinTarget.name);
+            socket.emit('player:joinRoom', { roomCode: rejoinTarget.room, name: rejoinTarget.name, isHost: false });
+        });
+
         const urlParams = new URLSearchParams(window.location.search);
         const prefilledRoom = urlParams.get('room');
         const prefilledName = urlParams.get('name');
 
-        if (prefilledRoom) {
-            codeInput.value = prefilledRoom.toUpperCase();
-        }
-        if (prefilledName) {
-            nameInput.value = prefilledName;
-
-            // If both are provided, show quick rejoin option
-            if (prefilledRoom) {
-                const rejoinSection = document.getElementById('rejoin-section');
-                const rejoinInfo = document.getElementById('rejoin-info');
-                const btnRejoin = document.getElementById('btn-rejoin');
-
-                rejoinSection.classList.remove('hidden');
-                rejoinInfo.textContent = `Rejoin as: ${prefilledName}`;
-
-                btnRejoin.addEventListener('click', () => {
-                    btnRejoin.disabled = true;
-                    showConnecting(true);
-
-                    socket.emit('player:setName', prefilledName);
-                    socket.emit('player:joinRoom', {
-                        roomCode: prefilledRoom.toUpperCase(),
-                        name: prefilledName,
-                        isHost: false
-                    });
-                });
+        if (prefilledRoom && prefilledName) {
+            offerRejoin(prefilledRoom, prefilledName);
+        } else if (prefilledRoom || prefilledName) {
+            if (prefilledRoom) codeInput.value = prefilledRoom.toUpperCase();
+            if (prefilledName) nameInput.value = prefilledName;
+        } else {
+            let last = null;
+            try { last = JSON.parse(localStorage.getItem('buzzin_last_game') || 'null'); } catch (e) {}
+            const twelveHours = 12 * 60 * 60 * 1000;
+            if (last && last.room && last.name && Date.now() - (last.savedAt || 0) < twelveHours) {
+                fetch(`${backendUrl}/buzzin/rooms/${encodeURIComponent(last.room)}`)
+                    .then(res => res.json())
+                    .then(({ open }) => {
+                        if (!open) return forgetLastGame();
+                        // Don't overwrite anything the player started typing
+                        if (!nameInput.value && !codeInput.value) offerRejoin(last.room, last.name);
+                    })
+                    .catch(() => {}); // server asleep or offline: just don't suggest
+            } else if (last) {
+                forgetLastGame();
             }
         }
 
@@ -484,17 +508,19 @@
             showConnecting(false);
             btnJoin.disabled = false;
 
-            // Re-enable rejoin button if it exists
-            const btnRejoin = document.getElementById('btn-rejoin');
-            if (btnRejoin) btnRejoin.disabled = false;
+            btnRejoin.disabled = false;
+            if (/kicked/i.test(message)) {
+                rejoinSection.classList.add('hidden');
+                forgetLastGame();
+            }
 
             // Show appropriate error message
             if (message.includes('not found') || message.includes('Invalid')) {
                 showError('Room not found. The game may have ended.');
                 shakeInput(codeInput);
-                // Hide rejoin section since room is gone
-                const rejoinSection = document.getElementById('rejoin-section');
-                if (rejoinSection) rejoinSection.classList.add('hidden');
+                // The room is gone: hide the rejoin option and stop suggesting it
+                rejoinSection.classList.add('hidden');
+                forgetLastGame();
             } else {
                 showError(message);
             }
