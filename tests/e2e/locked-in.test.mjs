@@ -303,6 +303,96 @@ const tests = [
     },
 
     {
+        name: 'Flags: every flag is shown big on the host screen and phones, never as a tiny emoji',
+        async run({ newPage, check, sleep }) {
+            const host = await newPage('host');
+            await host.goto(`${GAME}/setup.html`);
+            await host.evaluate(() => sessionStorage.clear());
+            await sleep(800);
+            await host.fill('#host-name', 'Host');
+            const boxes = host.locator('#category-checkboxes input');
+            for (let i = 0; i < await boxes.count(); i++) {
+                const box = boxes.nth(i);
+                if ((await box.getAttribute('value')) !== 'Flags' && await box.isChecked()) await box.uncheck();
+            }
+            for (const [id, value] of [['q-count-slider', 8], ['otd-count-slider', 3], ['timer-slider', 10], ['otd-timer-slider', 10]]) {
+                await host.evaluate(([id, value]) => {
+                    const el = document.getElementById(id);
+                    el.value = value;
+                    el.dispatchEvent(new Event('input', { bubbles: true }));
+                }, [id, value]);
+            }
+            await host.uncheck('#countdown-toggle');
+            await host.click('#btn-create-room');
+            await host.waitForURL(/index\.html\?room=/, { timeout: 10000 });
+            const room = new URL(host.url()).searchParams.get('room');
+            const phone = await joinRoom(newPage, room, 'Pia');
+            await phone.setViewportSize({ width: 390, height: 844 });
+
+            // Measure the flag wherever it's showing: the question view and the host's results panel
+            const flagSizes = (page) => page.evaluate(() => {
+                const found = [];
+                for (const id of ['player-image-display', 'host-image-display']) {
+                    const box = document.getElementById(id);
+                    if (!box || !box.offsetParent) continue;
+                    const img = box.querySelector('img');
+                    found.push({ where: id, isImage: !!img, width: Math.round((img || box).getBoundingClientRect().width) });
+                }
+                const emojiInText = /[\u{1F1E6}-\u{1F1FF}]{2}/u.test(document.body.innerText);
+                return { phase: gameState?.phase, question: gameState?.currentQuestion?.question, found, emojiInText };
+            });
+
+            await host.bringToFront();
+            await host.click('#btn-start-game');
+            const problems = [];
+            let picturesChecked = 0;
+            for (let i = 0; i < 200; i++) {
+                const phase = await host.evaluate(() => gameState?.phase);
+                if (phase === 'end') break;
+                for (const button of ['#btn-show-question', '#btn-next-question']) {
+                    const b = host.locator(button);
+                    if (await b.isVisible().catch(() => false)) await b.click({ timeout: 2000 }).catch(() => {});
+                }
+                if (phase === 'question' || phase === 'result') {
+                    for (const [who, page, minWidth] of [['host', host, 180], ['phone', phone, 120]]) {
+                        const m = await flagSizes(page);
+                        // Only judge a device while it is itself showing the question or its result
+                        const isPictureQuestion = ['question', 'result'].includes(m.phase) && /this flag/i.test(m.question || '');
+                        if (m.emojiInText) problems.push(`${who}: flag emoji left in the text (${m.question})`);
+                        if (isPictureQuestion) {
+                            if (!m.found.length) problems.push(`${who}: no flag shown for "${m.question}" (${m.phase})`);
+                            for (const f of m.found) {
+                                picturesChecked++;
+                                if (!f.isImage || f.width < minWidth) problems.push(`${who} ${f.where}: ${f.isImage ? 'image' : 'text'} only ${f.width}px wide`);
+                            }
+                        }
+                    }
+                }
+                for (const page of [host, phone]) {
+                    const results = page.locator('#results-overlay');
+                    if (await results.isVisible().catch(() => false)) await results.click({ position: { x: 5, y: 5 } }).catch(() => {});
+                }
+                if (phase === 'question') {
+                    if (await phone.locator('#player-answer-section').isVisible().catch(() => false)) {
+                        await phone.fill('#player-answer-input', 'france').catch(() => {});
+                        await phone.click('#btn-submit-answer', { timeout: 2000 }).catch(() => {});
+                    } else {
+                        const choice = phone.locator('.choice-btn:not([disabled])').first();
+                        if (await choice.isVisible().catch(() => false)) await choice.click({ timeout: 2000 }).catch(() => {});
+                    }
+                }
+                await sleep(400);
+            }
+            check('flags were checked on several questions', picturesChecked >= 6, `${picturesChecked} flag views checked`);
+            check('every flag is a big image (host ≥180px, phone ≥120px), never a tiny emoji', problems.length === 0, [...new Set(problems)].slice(0, 5).join(' | '));
+
+            // Safety net: even a question that arrives with the flag still in its text is shown big
+            const split = await phone.evaluate(() => splitQuestionImage({ question: 'Which country does this flag belong to? 🇰🇭' }));
+            check('a flag left at the end of the question text is pulled out and shown as the picture', split.image === '🇰🇭' && split.text === 'Which country does this flag belong to?', split);
+        },
+    },
+
+    {
         name: 'Setup page: every option reaches the game exactly as chosen',
         async run({ newPage, check, sleep }) {
             const page = await newPage('setup');
