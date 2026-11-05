@@ -128,6 +128,15 @@ function addSeenQuestion(questionText) {
     }
 }
 
+// --- Escaping ---
+// Player names and typed answers come from other players, so escape them before
+// putting them into HTML. Question-bank text is trusted and may contain flag images.
+function esc(value) {
+    return String(value ?? '').replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[ch]);
+}
+
 // --- YouTube Players ---
 let lobbyPlayer = null;
 let questionMusicPlayer = null;
@@ -143,7 +152,10 @@ let musicEnabled = localStorage.getItem('buzzin_music') === 'true'; // default o
 let countdownEnabled = true; // default on; overridden by sessionStorage buzzin_settings
 
 // Called automatically by YouTube IFrame API once loaded
+let youTubePlayersCreated = false;
 function onYouTubeIframeAPIReady() {
+    if (youTubePlayersCreated) return;
+    youTubePlayersCreated = true;
     lobbyPlayer = new YT.Player('lobby-video-player', {
         videoId: '8YGlzSl6cxU',
         playerVars: {
@@ -157,8 +169,10 @@ function onYouTubeIframeAPIReady() {
         events: {
             onReady: () => {
                 lobbyPlayerReady = true;
-                // Attempt playback — succeeds if user has already interacted (clicked music button or any UI)
-                if (musicEnabled) playLobbyVideo();
+                // Attempt playback — succeeds if user has already interacted (clicked music button or any UI).
+                // Only while in the lobby, so a mid-game rejoin doesn't layer it over the question music.
+                const phase = gameState?.phase;
+                if (musicEnabled && (!phase || phase === 'lobby' || phase === 'countdown')) playLobbyVideo();
             }
         }
     });
@@ -174,10 +188,18 @@ function onYouTubeIframeAPIReady() {
         events: {
             onReady: () => {
                 questionMusicReady = true;
+                // The player often finishes loading after the first game state arrives.
+                // If a question is already underway (late join, refresh, reconnect), start now.
+                if (musicEnabled && gameState?.phase === 'question') startQuestionMusic();
             }
         }
     });
 }
+
+// The YouTube script loads before this file, and when it's cached it can finish (and fire
+// onYouTubeIframeAPIReady) before this file has run, so the callback is missed and no
+// music ever plays. If the API is already loaded, create the players now.
+if (window.YT && window.YT.loaded) onYouTubeIframeAPIReady();
 
 function playLobbyVideo() {
     if (!musicEnabled) return;
@@ -203,6 +225,27 @@ function startQuestionMusic() {
     try {
         questionMusicPlayer.seekTo(0);
         questionMusicPlayer.playVideo();
+    } catch (e) { /* player not fully ready */ }
+}
+
+// Some browsers (Safari especially) only allow a player to make sound if it was first
+// started during a click. Call this inside the Music On click: it plays the question
+// track muted for a moment, which unlocks it for the automatic starts later in the game.
+function primeQuestionMusic() {
+    if (!questionMusicReady || !questionMusicPlayer?.playVideo) return;
+    try {
+        questionMusicPlayer.mute();
+        questionMusicPlayer.playVideo();
+        setTimeout(() => {
+            try {
+                // Don't interrupt real playback if a question started in the meantime
+                if (gameState?.phase !== 'question') {
+                    questionMusicPlayer.pauseVideo();
+                    questionMusicPlayer.seekTo(0);
+                }
+                questionMusicPlayer.unMute();
+            } catch (e) { /* player not fully ready */ }
+        }, 300);
     } catch (e) { /* player not fully ready */ }
 }
 
@@ -634,8 +677,10 @@ function setupSocketListeners() {
             playerRoomCodeEl.textContent = rs.code || roomCode || '';
         }
 
-        // If a game is actively running, stop here — game:state handles all in-game rendering.
-        if (gameState && gameState.phase !== 'lobby' && gameState.phase !== 'end') {
+        // If a game is running or finished, stop here — game:state handles those screens.
+        // (The server keeps the room marked in-progress after a game ends, so letting 'end'
+        // fall through would replace the podium with a "Game in progress, loading..." lobby.)
+        if (gameState && gameState.phase !== 'lobby') {
             return;
         }
 
@@ -688,31 +733,14 @@ function setupSocketListeners() {
         if (data?.roomCode && roomCode && data.roomCode !== roomCode) return;
         isHost = false;
         updateAdminMenuVisibility();
-        // Show a persistent banner — old device's controls are now locked out
-        let banner = document.getElementById('device-changed-banner');
-        if (!banner) {
-            banner = document.createElement('div');
-            banner.id = 'device-changed-banner';
-            banner.style.cssText = [
-                'position:fixed;top:0;left:0;right:0;z-index:9999',
-                'background:#c0392b;color:#fff;text-align:center',
-                'padding:14px 20px;font-weight:700;font-size:0.95rem',
-                'font-family:var(--font-main);',
-            ].join(';');
-            banner.innerHTML = 'Host session moved to another device. <button id="device-changed-rejoin" style="margin-left:12px;background:#fff;color:#c0392b;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-weight:700;">Rejoin</button>';
-            document.body.appendChild(banner);
-            document.getElementById('device-changed-rejoin')?.addEventListener('click', () => {
-                if (roomCode && playerName) {
-                    socket.emit('player:joinRoom', { roomCode, name: playerName, isHost: true });
-                }
-            });
-        }
+        if (gameState) renderGameState(); // lock this device's host controls right away
+        showDeviceChangedBanner('Host session moved to another device.', true);
     });
 
     // Regular player session moved to another device
     socket.on('room:deviceChanged', (data) => {
         if (data?.roomCode && roomCode && data.roomCode !== roomCode) return;
-        showHostChangeToast('Session moved to another device.', '#555');
+        showDeviceChangedBanner('Your session moved to another device.', false);
     });
 
     // Some servers send kick as a room error
@@ -828,7 +856,7 @@ function showKickPlayerModal() {
     players.forEach(p => {
         const row = document.createElement('button');
         row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;width:100%;background:#2a2a4a;border:none;border-radius:10px;padding:12px 16px;margin-bottom:8px;color:#fff;font-size:1rem;cursor:pointer;';
-        row.innerHTML = `<span>${p.name}</span><span style="color:#e74c3c;font-weight:700;">Kick ✕</span>`;
+        row.innerHTML = `<span>${esc(p.name)}</span><span style="color:#e74c3c;font-weight:700;">Kick ✕</span>`;
         row.addEventListener('click', () => {
             socket.emit('host:kickPlayer', { roomCode, socketId: p.socketId });
             overlay.remove();
@@ -1014,7 +1042,10 @@ function setupUIListeners() {
             localStorage.setItem('buzzin_music', musicEnabled ? 'true' : 'false');
             updateMusicButton();
             if (musicEnabled) {
-                playLobbyVideo(); // User just interacted — autoplay now permitted
+                // Both calls run inside the click, which is what browsers require to allow sound.
+                // If a player hasn't finished loading yet, its onReady handler picks it up.
+                playLobbyVideo();
+                primeQuestionMusic();
             } else {
                 stopLobbyVideo();
                 stopQuestionMusic();
@@ -1174,15 +1205,21 @@ function updateAdminMenuVisibility() {
 }
 
 // --- Render Logic ---
+let activeScreenName = null;
 function showScreen(screenName) {
+    const screenChanged = activeScreenName !== screenName;
+    activeScreenName = screenName;
     Object.values(screens).forEach(el => el.classList.remove('active'));
     screens[screenName].classList.add('active');
     updateBackArrowVisibility();
 
-    // Clean up transition overlays (results-overlay manages its own lifecycle)
-    ['off-the-dome-overlay', 'play-again-modal', 'kicked-overlay',
+    // Clean up transition overlays (results-overlay manages its own lifecycle).
+    // showScreen('game') runs on every state update, so the short-lived OFF THE DOME splash
+    // and the void-round toast (both remove themselves) are only cleared on a real screen change.
+    const transientOverlays = screenChanged ? ['off-the-dome-overlay', 'void-round-toast'] : [];
+    ['play-again-modal', 'kicked-overlay',
      'player-answered-list', 'player-image-display', 'host-image-display',
-     'flagged-summary-overlay', 'void-round-toast'].forEach(id => {
+     'flagged-summary-overlay', ...transientOverlays].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.remove();
     });
@@ -1274,20 +1311,27 @@ function updateLobbyUI(rs) {
             }
         });
 
-        // Add only new players (preserves animation for genuinely new joins)
+        // Add new players, and redraw existing ones only if host status or name changed
+        // (so a newly promoted host gets kick buttons and the crown moves). Unchanged
+        // entries are left alone, which preserves the join animation.
         (rs.players || []).forEach(p => {
-            if (currentSids.has(p.socketId)) return; // already rendered
             const name = p.name || `Player-${p.socketId?.slice(0, 4) || '?'}`;
+            const renderKey = `${isHost}|${!!p.isHost}|${name}`;
+            const existing = currentSids.has(p.socketId)
+                ? container.querySelector(`[data-player-sid="${CSS.escape(p.socketId)}"]`) : null;
+            if (existing && existing.dataset.renderKey === renderKey) return;
             const div = document.createElement('div');
             div.dataset.playerSid = p.socketId;
+            div.dataset.renderKey = renderKey;
             if (isHost && !p.isHost) {
                 div.className = 'player-tag kickable';
-                div.innerHTML = `<span class="player-tag-name">${name}</span><button class="kick-btn" data-socket-id="${p.socketId}" aria-label="Kick ${name}">✕</button>`;
+                div.innerHTML = `<span class="player-tag-name">${esc(name)}</span><button class="kick-btn" data-socket-id="${esc(p.socketId)}" aria-label="Kick ${esc(name)}">✕</button>`;
             } else {
                 div.className = 'player-tag';
                 div.textContent = name + (p.isHost ? ' 👑' : '');
             }
-            container.appendChild(div);
+            if (existing) existing.replaceWith(div);
+            else container.appendChild(div);
         });
 
         // Empty state
@@ -1342,7 +1386,9 @@ function renderGameState() {
     const currentPhase = gameState.phase;
 
     // Pause overlay transitions
-    if (currentPhase === 'paused' && previousPhase !== 'paused') {
+    if (currentPhase === 'paused') {
+        // Called on every update while paused: rebuilds the overlay if host status changed
+        // (e.g. the host dropped and another player was promoted), so the new host gets Resume.
         showPauseOverlay();
     } else if (previousPhase === 'paused' && currentPhase !== 'paused') {
         const po = document.getElementById('pause-overlay');
@@ -1386,6 +1432,11 @@ function renderGameState() {
         } else if (isHost) {
             socket.emit('host:showQuestion', { roomCode });
         }
+    }
+
+    // The OFF THE DOME splash belongs to the lead-up; never let it cover the answer box
+    if (currentPhase === 'question') {
+        document.getElementById('off-the-dome-overlay')?.remove();
     }
 
     // Clean up pre-question countdown overlay if the phase has moved past 'waiting'
@@ -1695,7 +1746,7 @@ function renderHostView() {
     // Build disconnected players indicator (shown in waiting and result phases)
     const disconnectedList = disconnectedPlayers || [];
     const disconnectedHTML = disconnectedList.length > 0
-        ? `<div class="host-disconnected-row"><span class="disconnect-label">Disconnected:</span>${disconnectedList.map(p => `<span class="disconnect-tag">⚡ ${p.name}</span>`).join('')}</div>`
+        ? `<div class="host-disconnected-row"><span class="disconnect-label">Disconnected:</span>${disconnectedList.map(p => `<span class="disconnect-tag">⚡ ${esc(p.name)}</span>`).join('')}</div>`
         : '';
 
     if (phase === 'waiting') {
@@ -1711,7 +1762,7 @@ function renderHostView() {
 
         const buzzedPlayers = (playerBuzzStatus || []).filter(p => p.hasBuzzed);
         const buzzedList = buzzedPlayers.map(p =>
-            `<span class="buzzed-tag ${p.hasAnswered ? 'answered' : 'waiting'}">${p.name}</span>`
+            `<span class="buzzed-tag ${p.hasAnswered ? 'answered' : 'waiting'}">${esc(p.name)}</span>`
         ).join('');
 
         hostEls.buzzArea.innerHTML = `
@@ -1734,7 +1785,7 @@ function renderHostView() {
     const sortedScores = [...(gameState.scores || [])].sort((a, b) => b.score - a.score);
     hostEls.leaderboard.innerHTML = sortedScores.slice(0, 5).map((p, i) => {
         const name = p.name || `Player-${p.socketId?.slice(0, 4) || '?'}`;
-        return `<div class="lb-row"><span class="lb-rank">${medals[i]}</span><span class="lb-name">${name}</span><span class="lb-score">${p.score}</span></div>`;
+        return `<div class="lb-row"><span class="lb-rank">${medals[i]}</span><span class="lb-name">${esc(name)}</span><span class="lb-score">${p.score}</span></div>`;
     }).join('');
 }
 
@@ -1925,7 +1976,7 @@ function renderPlayerView() {
         const totalCount = (playerBuzzStatus || []).length;
         if (answeredPlayers.length > 0) {
             answeredListEl.innerHTML = `<div class="answered-status-label">Locked in: ${answeredPlayers.length}/${totalCount}</div>
-                <div class="answered-names">${answeredPlayers.map(p => `<span class="answered-tag">${p.name}</span>`).join('')}</div>`;
+                <div class="answered-names">${answeredPlayers.map(p => `<span class="answered-tag">${esc(p.name)}</span>`).join('')}</div>`;
         } else {
             answeredListEl.innerHTML = `<div class="answered-status-label" style="opacity:0.5">Waiting for answers... 0/${totalCount}</div>`;
         }
@@ -1965,7 +2016,7 @@ function renderMultipleChoiceButtons(choices) {
 
     choicesEls.grid.innerHTML = shuffledChoices.map(choice => `
         <button class="choice-btn ${selectedChoice === choice ? 'selected' : ''}"
-                data-choice="${choice}"
+                data-choice="${esc(choice)}"
                 ${hasAnswered ? 'disabled' : ''}>
             ${choice}
         </button>
@@ -2086,7 +2137,7 @@ function renderEndScreen() {
         return `
             <div class="podium-entry${isTied ? ' tie-entry' : ''}" style="animation-delay:${i * 80}ms">
                 <span class="podium-rank">${medal}</span>
-                <span class="podium-name">${name}${tieBadge}</span>
+                <span class="podium-name">${esc(name)}${tieBadge}</span>
                 <span class="podium-score">${p.score} pts</span>
             </div>
         `;
@@ -2154,7 +2205,7 @@ async function showPlayAgainModal() {
                         border-radius:10px;padding:12px 16px;margin-bottom:18px;text-align:center;">
                 <div style="font-weight:700;font-size:0.92rem;margin-bottom:4px;">Not all players are connected</div>
                 <div style="font-size:0.82rem;color:rgba(255,255,255,0.65);">
-                    Missing: <strong>${nameList}</strong><br>
+                    Missing: <strong>${esc(nameList)}</strong><br>
                     <span style="opacity:0.75;">You can still start with the players who are here.</span>
                 </div>
             </div>`;
@@ -2348,9 +2399,12 @@ async function showPlayAgainModal() {
 }
 
 function showPauseOverlay() {
-    if (document.getElementById('pause-overlay')) return;
+    const existing = document.getElementById('pause-overlay');
+    if (existing && existing.dataset.forHost === String(isHost)) return;
+    if (existing) existing.remove();
     const overlay = document.createElement('div');
     overlay.id = 'pause-overlay';
+    overlay.dataset.forHost = String(isHost);
     overlay.innerHTML = `
         <div class="pause-content">
             <div class="pause-icon">⏸️</div>
@@ -2501,7 +2555,7 @@ function showResultsOverlay(event) {
     const resultsHTML = allResults.map(r => {
         let itemClass = r.isCorrect ? 'correct' : 'wrong';
         if (r.isFirstCorrect) itemClass += ' first';
-        const answerText = r.answer ? r.answer : '<em style="opacity:0.5">no answer</em>';
+        const answerText = r.answer ? esc(r.answer) : '<em style="opacity:0.5">no answer</em>';
         let badge = '';
         if (r.isFirstCorrect) {
             badge = `<span class="first-badge">1ST +${r.points || 150}</span>`;
@@ -2512,7 +2566,7 @@ function showResultsOverlay(event) {
         }
         return `
             <div class="result-item ${itemClass}">
-                <span class="result-name">${r.name}</span>
+                <span class="result-name">${esc(r.name)}</span>
                 <span class="result-answer">${answerText}</span>
                 ${badge}
             </div>
@@ -2551,7 +2605,7 @@ function showResultsOverlay(event) {
                  style="--rank-diff:${rankDiff}; animation-delay:${i * 65}ms">
                 <span class="lb-result-rank">${rank}</span>
                 ${rankChangeEl}
-                <span class="lb-result-name">${p.name}</span>
+                <span class="lb-result-name">${esc(p.name)}</span>
                 <span class="lb-result-score">${p.score}</span>
                 ${deltaEl}
             </div>
@@ -2660,6 +2714,38 @@ function showFeedback(text, type) {
     setTimeout(() => {
         el.classList.add('hidden');
     }, 1500);
+}
+
+// Persistent banner shown on the old device after a session moves to another one.
+// The server disconnects the old socket, and Socket.IO doesn't reconnect by itself after a
+// server-side disconnect, so Rejoin reconnects (the 'connect' handler then rejoins the room).
+function showDeviceChangedBanner(message, asHost) {
+    if (document.getElementById('device-changed-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'device-changed-banner';
+    banner.style.cssText = [
+        'position:fixed;top:0;left:0;right:0;z-index:9999',
+        'background:#c0392b;color:#fff;text-align:center',
+        'padding:14px 20px;font-weight:700;font-size:0.95rem',
+        'font-family:var(--font-main)',
+    ].join(';');
+    const text = document.createElement('span');
+    text.textContent = message;
+    const btn = document.createElement('button');
+    btn.textContent = 'Rejoin';
+    btn.style.cssText = 'margin-left:12px;background:#fff;color:#c0392b;border:none;border-radius:8px;padding:6px 14px;cursor:pointer;font-weight:700;';
+    btn.addEventListener('click', () => {
+        if (!roomCode || !playerName) return;
+        banner.remove();
+        isHost = asHost;
+        if (socket.connected) {
+            socket.emit('player:joinRoom', { roomCode, name: playerName, isHost: asHost });
+        } else {
+            socket.connect();
+        }
+    });
+    banner.append(text, btn);
+    document.body.appendChild(banner);
 }
 
 function showGlobalToast(text, type) {
