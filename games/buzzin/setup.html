@@ -786,7 +786,8 @@
             sessionStorage.setItem('buzzin_redirect', JSON.stringify({
                 room: roomState.code,
                 name: hostName,
-                host: true
+                host: true,
+                handoffToken: roomState.handoffToken
             }));
 
             // Redirect to game page — room code in URL, host identity only in sessionStorage

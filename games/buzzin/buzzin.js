@@ -137,6 +137,12 @@ function esc(value) {
     })[ch]);
 }
 
+// One-time code from setup.html, sent with the first join so the server knows this is the
+// host arriving from setup (no "Host status restored" message). Cleared after use.
+let setupHandoffToken = null;
+// Set when the host came back through join.html; shown once the room confirms host status
+let announceHostRestored = false;
+
 // --- YouTube Players ---
 let lobbyPlayer = null;
 let questionMusicPlayer = null;
@@ -402,6 +408,11 @@ function init() {
             playerName = playerName || info.name;
             // Only set isHost from the trusted one-time redirect (NOT from URL params)
             if (info.host === true) isHost = true;
+            // One-time code from the server, so it knows this is the host arriving from setup
+            // (not a host who left and came back) and doesn't say "Host status restored"
+            if (typeof info.handoffToken === 'string') setupHandoffToken = info.handoffToken;
+            // join.html saw "host restored" before redirecting here; announce it once we're in
+            if (info.hostRestored === true) announceHostRestored = true;
             sessionStorage.removeItem('buzzin_redirect');
         } catch (e) {
             console.error('Failed to parse redirect info:', e);
@@ -518,7 +529,8 @@ function setupSocketListeners() {
         // Server handles reconnection by player name automatically
         if (roomCode && playerName) {
             console.log('Joining room:', roomCode, 'as', playerName, 'host:', isHost);
-            socket.emit('player:joinRoom', { roomCode, name: playerName, isHost: isHost });
+            socket.emit('player:joinRoom', { roomCode, name: playerName, isHost: isHost, handoffToken: setupHandoffToken });
+            setupHandoffToken = null; // the server accepts it once; later reconnects are normal rejoins
         } else {
             console.error('Missing roomCode or playerName:', { roomCode, playerName });
             // Redirect back to join page if missing info
@@ -672,6 +684,10 @@ function setupSocketListeners() {
         if (meInRoom) {
             const wasHost = isHost;
             isHost = meInRoom.isHost === true;
+            if (announceHostRestored) {
+                announceHostRestored = false;
+                if (isHost) showHostChangeToast('Host status restored.', '#2D6A4F');
+            }
             if (isHost !== wasHost) {
                 updateAdminMenuVisibility();
                 if (gameState) renderGameState();

@@ -457,6 +457,11 @@
             showError('Unable to connect to server. Please try again.');
         });
 
+        // A host coming back through this page gets "restored" here (just before room:state).
+        // Pass it on so the game page can show "Host status restored".
+        let hostWasRestored = false;
+        socket.on('host:restored', () => { hostWasRestored = true; });
+
         socket.on('room:state', (roomState) => {
             // Successfully joined - redirect to game page
             const playerName = nameInput.value.trim();
@@ -466,7 +471,8 @@
             sessionStorage.setItem('buzzin_redirect', JSON.stringify({
                 room: roomCode,
                 name: playerName,
-                host: false
+                host: false,
+                hostRestored: hostWasRestored
             }));
 
             // Redirect to game page — room code in URL, player identity in sessionStorage
@@ -502,7 +508,8 @@
             sessionStorage.setItem('buzzin_redirect', JSON.stringify({
                 room: roomCode,
                 name: playerName,
-                host: false
+                host: false,
+                hostRestored: hostWasRestored
             }));
 
             const target = `index.html?room=${roomCode}&name=${encodeURIComponent(playerName)}`;
