@@ -12,7 +12,12 @@ Party games I built to play with friends. Everything runs in the browser, no ins
 
 A multiplayer trivia game show. The host sets up a room on the big screen, everyone joins from their phone with a room code, and the first person to hit "Lock In" gets to answer. There are 11 categories (geography, sports, movies & TV, flags, and more) with around 6,000 questions total, plus "Off the Dome" free-response rounds where answers are graded by an LLM (Llama 3.1 via Groq), so typos and alternate spellings still count. It talks to a Node/Socket.IO backend: [griffinhgames-server](https://github.com/griffinhaag/griffinhgames-server).
 
-![A LOCKED IN question on the host screen, with the timer, live scoreboard, and answer progress](docs/screenshots/locked-in.jpg)
+<table>
+  <tr>
+    <td><img src="docs/screenshots/locked-in.jpg" alt="A LOCKED IN question on the host screen, with the timer, live scoreboard, and answer progress"></td>
+    <td><img src="docs/screenshots/locked-in-results.jpg" alt="LOCKED IN round results: the correct answer with an explanation, each player's answer, and updated standings"></td>
+  </tr>
+</table>
 
 ### Truth or Griddy
 
@@ -33,6 +38,7 @@ Roll the dice and the total picks a rule from the board. Rather not? Pump the ba
   <tr>
     <td><img src="docs/screenshots/kings-dice.jpg" alt="Kings Dice turn screen with dice, balloon, and the rules board"></td>
     <td><img src="docs/screenshots/kings-dice-pop.jpg" alt="The balloon popping in Kings Dice"></td>
+    <td><img src="docs/screenshots/kings-dice-custom-rules.jpg" alt="Custom Kings Dice: editing the 14 rules before a game"></td>
   </tr>
 </table>
 
