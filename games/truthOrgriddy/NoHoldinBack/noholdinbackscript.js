@@ -632,6 +632,11 @@ function handleKeyPress(event) {
 function addPlayer() {
     const playerName = document.getElementById("playerInput").value.trim();
     if (playerName !== "") {
+        // Scores are stored by name, so two players with the same name would share one
+        if (players.some(p => p.toLowerCase() === playerName.toLowerCase())) {
+            alert(`"${playerName}" is already playing. Use a different name.`);
+            return;
+        }
         players.push(playerName);
         points[playerName] = 0;
         griddyPoints[playerName] = 0;
@@ -683,7 +688,7 @@ function updatePointContainer() {
             const playerAnsweredCell = playerRow.insertCell(2);
             const playerGriddysCell = playerRow.insertCell(3);
 
-            playerNameCell.innerHTML = player;
+            playerNameCell.textContent = player;
             playerScoreCell.innerHTML = points[player];
             playerAnsweredCell.innerHTML = actions[player].answered;
             playerGriddysCell.innerHTML = actions[player].Griddys;
@@ -818,5 +823,4 @@ function shuffleArray(array) {
     return array;
 }
 
-// Initial setup
-nextPlayer();
+// The first question is drawn when the game starts (startGame -> nextPlayer).
