@@ -410,8 +410,6 @@
             <p class="tagline">Welcome to Gribbletown</p>
         </div>
 
-        <div id="loading" class="loading">Loading games and amazing things...</div>
-        <div id="error" class="error-message" style="display: none;"></div>
 
         <div class="games-grid" id="games-grid">
             <!-- LOCKED IN — always first -->
@@ -456,10 +454,10 @@
 
     <script src="config.js"></script>
     <script>
-        // Fetch games from backend
+        // Ask the backend for its game list. This also wakes the free Render instance early,
+        // so LOCKED IN is ready by the time someone hosts. All three games on this page work
+        // without it, so a failure is never shown to visitors.
         async function loadBackendGames() {
-            const loadingEl = document.getElementById('loading');
-            const errorEl = document.getElementById('error');
             const gamesGrid = document.getElementById('games-grid');
 
             try {
@@ -472,28 +470,21 @@
                 const data = await response.json();
                 const games = data.games || [];
 
-                // Hide loading
-                loadingEl.style.display = 'none';
-
-                // Render backend games (skip buzzin — static card already shown first)
+                // Render backend games. LOCKED IN (buzzin) already has a static card, and other
+                // multiplayer games need games/multiplayer/lobby.html, which doesn't exist yet.
+                const hasMultiplayerLobby = false;
                 games.forEach(game => {
-                    if (game.id === 'buzzin') return;
+                    if (game.id === 'buzzin' || !hasMultiplayerLobby) return;
                     const gameCard = createGameCard(game);
                     gamesGrid.appendChild(gameCard);
                 });
 
             } catch (error) {
                 console.error('Error loading backend games:', error);
-                loadingEl.style.display = 'none';
 
-                // Only show error if we're in production (backend should be available)
-                if (window.isProduction) {
-                    errorEl.textContent = `Unable to connect to game server. ${error.message}`;
-                    errorEl.style.display = 'block';
-                } else {
-                    // In development, silently fail if backend isn't running
-                    console.warn('Backend got annihalated. Games will not be loaded dynamically.');
-                }
+                // The server may be asleep or waking up (free hosting); the games here don't need it
+                // to load, and LOCKED IN shows its own connection message if it can't connect.
+                console.warn('Game server not reachable yet:', error.message);
             }
         }
 
