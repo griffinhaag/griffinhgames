@@ -313,6 +313,20 @@ function isFlagEmoji(str) {
     return pts.length === 2 && pts[0] >= 0x1F1E6 && pts[0] <= 0x1F1FF && pts[1] >= 0x1F1E6 && pts[1] <= 0x1F1FF;
 }
 
+// The big picture shown above a question, and the question text without it. Normally the
+// server sends the flag separately as imageDisplay; if a question ever arrives with the flag
+// still at the end of its text, pull it out here so it's always shown big, never as a tiny emoji.
+function splitQuestionImage(question) {
+    const text = question?.question || '';
+    if (question?.imageDisplay) return { image: question.imageDisplay, text };
+    const chars = [...text.trimEnd()];
+    const lastTwo = chars.slice(-2).join('');
+    if (chars.length >= 2 && isFlagEmoji(lastTwo)) {
+        return { image: lastTwo, text: chars.slice(0, -2).join('').trimEnd() };
+    }
+    return { image: null, text };
+}
+
 // Set imageDisplay element content — uses <img> for flag emojis (Edge compat), textContent otherwise
 function setImageDisplay(el, value) {
     if (!el || !value) return;
@@ -1721,19 +1735,20 @@ function renderHostView() {
     if (phase === 'result') {
         if (hostCard) hostCard.classList.remove('hidden');
         // Image display (flag emoji etc.) above question text
+        const hostQ = splitQuestionImage(currentQuestion);
         let hostImgEl = document.getElementById('host-image-display');
-        if (currentQuestion?.imageDisplay) {
+        if (hostQ.image) {
             if (!hostImgEl) {
                 hostImgEl = document.createElement('div');
                 hostImgEl.id = 'host-image-display';
                 hostImgEl.className = 'question-image-display';
                 hostEls.question.parentNode.insertBefore(hostImgEl, hostEls.question);
             }
-            setImageDisplay(hostImgEl, currentQuestion.imageDisplay);
+            setImageDisplay(hostImgEl, hostQ.image);
         } else if (hostImgEl) {
             hostImgEl.remove();
         }
-        hostEls.question.textContent = currentQuestion?.question || '...';
+        hostEls.question.textContent = hostQ.text || '...';
         if (answerBox) {
             answerBox.textContent = currentQuestion?.answer || '...';
             answerContainer?.classList.remove('hidden-answer');
@@ -1849,19 +1864,20 @@ function renderPlayerView() {
             playerEls.category.textContent = currentQuestion.category || '';
         }
         // Image display (e.g. flag shown large above question text)
+        const shownQ = splitQuestionImage(currentQuestion);
         let playerImgEl = document.getElementById('player-image-display');
-        if (currentQuestion.imageDisplay) {
+        if (shownQ.image) {
             if (!playerImgEl) {
                 playerImgEl = document.createElement('div');
                 playerImgEl.id = 'player-image-display';
                 playerImgEl.className = 'question-image-display';
                 playerEls.question.parentNode.insertBefore(playerImgEl, playerEls.question);
             }
-            setImageDisplay(playerImgEl, currentQuestion.imageDisplay);
+            setImageDisplay(playerImgEl, shownQ.image);
         } else if (playerImgEl) {
             playerImgEl.remove();
         }
-        playerEls.question.textContent = currentQuestion.question || 'Wait for it...';
+        playerEls.question.textContent = shownQ.text || 'Wait for it...';
     } else {
         playerEls.category.textContent = '';
         playerEls.question.textContent = 'Wait for it...';
