@@ -191,6 +191,17 @@ function onYouTubeIframeAPIReady() {
                 // The player often finishes loading after the first game state arrives.
                 // If a question is already underway (late join, refresh, reconnect), start now.
                 if (musicEnabled && gameState?.phase === 'question') startQuestionMusic();
+            },
+            onStateChange: (e) => {
+                // Question music must only ever be heard during a question with music on.
+                // Anything else (e.g. the muted unlock in primeQuestionMusic finishing its
+                // buffering late) is stopped the moment it starts.
+                if (e.data === YT.PlayerState.PLAYING && (!musicEnabled || gameState?.phase !== 'question')) {
+                    try {
+                        questionMusicPlayer.pauseVideo();
+                        questionMusicPlayer.seekTo(0);
+                    } catch (err) { /* player not fully ready */ }
+                }
             }
         }
     });
@@ -223,29 +234,23 @@ function startQuestionMusic() {
     if (!musicEnabled) return;
     if (!questionMusicReady || !questionMusicPlayer?.playVideo) return;
     try {
+        questionMusicPlayer.unMute(); // the click-time unlock leaves it muted
         questionMusicPlayer.seekTo(0);
         questionMusicPlayer.playVideo();
     } catch (e) { /* player not fully ready */ }
 }
 
 // Some browsers (Safari especially) only allow a player to make sound if it was first
-// started during a click. Call this inside the Music On click: it plays the question
-// track muted for a moment, which unlocks it for the automatic starts later in the game.
+// started during a click. Call this inside the Music On click: it starts the question
+// track MUTED, which unlocks it for the automatic starts later in the game. It stays muted
+// until startQuestionMusic un-mutes it, and the onStateChange handler pauses it as soon as
+// it actually starts, so even if buffering delays it, it is never heard in the lobby.
 function primeQuestionMusic() {
     if (!questionMusicReady || !questionMusicPlayer?.playVideo) return;
+    if (gameState?.phase === 'question') return; // real question music is already handling it
     try {
         questionMusicPlayer.mute();
         questionMusicPlayer.playVideo();
-        setTimeout(() => {
-            try {
-                // Don't interrupt real playback if a question started in the meantime
-                if (gameState?.phase !== 'question') {
-                    questionMusicPlayer.pauseVideo();
-                    questionMusicPlayer.seekTo(0);
-                }
-                questionMusicPlayer.unMute();
-            } catch (e) { /* player not fully ready */ }
-        }, 300);
     } catch (e) { /* player not fully ready */ }
 }
 
@@ -268,7 +273,7 @@ document.addEventListener('visibilitychange', () => {
             try {
                 const state = questionMusicPlayer.getPlayerState();
                 // -1 = unstarted, 2 = paused — both mean music has stalled; restart it
-                if (state === -1 || state === 2) questionMusicPlayer.playVideo();
+                if (state === -1 || state === 2) { questionMusicPlayer.unMute(); questionMusicPlayer.playVideo(); }
             } catch (e) {}
         }
     }
