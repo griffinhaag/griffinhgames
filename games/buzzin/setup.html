@@ -581,9 +581,10 @@
             // If current value exceeds max, clamp it
             if (currentValue > sliderMax) {
                 slider.value = sliderMax;
-                questionCount = sliderMax;
-                document.getElementById('q-count-display').textContent = sliderMax;
             }
+            // Read the value back: the browser also keeps it within min..max,
+            // so the count always matches what the slider shows
+            questionCount = parseInt(slider.value);
 
             // Update display
             const display = document.getElementById('q-count-display');
