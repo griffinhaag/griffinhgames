@@ -1,0 +1,246 @@
+/* "How to play" button and pop-up. Themed per game with .help-theme-* classes. */
+
+.help-btn {
+    --help-size: 44px;
+    position: fixed;
+    top: max(14px, env(safe-area-inset-top));
+    right: max(14px, env(safe-area-inset-right));
+    z-index: 900;
+    width: var(--help-size);
+    height: var(--help-size);
+    border-radius: 50%;
+    border: 2px solid var(--help-accent);
+    background: var(--help-btn-bg);
+    color: var(--help-accent-text, #fff);
+    font: 800 1.25rem/1 var(--help-font);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 0 0 var(--help-glow);
+    transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+.help-btn:hover {
+    transform: scale(1.06);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 0 6px var(--help-glow);
+}
+
+.help-btn:active {
+    transform: scale(0.95);
+}
+
+.help-btn:focus-visible,
+.help-close:focus-visible {
+    outline: 3px solid var(--help-accent);
+    outline-offset: 3px;
+}
+
+.help-dialog {
+    /* Some pages reset every margin to 0, which would pin the dialog to the corner */
+    margin: auto;
+    inset: 0;
+    width: min(540px, calc(100vw - 32px));
+    max-height: min(82vh, 760px);
+    padding: 0;
+    border: 1px solid var(--help-border);
+    border-top: 3px solid var(--help-accent);
+    border-radius: 18px;
+    background: var(--help-panel);
+    color: var(--help-text);
+    font-family: var(--help-font);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    overflow: hidden;
+}
+
+.help-dialog[open] {
+    display: flex;
+    flex-direction: column;
+    animation: help-pop 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+.help-dialog::backdrop {
+    background: rgba(4, 6, 16, 0.7);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    animation: help-fade 0.2s ease-out;
+}
+
+.help-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--help-text);
+    font: 400 1.6rem/1 var(--help-font);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: background 0.2s;
+}
+
+.help-close:hover {
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.help-title {
+    margin: 0;
+    text-transform: none;
+    text-align: left;
+    padding: 22px 60px 14px 24px;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    background: var(--help-title-fill);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.help-body {
+    padding: 0 24px 24px;
+    overflow-y: auto;
+    line-height: 1.5;
+    font-size: 0.95rem;
+}
+
+.help-body h3 {
+    margin: 18px 0 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--help-accent);
+}
+
+.help-body h3:first-child {
+    margin-top: 4px;
+}
+
+.help-body p {
+    margin: 0 0 8px;
+    color: var(--help-muted);
+}
+
+.help-body ul,
+.help-body ol {
+    margin: 0 0 8px;
+    padding-left: 20px;
+    color: var(--help-muted);
+}
+
+.help-body li {
+    margin: 4px 0;
+}
+
+.help-body li::marker {
+    color: var(--help-accent);
+}
+
+.help-body strong {
+    color: var(--help-text);
+    font-weight: 700;
+}
+
+.help-body .help-chip {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--help-chip);
+    color: var(--help-text);
+    font-size: 0.8rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+html.help-open {
+    overflow: hidden;
+}
+
+@keyframes help-pop {
+    from { opacity: 0; transform: translateY(12px) scale(0.96); }
+    to   { opacity: 1; transform: none; }
+}
+
+@keyframes help-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .help-dialog[open],
+    .help-dialog::backdrop {
+        animation: none;
+    }
+    .help-btn {
+        transition: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .help-btn {
+        --help-size: 40px;
+    }
+    .help-title {
+        padding: 20px 56px 12px 18px;
+        font-size: 1.2rem;
+    }
+    .help-body {
+        padding: 0 18px 20px;
+    }
+}
+
+/* ---------- Themes ---------- */
+
+/* LOCKED IN: pink-to-gold on midnight, Poppins */
+.help-theme-lockedin {
+    --help-font: 'Poppins', sans-serif;
+    --help-accent: #ff2e6e;
+    --help-btn-bg: linear-gradient(135deg, rgba(255, 0, 85, 0.25), rgba(255, 204, 0, 0.18)), #1a1a2e;
+    --help-glow: rgba(255, 0, 85, 0.22);
+    --help-panel: linear-gradient(160deg, #241d3d 0%, #1a1a2e 55%, #13132a 100%);
+    --help-border: rgba(255, 255, 255, 0.1);
+    --help-title-fill: linear-gradient(90deg, #ff0055, #ffcc00);
+    --help-text: #ffffff;
+    --help-muted: rgba(255, 255, 255, 0.78);
+    --help-chip: rgba(255, 0, 85, 0.22);
+}
+
+/* Truth or Griddy: violet-to-periwinkle on starry navy, Space Grotesk */
+.help-theme-griddy {
+    --help-font: 'Space Grotesk', sans-serif;
+    --help-accent: #9db4f0;
+    --help-btn-bg: linear-gradient(45deg, #2b1055, #7597de);
+    --help-glow: rgba(117, 151, 222, 0.25);
+    --help-panel: radial-gradient(circle at 85% 0%, rgba(117, 151, 222, 0.18), transparent 45%), linear-gradient(180deg, #161a35 0%, #0b0d1f 100%);
+    --help-border: rgba(157, 180, 240, 0.18);
+    --help-title-fill: linear-gradient(90deg, #ffffff, #b9c8f5);
+    --help-text: #ffffff;
+    --help-muted: rgba(226, 232, 255, 0.8);
+    --help-chip: rgba(117, 151, 222, 0.22);
+}
+
+/* Kings Dice: gold on deep navy, Inter (uppercase titles, like the game) */
+.help-dialog.help-theme-kings .help-title {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.help-theme-kings {
+    --help-font: 'Inter', sans-serif;
+    --help-accent: #f0b429;
+    --help-accent-text: #f0b429;
+    --help-btn-bg: linear-gradient(145deg, #1c2d5e 0%, #0c1535 100%);
+    --help-glow: rgba(240, 180, 41, 0.2);
+    --help-panel: linear-gradient(160deg, #142046 0%, #0c1430 60%, #080c1e 100%);
+    --help-border: rgba(240, 180, 41, 0.18);
+    --help-title-fill: linear-gradient(90deg, #f7d070, #f0b429);
+    --help-text: #e2e8f0;
+    --help-muted: rgba(226, 232, 240, 0.8);
+    --help-chip: rgba(240, 180, 41, 0.18);
+}

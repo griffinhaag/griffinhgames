@@ -11,6 +11,7 @@
     <title>Custom Kings Dice</title>
     <link rel="stylesheet" href="/games/Kings Dice/kingsdice.css">
     <link rel="stylesheet" href="custom-kingsdice.css">
+    <link rel="stylesheet" href="/assets/help/help.css">
 </head>
 <body>
     <button id="homepage-button" onclick="goToHomepage()">Homepage</button>
@@ -282,5 +283,23 @@
             window.location.href = '/index.html';
         }
     </script>
+    <template id="help-template" data-theme="kings" data-title="How to play Custom Kings Dice">
+        <h3>Make it yours</h3>
+        <ul>
+            <li>Open the <strong>Custom Rules</strong> tab and rewrite any of the 14 rules.</li>
+            <li><strong>Save Rules</strong> keeps them on this device for next time. Edits are used for this game even if you don't save.</li>
+            <li>Leave a rule blank to use the classic one.</li>
+        </ul>
+        <h3>Setup</h3>
+        <p>Add at least 2 players on the <strong>Players</strong> tab, then press <strong>Start Game</strong>.</p>
+        <h3>On your turn</h3>
+        <ol>
+            <li>Press <strong>Roll Dice</strong>. The total, from <span class="help-chip">1</span> to <span class="help-chip">14</span>, picks a rule. Do what it says.</li>
+            <li>Then press <strong>Inflate</strong> to pump the balloon and pass the turn.</li>
+        </ol>
+        <h3>The balloon</h3>
+        <p>It pops at a random point somewhere between 10 and 18 pumps. Whoever pops it loses.</p>
+    </template>
+    <script src="/assets/help/help.js"></script>
 </body>
 </html>

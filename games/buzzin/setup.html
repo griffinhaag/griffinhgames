@@ -402,6 +402,7 @@
         }
 
     </style>
+    <link rel="stylesheet" href="/assets/help/help.css">
 </head>
 <body>
     <div class="setup-container">
@@ -801,6 +802,44 @@
             btnCreateRoom.textContent = 'Create Room';
         });
     </script>
+    <template id="help-template" data-theme="lockedin" data-title="Hosting LOCKED IN">
+        <h3>Getting started</h3>
+        <ol>
+            <li>Put this screen on a TV or laptop everyone can see.</li>
+            <li>Pick your categories and settings, then <strong>Create Room</strong>.</li>
+            <li>Players open the site on their phones, tap <strong>LOCKED IN &rarr; Player</strong>, and enter the room code.</li>
+            <li>When everyone's in, press <strong>Start Game</strong>.</li>
+        </ol>
+        <h3>Running a round</h3>
+        <ul>
+            <li>Press <strong>Start Round</strong> to show the first question, then <strong>Next Question</strong> after each result.</li>
+            <li>Players tap an answer on their phone before the timer runs out.</li>
+            <li>A correct answer is worth <span class="help-chip">100</span>, and the first correct answer gets <span class="help-chip">+50</span> if the bonus is on.</li>
+            <li>After each round everyone sees the answer, a short explanation, and the standings.</li>
+        </ul>
+        <h3>OFF THE DOME</h3>
+        <p>Free-text questions with no choices. Answers are graded by AI, so typos and alternate spellings still count. Choose how many to include, give them their own timer, and mix them in or save them for the end.</p>
+        <h3>Settings on this page</h3>
+        <ul>
+            <li><strong>Host plays too</strong>: uncheck to run the game as a spectator (needs at least 2 players).</li>
+            <li><strong>3-2-1 countdown</strong>: a short countdown before each question.</li>
+            <li><strong>Hard mode</strong>: pulls from a tougher question set.</li>
+            <li><strong>Show OTD category</strong>: shows the category next to the OFF THE DOME badge.</li>
+        </ul>
+        <h3>Host controls in the game</h3>
+        <p>Open the <strong>&#9776; Admin</strong> menu in the top-right corner during a game to:</p>
+        <ul>
+            <li><strong>Kick</strong> a player</li>
+            <li><strong>Shuffle</strong> the remaining questions</li>
+            <li><strong>Flag</strong> a bad question (that round won't count)</li>
+            <li><strong>Pause</strong> and resume</li>
+            <li>Start a <strong>new game</strong> or <strong>end</strong> the game</li>
+        </ul>
+        <p>Turn music on or off from the lobby. At the end, <strong>Play Again</strong> keeps the same players and lets you change settings.</p>
+        <h3>If you get disconnected</h3>
+        <p>Rejoin with the same name and you'll get host back. If you leave for good, another player takes over as host.</p>
+    </template>
+    <script src="/assets/help/help.js"></script>
 </body>
 </html>
 

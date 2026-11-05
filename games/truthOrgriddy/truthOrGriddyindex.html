@@ -201,6 +201,7 @@
             box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
         }
     </style>
+    <link rel="stylesheet" href="/assets/help/help.css">
 </head>
 <body>
     <button id="homepage-button" onclick="goToHomepage()">Homepage</button>
@@ -269,5 +270,22 @@
             <a href="AllInOrWhat/allinorwhat.html" class="game-button">All In or What?</a>
         </div>
     </div>
+    <template id="help-template" data-theme="griddy" data-title="How to play Truth or Griddy">
+        <h3>Setup</h3>
+        <ol>
+            <li>Pick a deck.</li>
+            <li>Add everyone's name, then press <strong>Start</strong>.</li>
+        </ol>
+        <h3>On your turn</h3>
+        <ul>
+            <li>Read your question out loud and answer it honestly, then tap <strong>Answered</strong> for a point.</li>
+            <li>Rather not answer? You have to hit the griddy. Do the dance, then tap <strong>Griddy</strong>.</li>
+            <li><strong>Shuffle Question</strong> swaps in a different question.</li>
+        </ul>
+        <p>Turns go around the group until the deck runs out. The final scoreboard shows everyone's answers and griddys.</p>
+        <h3>The decks</h3>
+        <p>Each deck has its own vibe, from easygoing (<strong>Walk on the Beach</strong>) to group challenges (<strong>Wildin' Categories</strong>) to more personal (<strong>No Holdin' Back</strong> and <strong>All In or What?</strong>).</p>
+    </template>
+    <script src="/assets/help/help.js"></script>
 </body>
 </html>

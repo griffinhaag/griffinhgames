@@ -284,6 +284,7 @@
             to { transform: rotate(360deg); }
         }
     </style>
+    <link rel="stylesheet" href="/assets/help/help.css">
 </head>
 <body>
     <div class="join-container">
@@ -508,5 +509,20 @@
             window.location.replace(target);
         });
     </script>
+    <template id="help-template" data-theme="lockedin" data-title="How to play LOCKED IN">
+        <h3>Joining</h3>
+        <p>Enter the room code shown on the host's screen and pick a name.</p>
+        <h3>Playing</h3>
+        <ul>
+            <li>Each question shows on the main screen and on your phone.</li>
+            <li>Tap your answer before the timer runs out. Once you lock in, you can't change it.</li>
+            <li><strong>OFF THE DOME</strong> questions have no choices: type your answer. Close spellings still count.</li>
+        </ul>
+        <h3>Scoring</h3>
+        <p>A correct answer is worth <span class="help-chip">100</span>. Be the first to get it right for a <span class="help-chip">+50</span> bonus. Standings show after every round.</p>
+        <h3>Lost connection?</h3>
+        <p>Come back to this page and tap <strong>Rejoin Previous Game</strong>, or join again with the same name and room code. Your score is kept.</p>
+    </template>
+    <script src="/assets/help/help.js"></script>
 </body>
 </html>
