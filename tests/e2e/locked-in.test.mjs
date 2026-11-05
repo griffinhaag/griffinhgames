@@ -303,7 +303,7 @@ const tests = [
     },
 
     {
-        name: 'Flags: every flag is shown big on the host screen and phones, never as a tiny emoji',
+        name: 'Flags: every flag is shown big (but not oversized) on the host screen and phones',
         async run({ newPage, check, sleep }) {
             const host = await newPage('host');
             await host.goto(`${GAME}/setup.html`);
@@ -336,7 +336,8 @@ const tests = [
                     const box = document.getElementById(id);
                     if (!box || !box.offsetParent) continue;
                     const img = box.querySelector('img');
-                    found.push({ where: id, isImage: !!img, width: Math.round((img || box).getBoundingClientRect().width) });
+                    const r = (img || box).getBoundingClientRect();
+                    found.push({ where: id, isImage: !!img, width: Math.round(r.width), height: Math.round(r.height) });
                 }
                 const emojiInText = /[\u{1F1E6}-\u{1F1FF}]{2}/u.test(document.body.innerText);
                 return { phase: gameState?.phase, question: gameState?.currentQuestion?.question, found, emojiInText };
@@ -354,7 +355,8 @@ const tests = [
                     if (await b.isVisible().catch(() => false)) await b.click({ timeout: 2000 }).catch(() => {});
                 }
                 if (phase === 'question' || phase === 'result') {
-                    for (const [who, page, minWidth] of [['host', host, 180], ['phone', phone, 120]]) {
+                    // [who, page, smallest allowed long side, largest allowed width, largest allowed height]
+                    for (const [who, page, minSide, maxWidth, maxHeight] of [['host', host, 140, 220, 150], ['phone', phone, 120, 160, 150]]) {
                         const m = await flagSizes(page);
                         // Only judge a device while it is itself showing the question or its result
                         const isPictureQuestion = ['question', 'result'].includes(m.phase) && /this flag/i.test(m.question || '');
@@ -363,7 +365,9 @@ const tests = [
                             if (!m.found.length) problems.push(`${who}: no flag shown for "${m.question}" (${m.phase})`);
                             for (const f of m.found) {
                                 picturesChecked++;
-                                if (!f.isImage || f.width < minWidth) problems.push(`${who} ${f.where}: ${f.isImage ? 'image' : 'text'} only ${f.width}px wide`);
+                                if (!f.isImage) problems.push(`${who} ${f.where}: shown as text, not a picture`);
+                                else if (Math.max(f.width, f.height) < minSide) problems.push(`${who} ${f.where}: too small (${f.width}×${f.height})`);
+                                else if (f.width > maxWidth + 1 || f.height > maxHeight + 1) problems.push(`${who} ${f.where}: too big (${f.width}×${f.height})`);
                             }
                         }
                     }
@@ -384,11 +388,65 @@ const tests = [
                 await sleep(400);
             }
             check('flags were checked on several questions', picturesChecked >= 6, `${picturesChecked} flag views checked`);
-            check('every flag is a big image (host ≥180px, phone ≥120px), never a tiny emoji', problems.length === 0, [...new Set(problems)].slice(0, 5).join(' | '));
+            check('every flag is a big picture that fits its frame (host 220×150, phone 160×150), never a tiny emoji', problems.length === 0, [...new Set(problems)].slice(0, 5).join(' | '));
 
             // Safety net: even a question that arrives with the flag still in its text is shown big
             const split = await phone.evaluate(() => splitQuestionImage({ question: 'Which country does this flag belong to? 🇰🇭' }));
             check('a flag left at the end of the question text is pulled out and shown as the picture', split.image === '🇰🇭' && split.text === 'Which country does this flag belong to?', split);
+        },
+    },
+
+    {
+        name: 'Creating a lobby never says "Host status restored", even on a slow connection',
+        async run({ newPage, check, sleep }) {
+            const host = await newPage('host');
+            const hostToasts = () => host.evaluate(() => [...document.querySelectorAll('body *')]
+                .filter(el => el.children.length === 0 && /Host status restored/i.test(el.textContent)).length);
+
+            // Normal speed, several lobbies in a row with different names
+            for (const name of ['Alpha', 'Bravo', 'Charlie']) {
+                await host.goto(`${GAME}/setup.html`);
+                await sleep(600);
+                await host.fill('#host-name', name);
+                await host.click('#btn-create-room');
+                await host.waitForURL(/index\.html\?room=/, { timeout: 10000 });
+                await sleep(2500);
+                check(`no "Host status restored" after creating a lobby as ${name}`, (await hostToasts()) === 0);
+            }
+
+            // Slow connection: hold the game page's connection back for 6 seconds
+            await host.goto(`${GAME}/setup.html`);
+            await sleep(600);
+            await host.fill('#host-name', 'Slowpoke');
+            await host.route('**/socket.io/**', async (route) => {
+                if (route.request().frame().url().includes('index.html')) await new Promise(r => setTimeout(r, 6000));
+                await route.continue();
+            });
+            await host.click('#btn-create-room');
+            await host.waitForURL(/index\.html\?room=/, { timeout: 10000 });
+            const joined = await waitUntil(host, s => s.isHost === true && s.screen === 'screen-lobby', 20000);
+            await sleep(2000);
+            check('a slow page load still joins as host', joined.isHost === true, joined);
+            check('no "Host status restored" after a slow page load', (await hostToasts()) === 0);
+            await host.unroute('**/socket.io/**');
+
+            // A host who really leaves and comes back still gets the message
+            const room = new URL(host.url()).searchParams.get('room');
+            await host.goto('about:blank');
+            await sleep(6500);
+            const back = await newPage('host again');
+            await back.goto(`${GAME}/join.html`);
+            await back.fill('#player-name', 'Slowpoke');
+            await back.fill('#room-code', room);
+            await back.click('#btn-join');
+            await back.waitForURL(/index\.html\?room=/, { timeout: 10000 });
+            let restored = 0;
+            for (let i = 0; i < 12 && !restored; i++) {
+                await sleep(250);
+                restored = await back.evaluate(() => [...document.querySelectorAll('body *')]
+                    .filter(el => el.children.length === 0 && /Host status restored/i.test(el.textContent)).length);
+            }
+            check('a host who leaves and comes back does see "Host status restored"', restored > 0);
         },
     },
 
