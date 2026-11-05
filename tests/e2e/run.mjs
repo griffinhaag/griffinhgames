@@ -82,22 +82,31 @@ try {
             const checks = [];
             const check = (description, ok, detail = '') => checks.push({ description, ok: !!ok, detail });
             const pages = [];
+            const extraContexts = [];
             const errors = [];
-            const newPage = async (label = 'page') => {
-                const p = await context.newPage();
+            // newPage shares one browser profile (like tabs); newDevice gets its own storage,
+            // like a separate phone. Both are closed automatically after the test.
+            const setUpPage = (p, label) => {
                 p.on('pageerror', e => errors.push(`[${label}] ${e.message}`));
                 p.on('dialog', d => { p.lastDialog = d.message(); d.accept(); });
                 p.label = label;
                 pages.push(p);
                 return p;
             };
+            const newPage = async (label = 'page') => setUpPage(await context.newPage(), label);
+            const newDevice = async (label = 'device', viewport = { width: 390, height: 844 }) => {
+                const deviceContext = await browser.newContext({ viewport });
+                extraContexts.push(deviceContext);
+                return setUpPage(await deviceContext.newPage(), label);
+            };
             try {
-                await t.run({ newPage, check, sleep: ms => new Promise(r => setTimeout(r, ms)) });
+                await t.run({ newPage, newDevice, check, sleep: ms => new Promise(r => setTimeout(r, ms)) });
             } catch (e) {
                 check('test finished without crashing', false, e.message.split('\n')[0]);
             }
             if (errors.length) check('no errors in the browser console', false, errors.join(' | '));
             for (const p of pages) await p.close().catch(() => {});
+            for (const c of extraContexts) await c.close().catch(() => {});
 
             const failed = checks.filter(c => !c.ok);
             failedTotal += failed.length;

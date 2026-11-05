@@ -53,6 +53,9 @@ The runner starts its own copy of the site on port 8080 and the game server on p
 - Round music is never heard in the lobby, even when a slow connection makes the player buffer
 - Every flag in a Flags game is shown as a big picture that fits its frame on the host screen and phones, never a tiny emoji or an oversized square flag
 - Creating a lobby never says "Host status restored" (even on a slow connection), while a host who really leaves and comes back still sees it
+- After quitting or closing the tab, the Join page fills in your name and room code, Rejoin works, and your score and place in the game are kept
+- The rejoin suggestion disappears once the lobby is over for you: kicked, host ended the game, game finished, or room gone
+- A host who quits the lobby and rejoins from the Join page gets host back
 - Every option on the setup page reaches the game exactly as chosen
 
 The game server has its own unit tests (`npm test` in that repo), which also run on GitHub on every push.

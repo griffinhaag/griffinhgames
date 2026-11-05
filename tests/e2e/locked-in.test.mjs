@@ -57,6 +57,27 @@ async function joinRoom(newPage, room, name) {
     return player;
 }
 
+// Same as hostRoom / joinRoom, but each person on their own device (separate storage),
+// which matters for anything remembered on the device, like the rejoin suggestion.
+const hostRoomOn = (newDevice, options) => hostRoom(label => newDevice(label, { width: 1280, height: 800 }), options);
+
+async function joinOn(device, room, name) {
+    await device.goto(`${GAME}/join.html`);
+    await device.fill('#player-name', name);
+    await device.fill('#room-code', room);
+    await device.click('#btn-join');
+    await device.waitForURL(/index\.html\?room=/, { timeout: 10000 });
+    await device.waitForTimeout(1200);
+}
+
+// What the Join page is suggesting under "Rejoin Previous Game"
+const rejoinOffer = (page) => page.evaluate(() => ({
+    visible: !document.getElementById('rejoin-section').classList.contains('hidden'),
+    info: document.getElementById('rejoin-info').textContent,
+    name: document.getElementById('player-name').value,
+    code: document.getElementById('room-code').value,
+}));
+
 // Play the game like real people: the host advances rounds, players answer, everyone
 // taps through the results. Stops at `until` (a phase name) or when the game ends.
 async function play(host, players, { until = 'end', typedAnswers = {}, maxMs = 120000 } = {}) {
@@ -447,6 +468,143 @@ const tests = [
                     .filter(el => el.children.length === 0 && /Host status restored/i.test(el.textContent)).length);
             }
             check('a host who leaves and comes back does see "Host status restored"', restored > 0);
+        },
+    },
+
+    {
+        name: 'Rejoin: after quitting, the Join page fills in your name and room, and Rejoin works',
+        async run({ newDevice, check, sleep }) {
+            const { host, room } = await hostRoomOn(newDevice, { hostPlays: true, offTheDome: 0 });
+            const maxPhone = await newDevice('Max');
+            await maxPhone.goto(`${GAME}/join.html`);
+            await sleep(1200);
+            check('a first visit to Join suggests nothing', !(await rejoinOffer(maxPhone)).visible);
+
+            await joinOn(maxPhone, room, 'Max');
+            await maxPhone.click('#btn-leave-lobby'); // Max quits the lobby
+            await sleep(800);
+            await maxPhone.goto(`${GAME}/join.html`);
+            await sleep(1500);
+            const offer = await rejoinOffer(maxPhone);
+            check('after quitting, Join fills in the name and room code', offer.visible && offer.name === 'Max' && offer.code === room, offer);
+            check('the suggestion says who and which room', offer.info === `Max · Room ${room}`, offer.info);
+
+            await maxPhone.click('#btn-rejoin');
+            await maxPhone.waitForURL(/index\.html\?room=/, { timeout: 10000 });
+            await sleep(1200);
+            const lobby = await host.locator('[data-player-sid]').allInnerTexts();
+            check('Rejoin puts Max back in the lobby', lobby.some(t => t.includes('Max')), lobby);
+
+            // Mid-game: Max scores, closes the tab, opens Join again, and rejoins
+            await host.click('#btn-start-game');
+            await play(host, [], { until: 'question', maxMs: 25000 });
+            const answer = await host.evaluate(() => gameState.currentQuestion.answer);
+            await maxPhone.locator(`.choice-btn[data-choice="${answer.replace(/"/g, '\\"')}"]`).click().catch(() => {});
+            await waitUntil(host, s => s.phase === 'result', 20000);
+            await sleep(1000);
+            const scoreBefore = await host.evaluate(() => gameState.scores.find(p => p.name === 'Max')?.score);
+            await maxPhone.goto('about:blank'); // tab closed
+            await sleep(1000);
+            await maxPhone.goto(`${GAME}/join.html`);
+            await sleep(1500);
+            const midGame = await rejoinOffer(maxPhone);
+            check('after leaving mid-game, Join suggests rejoining', midGame.visible && midGame.code === room, midGame);
+            await maxPhone.click('#btn-rejoin');
+            await maxPhone.waitForURL(/index\.html\?room=/, { timeout: 10000 });
+            await sleep(2000);
+            const scoreAfter = await host.evaluate(() => gameState.scores.find(p => p.name === 'Max')?.score);
+            check('Max had scored before leaving', scoreBefore > 0, { scoreBefore });
+            check("Max's score is kept after rejoining", scoreAfter === scoreBefore, { scoreBefore, scoreAfter });
+            const [maxNow, hostNow] = [await state(maxPhone), await state(host)];
+            check('Max lands on the live game, at the same point as everyone else', maxNow.screen === 'screen-game' && maxNow.phase === hostNow.phase, { maxNow, hostNow });
+        },
+    },
+
+    {
+        name: 'Rejoin: the suggestion disappears once the lobby is over for you',
+        async run({ newDevice, check, sleep }) {
+            // Kicked
+            {
+                const { host, room } = await hostRoomOn(newDevice);
+                const zoe = await newDevice('Zoe');
+                await joinOn(zoe, room, 'Zoe');
+                const zoeId = await zoe.evaluate(() => socket.id);
+                await host.evaluate((id) => socket.emit('host:kickPlayer', { roomCode, socketId: id }), zoeId);
+                await sleep(1000);
+                await zoe.goto(`${GAME}/join.html`);
+                await sleep(1500);
+                check('a kicked player is not offered a rejoin', !(await rejoinOffer(zoe)).visible);
+            }
+            // Host ends the game
+            {
+                const { host, room } = await hostRoomOn(newDevice, { hostPlays: true, offTheDome: 0 });
+                const ann = await newDevice('Ann');
+                await joinOn(ann, room, 'Ann');
+                await host.click('#btn-start-game');
+                await play(host, [], { until: 'question', maxMs: 25000 });
+                await host.evaluate(() => socket.emit('host:endGame', { roomCode }));
+                await sleep(3500);
+                await ann.goto(`${GAME}/join.html`);
+                await sleep(1500);
+                check('after the host ends the game, no rejoin is offered', !(await rejoinOffer(ann)).visible);
+            }
+            // Game finished, player goes back to the menu
+            {
+                const { host, room } = await hostRoomOn(newDevice, { hostPlays: false, offTheDome: 0 });
+                const ben = await newDevice('Ben');
+                const cy = await newDevice('Cy');
+                await joinOn(ben, room, 'Ben');
+                await joinOn(cy, room, 'Cy');
+                await host.click('#btn-start-game');
+                await play(host, [ben, cy]);
+                await waitUntil(ben, s => s.screen === 'screen-end', 10000);
+                await ben.click('#btn-return-lobby');
+                await sleep(800);
+                await ben.goto(`${GAME}/join.html`);
+                await sleep(1500);
+                check('after leaving a finished game, no rejoin is offered', !(await rejoinOffer(ben)).visible);
+                const openNow = await (await ben.request.get(`http://localhost:3000/buzzin/rooms/${room}`)).json();
+                check('the server reports a finished game as no longer open', openNow.open === false, openNow);
+            }
+            // The room no longer exists
+            {
+                const gus = await newDevice('Gus');
+                await gus.goto(`${GAME}/join.html`);
+                await gus.evaluate(() => localStorage.setItem('buzzin_last_game', JSON.stringify({ room: 'ZZZZ', name: 'Gus', savedAt: Date.now() })));
+                await gus.reload();
+                await sleep(1500);
+                check('a room that no longer exists is not offered', !(await rejoinOffer(gus)).visible);
+                check('...and is forgotten on that device', (await gus.evaluate(() => localStorage.getItem('buzzin_last_game'))) === null);
+            }
+        },
+    },
+
+    {
+        name: 'Rejoin: a host who quits the lobby and rejoins from Join gets host back',
+        async run({ newDevice, check, sleep }) {
+            const { host, room } = await hostRoomOn(newDevice, { name: 'Boss', hostPlays: true });
+            const pat = await newDevice('Pat');
+            await joinOn(pat, room, 'Pat');
+            await host.click('#btn-leave-lobby'); // host quits
+            // A person takes a few seconds to get back to Join. (Returns under 5 seconds restore
+            // host silently: the server treats them like a page refresh, not leaving.)
+            await sleep(6000);
+            await host.goto(`${GAME}/join.html`);
+            await sleep(1500);
+            const offer = await rejoinOffer(host);
+            check("Join suggests the host's own name and room", offer.visible && offer.name === 'Boss' && offer.code === room, offer);
+            await host.click('#btn-rejoin');
+            await host.waitForURL(/index\.html\?room=/, { timeout: 10000 });
+            const back = await waitUntil(host, s => s.isHost === true, 8000);
+            check('the host gets host back (within the 30-second grace period)', back.isHost === true, back);
+            let restoredToast = false;
+            for (let i = 0; i < 12 && !restoredToast; i++) {
+                await sleep(250);
+                restoredToast = await host.evaluate(() => [...document.querySelectorAll('body *')]
+                    .some(el => el.children.length === 0 && /Host status restored/i.test(el.textContent)));
+            }
+            check('the host sees "Host status restored"', restoredToast);
+            check('Pat is not host', (await state(pat)).isHost === false);
         },
     },
 
