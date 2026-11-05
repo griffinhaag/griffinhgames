@@ -12,6 +12,8 @@ Party games I built to play with friends. Everything runs in the browser, no ins
 
 A multiplayer trivia game show. The host sets up a room on the big screen, everyone joins from their phone with a room code, and the first person to hit "Lock In" gets to answer. There are 11 categories (geography, sports, movies & TV, flags, and more) with around 6,000 questions total, plus "Off the Dome" free-response rounds where answers are graded by an LLM (Llama 3.1 via Groq), so typos and alternate spellings still count. It talks to a Node/Socket.IO backend: [griffinhgames-server](https://github.com/griffinhaag/griffinhgames-server).
 
+![The LOCKED IN setup page: categories, question and timer sliders, and game options](docs/screenshots/locked-in-setup.jpg)
+
 <table>
   <tr>
     <td><img src="docs/screenshots/locked-in.jpg" alt="A LOCKED IN question on the host screen, with the timer, live scoreboard, and answer progress"></td>
@@ -27,6 +29,7 @@ A question-card game with four themed decks, each with its own color scheme and 
   <tr>
     <td><img src="docs/screenshots/truth-or-griddy-categories.jpg" alt="Truth or Griddy deck picker with four categories"></td>
     <td><img src="docs/screenshots/truth-or-griddy-question.jpg" alt="A Truth or Griddy question card with Answered, Shuffle, and Griddy buttons"></td>
+    <td><img src="docs/screenshots/truth-or-griddy-scoreboard.jpg" alt="A Truth or Griddy group challenge with the live scoreboard of points, answers, and griddys"></td>
   </tr>
 </table>
 
